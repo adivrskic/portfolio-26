@@ -1,0 +1,293 @@
+/* ═══════════════════════════════════════════
+   MenuOverlay.css
+   ═══════════════════════════════════════════
+   Dynamic values are set as CSS custom properties
+   on .menu-wrapper via inline style in JSX:
+     --t:         text color rgba prefix e.g. "rgba(26,26,46,"
+     --blur:      backdrop blur in px
+     --bg:        panel background rgba string
+     --panel-rgb: panel bg solid rgb for concave box-shadows
+   ═══════════════════════════════════════════ */
+
+   [data-stg] {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  @keyframes goldPop {
+    from { opacity: 0 }
+    to { opacity: 1 }
+  }
+  
+  /* ── Wrapper ── */
+  .menu-wrapper {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    visibility: hidden;
+    pointer-events: none;
+    display: flex;
+    align-items: stretch;
+    padding: 16px;
+    gap: 16px;
+  }
+  
+  /* ── Shared panel ── */
+  .menu-panel {
+    flex: 1;
+    background: var(--bg);
+    backdrop-filter: blur(var(--blur)) saturate(1.15);
+    -webkit-backdrop-filter: blur(var(--blur)) saturate(1.15);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  
+  .menu-panel--left {
+    border-radius: 20px 20px 120px 20px;
+  }
+  
+  .menu-panel--right {
+    border-radius: 20px 20px 20px 120px;
+  }
+  
+  /* ── Name labels ── */
+  .menu-name {
+    font-size: 1.1vw;
+    letter-spacing: 0.4em;
+    color: var(--t) 0.65);
+    font-weight: 100;
+    margin: 0;
+    text-transform: uppercase;
+    line-height: 1;
+  }
+  
+  .menu-name-left {
+    text-align: right;
+    padding: 48px 40px 0 40px;
+    opacity: 0;
+  }
+  
+  .menu-name-right {
+    padding: 48px 48px 0 48px;
+    text-align: left;
+  }
+  
+  /* ── Nav ── */
+  .menu-nav {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 40px 80px;
+    box-sizing: border-box;
+  }
+  
+  .menu-nav-item {
+    opacity: 0;
+    text-align: right;
+    cursor: pointer;
+    padding: 12px 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  
+  .menu-nav-label {
+    font-size: 2.8vw;
+    font-weight: 100;
+    line-height: 1;
+    text-transform: uppercase;
+    display: inline-block;
+    transition:
+      color 0.4s ease,
+      letter-spacing 0.5s cubic-bezier(0.33, 1, 0.68, 1),
+      margin-right 0.5s cubic-bezier(0.33, 1, 0.68, 1);
+  }
+  
+  /* ── Right panel inner ── */
+  .menu-right-inner {
+    flex: 1;
+    padding: 40px 48px 80px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  
+  .menu-right-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  
+  /* ── Close button — overlaid at bottom center ── */
+  .menu-close-btn {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    translate: -50% 0;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 0.5px solid rgba(18, 18, 40, 0.06);
+    background: rgba(232, 232, 238, 0.85);
+    backdrop-filter: blur(20px) saturate(1.15);
+    -webkit-backdrop-filter: blur(20px) saturate(1.15);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transform: scale(0);
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
+    z-index: 20;
+    transition: background 0.3s;
+  }
+  
+  .menu-close-btn:hover {
+    background: rgba(232, 232, 238, 0.95);
+  }
+  
+  /* ── Content sections ── */
+  .menu-section-centered {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  
+  .menu-heading {
+    font-size: 28px;
+    font-weight: 200;
+    color: var(--t) 0.92);
+    letter-spacing: 0.04em;
+    margin: 0;
+    line-height: 1.4;
+    max-width: 520px;
+  }
+  
+  .menu-body {
+    font-size: 15px;
+    color: var(--t) 0.7);
+    line-height: 2;
+    font-weight: 300;
+    max-width: 500px;
+    margin: 0;
+  }
+  
+  .menu-body--muted {
+    color: var(--t) 0.58);
+  }
+  
+  /* ── Spec tags ── */
+  .menu-specs {
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+  }
+  
+  .menu-spec-tag {
+    font-size: 11px;
+    padding: 7px 16px;
+    border-radius: 6px;
+    background: var(--t) 0.025);
+    border: 0.5px solid var(--t) 0.08);
+    color: var(--t) 0.6);
+    font-weight: 300;
+    display: inline-block;
+  }
+  
+  /* ── Work cards ── */
+  .menu-card {
+    padding: 18px 18px 14px;
+    border-radius: 12px;
+    border: 0.5px solid var(--t) 0.08);
+    cursor: pointer;
+    transition: border-color 0.3s, background 0.3s;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  
+  .menu-card:hover {
+    border-color: var(--t) 0.18);
+    background: rgba(255, 255, 255, 0.3);
+  }
+  
+  .menu-card--featured {
+    padding: 28px 28px 24px;
+    border-radius: 14px;
+    border: 0.5px solid var(--t) 0.08);
+    margin-bottom: 12px;
+    cursor: pointer;
+    transition: border-color 0.3s, background 0.3s;
+  }
+  
+  .menu-card--featured:hover {
+    border-color: var(--t) 0.18);
+    background: rgba(255, 255, 255, 0.3);
+  }
+  
+  .menu-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  
+  .menu-card-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    flex: 1;
+  }
+  
+  /* ── Social links ── */
+  .menu-socials {
+    display: flex;
+    gap: 16px;
+    margin-top: 32px;
+  }
+  
+  .menu-social-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: var(--t) 0.025);
+    border: 0.5px solid var(--t) 0.08);
+    color: var(--t) 0.55);
+    text-decoration: none;
+    transition: background 0.3s, color 0.3s;
+  }
+  
+  .menu-social-link:hover {
+    background: var(--t) 0.06);
+    color: var(--t) 0.8);
+  }
+  
+  /* ── Theme section ── */
+  .menu-themes-grid {
+    display: "grid";
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    padding-top: 4px;
+    overflow: visible;
+  }
+  
+  .menu-gold-toast {
+    position: absolute;
+    bottom: -36px;
+    right: 0;
+    width: 20%;
+    text-align: center;
+    padding: 7px 16px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.9);
+    font-size: 12px;
+    font-weight: 300;
+    animation: goldPop 0.4s ease;
+  }
