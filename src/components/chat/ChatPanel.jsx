@@ -215,18 +215,21 @@ A: Projects at the intersection of AI, creative development, and performance. In
 // ── Suggestion pills ──
 const SUGGESTIONS = [
   { label: "What does Adi do?", query: "What does Adi do?" },
-  { label: "His projects", query: "Tell me about Adi's projects" },
+  {
+    label: "Tell me about Nimbus",
+    query: "Tell me about the Nimbus AI website generator",
+  },
   { label: "Tech stack", query: "What technologies does Adi work with?" },
-  { label: "Available?", query: "Is Adi available for freelance work?" },
+  { label: "Available?", query: "Is Adi available for work?" },
 ];
 
 const HELP_OPTIONS = [
-  "What's Adi's design process?",
-  "Can I see case studies?",
+  "What's Adi's experience at Home Depot?",
+  "Can he build AI-powered features?",
   "What kind of projects does he take on?",
   "How do I get in touch?",
-  "What makes his work unique?",
-  "Does he do AI integration?",
+  "Does he do design or just development?",
+  "Tell me about his other projects",
 ];
 
 export default function ChatPanel({ open, onClose, activeSeason }) {

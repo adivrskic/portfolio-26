@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import gsap from "gsap";
 import ContactForm from "../contact/ContactForm";
-import { Flower2, Sun, Leaf, Snowflake, X } from "lucide-react";
+import { Flower2, Sun, Leaf, Snowflake, X, ArrowRight } from "lucide-react";
 import { hexToRgba, hexRGB } from "../../utils/color";
 import { rand } from "../../utils/math";
 import { FONT_FAMILY, DARK_RGBA } from "../../constants/style";
@@ -30,6 +30,10 @@ function ThemeCard({ theme: t, isActive, onClick }) {
   const isActiveRef = useRef(false);
   const rafRef = useRef(null);
   const sizeRef = useRef({ w: 0, h: 0 });
+  const revealRef = useRef(0);
+  const prevActiveRef = useRef(false);
+  const justMountedRef = useRef(true);
+  const sparklesRef = useRef(null);
   const [cardLight, setCardLight] = useState(false);
   isActiveRef.current = isActive;
 
@@ -63,6 +67,18 @@ function ThemeCard({ theme: t, isActive, onClick }) {
     });
     maskRef.current = document.createElement("canvas");
     tmpRef.current = document.createElement("canvas");
+    // Init sparkles for gold theme
+    if (t.id === "gold") {
+      sparklesRef.current = Array.from({ length: 28 }, () => ({
+        x: rand(0, 1),
+        y: rand(0, 1),
+        size: rand(1, 3),
+        alpha: rand(0.3, 1),
+        speed: rand(0.4, 1.2),
+        phase: rand(0, Math.PI * 2),
+        drift: rand(-0.03, 0.03),
+      }));
+    }
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
@@ -210,9 +226,81 @@ function ThemeCard({ theme: t, isActive, onClick }) {
     }
     ctx.globalCompositeOperation = "source-over";
 
-    if (!isActiveRef.current) {
+    // Gradual reveal: animate revealRef toward 1 when active, 0 when not
+    if (isActiveRef.current) {
+      revealRef.current = Math.min(1, revealRef.current + 0.04);
+    } else if (!prevActiveRef.current) {
+      // Stay at 0 if never been active in this cycle
+    }
+    prevActiveRef.current = isActiveRef.current;
+
+    const reveal = revealRef.current;
+    if (reveal < 1) {
+      // Draw a radial reveal circle from center onto the mask, then composite
+      const cx = w * 0.5,
+        cy = h * 0.5;
+      const maxR = Math.sqrt(cx * cx + cy * cy);
+      const revealR = maxR * reveal;
+      if (revealR > 0) {
+        // Add the reveal circle to the existing mask
+        const rg = mCtx.createRadialGradient(
+          cx,
+          cy,
+          revealR * 0.7,
+          cx,
+          cy,
+          revealR
+        );
+        rg.addColorStop(0, "rgba(255,255,255,1)");
+        rg.addColorStop(1, "rgba(255,255,255,0)");
+        mCtx.fillStyle = rg;
+        mCtx.beginPath();
+        mCtx.arc(cx, cy, revealR, 0, Math.PI * 2);
+        mCtx.fill();
+      }
       ctx.globalCompositeOperation = "destination-in";
       ctx.drawImage(mask, 0, 0, mask.width, mask.height, 0, 0, w, h);
+      ctx.globalCompositeOperation = "source-over";
+    }
+
+    // Gold sparkles
+    if (sparklesRef.current && (isActiveRef.current || hoveringRef.current)) {
+      const st = performance.now() * 0.001;
+      ctx.globalCompositeOperation = "screen";
+      for (const sp of sparklesRef.current) {
+        const flickr = Math.sin(st * sp.speed * 3 + sp.phase);
+        const a = sp.alpha * (0.4 + 0.6 * Math.max(0, flickr));
+        if (a < 0.05) continue;
+        const sx = w * (sp.x + Math.sin(st * sp.drift * 4 + sp.phase) * 0.04);
+        const sy =
+          h * (sp.y + Math.cos(st * sp.drift * 3 + sp.phase * 1.3) * 0.04);
+        const r = sp.size * (0.8 + 0.4 * Math.max(0, flickr));
+
+        // Draw 4-point star
+        ctx.save();
+        ctx.translate(sx, sy);
+        ctx.rotate(st * 0.3 + sp.phase);
+        ctx.fillStyle = `rgba(255,223,100,${a})`;
+        ctx.beginPath();
+        const arm = r * 2.5;
+        const thick = r * 0.4;
+        ctx.moveTo(0, -arm);
+        ctx.quadraticCurveTo(thick, -thick, arm, 0);
+        ctx.quadraticCurveTo(thick, thick, 0, arm);
+        ctx.quadraticCurveTo(-thick, thick, -arm, 0);
+        ctx.quadraticCurveTo(-thick, -thick, 0, -arm);
+        ctx.fill();
+
+        // Core glow
+        const gg = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 1.5);
+        gg.addColorStop(0, `rgba(255,248,200,${a * 0.8})`);
+        gg.addColorStop(1, `rgba(255,223,100,0)`);
+        ctx.fillStyle = gg;
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
       ctx.globalCompositeOperation = "source-over";
     }
 
@@ -232,7 +320,11 @@ function ThemeCard({ theme: t, isActive, onClick }) {
       }
     } catch {}
 
-    if (hoveringRef.current || isActiveRef.current) {
+    if (
+      hoveringRef.current ||
+      isActiveRef.current ||
+      (revealRef.current > 0 && revealRef.current < 1)
+    ) {
       rafRef.current = requestAnimationFrame(tick);
     } else {
       const sample = mCtx.getImageData(
@@ -291,7 +383,18 @@ function ThemeCard({ theme: t, isActive, onClick }) {
   }, [resize]);
 
   useEffect(() => {
-    if (!isActive) return;
+    if (!isActive) {
+      revealRef.current = 0;
+      prevActiveRef.current = false;
+      justMountedRef.current = false;
+      return;
+    }
+    // Already selected when section opens — fill immediately
+    if (justMountedRef.current) {
+      revealRef.current = 1;
+      prevActiveRef.current = true;
+    }
+    justMountedRef.current = false;
     const frame = requestAnimationFrame(() => {
       resize();
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -312,15 +415,13 @@ function ThemeCard({ theme: t, isActive, onClick }) {
         flex: 1,
         padding: 0,
         borderRadius: 14,
-        border: isActive
-          ? "1.5px solid " + D + "0.22)"
-          : "0.5px solid " + D + "0.04)",
+        border: "0.5px solid " + D + "0.04)",
         cursor: t.locked ? "default" : "pointer",
         background: "transparent",
         opacity: t.locked ? 0.2 : 1,
         filter: t.locked ? "grayscale(0.6)" : "none",
         transition: "border-color 0.3s, transform 0.3s",
-        transform: isActive ? "scale(1.02)" : "scale(1)",
+        transform: "scale(1)",
         display: "flex",
         flexDirection: "column",
         position: "relative",
@@ -396,6 +497,7 @@ export default function MenuOverlay({
   onThemeChange,
   activeSeason,
   goldUnlocked,
+  onShowcase,
 }) {
   const [mounted, setMounted] = useState(false);
   const [section, setSection] = useState("about");
@@ -407,6 +509,7 @@ export default function MenuOverlay({
   const rightRef = useRef(null);
   const closeBtnRef = useRef(null);
   const nameRef = useRef(null);
+  const nameRightRef = useRef(null);
   const stgRef = useRef(null);
   const tlRef = useRef(null);
   const sectionTlRef = useRef(null);
@@ -451,6 +554,7 @@ export default function MenuOverlay({
       const cb = closeBtnRef.current;
       if (!p) return;
       const nm = nameRef.current;
+      const nmr = nameRightRef.current;
       const els = elRefs.current.filter(Boolean);
       if (tlRef.current) tlRef.current.kill();
       const tl = gsap.timeline({ onReverseComplete: () => setMounted(false) });
@@ -493,6 +597,13 @@ export default function MenuOverlay({
             { opacity: 1, y: 0, scale: 1, duration: 0.9, ease: "power2.out" },
             0.5
           );
+        if (nmr)
+          tl.fromTo(
+            nmr,
+            { opacity: 0, y: -10, scale: 0.97 },
+            { opacity: 1, y: 0, scale: 1, duration: 0.9, ease: "power2.out" },
+            0.5
+          );
         els.forEach((el, i) => {
           tl.fromTo(
             el,
@@ -527,6 +638,18 @@ export default function MenuOverlay({
         if (nm)
           tl.to(
             nm,
+            {
+              opacity: 0,
+              y: -6,
+              scale: 0.98,
+              duration: 0.15,
+              ease: "power2.in",
+            },
+            0.02
+          );
+        if (nmr)
+          tl.to(
+            nmr,
             {
               opacity: 0,
               y: -6,
@@ -708,7 +831,7 @@ export default function MenuOverlay({
             WebkitBackdropFilter: `blur(${blur}px) saturate(1.15)`,
           }}
         >
-          <div className="menu-name-right">
+          <div ref={nameRightRef} className="menu-name-right">
             <p
               className="menu-name"
               style={{ color: T + "0.65)", fontFamily: F }}
@@ -760,7 +883,8 @@ export default function MenuOverlay({
                         maxWidth: 520,
                       }}
                     >
-                      Designing interactive 3D experiences powered by AI.
+                      Building full-stack applications and immersive experiences
+                      powered by AI.
                     </h2>
                   </div>
                   <div data-stg style={{ marginBottom: 14 }}>
@@ -775,10 +899,10 @@ export default function MenuOverlay({
                         margin: 0,
                       }}
                     >
-                      I specialize in 3D interaction design, WebGL development,
-                      and integrating AI into websites and applications. From
-                      immersive product configurators to intelligent interfaces,
-                      I build things that feel alive.
+                      Full-stack creative developer with 8+ years of experience
+                      in React, TypeScript, Three.js, and AI integration.
+                      Currently engineering front-end solutions at The Home
+                      Depot, building features used by millions of customers.
                     </p>
                   </div>
                   <div data-stg style={{ marginBottom: 28 }}>
@@ -793,9 +917,10 @@ export default function MenuOverlay({
                         margin: 0,
                       }}
                     >
-                      Currently focused on real-time 3D for the web, AI-powered
-                      interfaces, and generative design systems. Every project
-                      is an opportunity to push the craft forward.
+                      I ship AI-powered products, build immersive 3D web
+                      experiences, and care deeply about performance and clean
+                      architecture. Every project is a chance to push the craft
+                      forward.
                     </p>
                   </div>
                   <div
@@ -994,6 +1119,77 @@ export default function MenuOverlay({
                         </div>
                       </div>
                     ))}
+                    <div
+                      data-stg
+                      onClick={() => onShowcase && onShowcase()}
+                      style={{
+                        padding: "18px 18px 14px",
+                        borderRadius: 12,
+                        border: "0.5px solid " + T + "0.08)",
+                        cursor: "pointer",
+                        transition: "border-color 0.3s, background 0.3s",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = T + "0.18)";
+                        e.currentTarget.style.background =
+                          "rgba(255,255,255,0.3)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = T + "0.08)";
+                        e.currentTarget.style.background = "transparent";
+                      }}
+                    >
+                      <div>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "baseline",
+                            marginBottom: 8,
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: 15,
+                              fontWeight: 400,
+                              color: T + "0.85)",
+                              fontFamily: F,
+                              display: "inline-block",
+                            }}
+                          >
+                            View Showcase
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 300,
+                            color: T + "0.55)",
+                            fontFamily: F,
+                            lineHeight: 1.65,
+                          }}
+                        >
+                          Browse the full interactive project collection
+                        </div>
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "flex-end",
+                          marginTop: 12,
+                        }}
+                      >
+                        <ArrowRight
+                          size={14}
+                          strokeWidth={1.5}
+                          color={T + "0.40)"}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </>
               )}
@@ -1034,7 +1230,7 @@ export default function MenuOverlay({
                     {[
                       {
                         label: "GitHub",
-                        href: "https://github.com",
+                        href: "https://github.com/adivrskic",
                         icon: (
                           <svg
                             width="20"
@@ -1052,7 +1248,7 @@ export default function MenuOverlay({
                       },
                       {
                         label: "LinkedIn",
-                        href: "https://linkedin.com",
+                        href: "https://linkedin.com/in/adi-vrskic",
                         icon: (
                           <svg
                             width="20"
@@ -1067,47 +1263,6 @@ export default function MenuOverlay({
                             <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
                             <rect x="2" y="9" width="4" height="12" />
                             <circle cx="4" cy="4" r="2" />
-                          </svg>
-                        ),
-                      },
-                      {
-                        label: "Dribbble",
-                        href: "https://dribbble.com",
-                        icon: (
-                          <svg
-                            width="20"
-                            height="20"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <circle cx="12" cy="12" r="10" />
-                            <path d="M19.13 5.09C15.22 9.14 10 10.44 2.25 10.94" />
-                            <path d="M21.75 12.84c-6.62-1.41-12.14 1-16.38 6.32" />
-                            <path d="M8.56 2.75c4.37 6 6.02 9.42 8.18 17.72" />
-                          </svg>
-                        ),
-                      },
-                      {
-                        label: "X",
-                        href: "https://x.com",
-                        icon: (
-                          <svg
-                            width="20"
-                            height="20"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M4 4l11.733 16h4.267l-11.733 -16z" />
-                            <path d="M4 20l6.768 -6.768" />
-                            <path d="M20 4l-6.768 6.768" />
                           </svg>
                         ),
                       },

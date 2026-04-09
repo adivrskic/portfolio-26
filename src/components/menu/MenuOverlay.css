@@ -71,6 +71,7 @@
   .menu-name-right {
     padding: 48px 48px 0 48px;
     text-align: left;
+    opacity: 0;
   }
   
   /* ── Nav ── */

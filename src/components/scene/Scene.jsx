@@ -18,6 +18,33 @@ import {
 const FV = sphereVertexShader;
 const FF = sphereFragmentShader;
 
+// Cubic-bezier easing — attempt Newton's method, fall back to bisection
+function cubicBezier(x1, y1, x2, y2) {
+  const cx = 3 * x1,
+    bx = 3 * (x2 - x1) - cx,
+    ax = 1 - cx - bx;
+  const cy = 3 * y1,
+    by = 3 * (y2 - y1) - cy,
+    ay = 1 - cy - by;
+  const sampleX = (t) => ((ax * t + bx) * t + cx) * t;
+  const sampleY = (t) => ((ay * t + by) * t + cy) * t;
+  const sampleDx = (t) => (3 * ax * t + 2 * bx) * t + cx;
+  return function (x) {
+    if (x <= 0) return 0;
+    if (x >= 1) return 1;
+    let t = x;
+    for (let i = 0; i < 8; i++) {
+      const err = sampleX(t) - x;
+      if (Math.abs(err) < 1e-6) break;
+      const d = sampleDx(t);
+      if (Math.abs(d) < 1e-6) break;
+      t -= err / d;
+    }
+    t = Math.max(0, Math.min(1, t));
+    return sampleY(t);
+  };
+}
+
 export default function Scene({
   configRef,
   onScrollProgress,
@@ -356,7 +383,8 @@ export default function Scene({
     window.addEventListener("resize", onResize);
     const clock = new THREE.Clock();
     let raf;
-    const birthStart = performance.now();
+    let birthStart = performance.now();
+    let lastReplayKey = 0;
     let rotAngle = 0;
     // Menu animation: smoothly move object to left + scale up
     const menuPos = new THREE.Vector3(0, 0, 0);
@@ -385,19 +413,55 @@ export default function Scene({
       const el = clock.elapsedTime;
       const c = cfg.current;
 
+      // Replay detection — reset birth when birthReplay changes
+      if (c.birthReplay && c.birthReplay !== lastReplayKey) {
+        lastReplayKey = c.birthReplay;
+        birthStart = performance.now();
+        rotAngle = 0;
+        // Apply initial spin burst
+        angVel.x += c.birthSpinBurstX ?? 0;
+        angVel.y += c.birthSpinBurstY ?? 0;
+        angVel.z += c.birthSpinBurstZ ?? 0;
+      }
+
       const birthT = Math.min(
         1,
         (performance.now() - birthStart) / 1000 / c.birthDuration
       );
-      const birth = easeOutSoft(birthT);
+      // Easing — cubic-bezier or power ease
+      let birth;
+      if ((c.birthUseBezier ?? 0) > 0.5) {
+        const ease = cubicBezier(
+          c.birthBezierX1 ?? 0.16,
+          c.birthBezierY1 ?? 1.0,
+          c.birthBezierX2 ?? 0.3,
+          c.birthBezierY2 ?? 1.0
+        );
+        birth = ease(birthT);
+      } else {
+        const birthEase = c.birthEasing || 2.5;
+        birth = 1 - Math.pow(1 - birthT, birthEase);
+      }
       if (onBirthProgress) onBirthProgress(birth);
-      // Full size from start — flies in from behind camera, settles slightly upward
+      // Fly-in from behind camera, settles slightly upward
       const bR = c.sphereRadius;
       const bA = c.noiseAmp;
       const bM = c.mouseStrength * birth;
-      const birthY = -(c.birthFloatDist || 1.2) * (1 - birth); // slight upward drift
-      const birthZ = (c.birthFlyInDist || 7) * Math.pow(1 - birth, 1.8); // starts near camera, rushes to z=0
+      const birthYDist = c.birthFloatDist ?? 1.2;
+      const birthY = -birthYDist * (1 - birth);
+      const birthZDist = c.birthFlyInDist ?? 7;
+      const birthZCurve = c.birthFlyInCurve ?? 1.8;
+      const birthZ = birthZDist * Math.pow(1 - birth, birthZCurve);
+      const birthScaleStart = c.birthScaleStart ?? 1.0;
+      const birthScaleCurve = birthScaleStart + (1 - birthScaleStart) * birth;
       const birthOpacity = Math.min(birth * (c.birthFadeSpeed || 3), 1);
+      // X/Y coordinate offsets — lerp from start to end
+      const birthX =
+        (c.birthStartX ?? 0) +
+        ((c.birthEndX ?? 0) - (c.birthStartX ?? 0)) * birth;
+      const birthYOffset =
+        (c.birthStartY ?? 0) +
+        ((c.birthEndY ?? 0) - (c.birthStartY ?? 0)) * birth;
 
       // Gentle scroll friction near card positions
       const cardCenterConv = [0.2, 0.5, 0.825];
@@ -418,8 +482,8 @@ export default function Scene({
       const sc = sC;
       const scrollProg = Math.max(0, Math.min(1, sc / c.totalScrollRange));
       if (onScrollProgress) onScrollProgress(scrollProg);
-      // Birth rotation — very gentle, nearly still
-      rotAngle += (c.birthSpinSpeed || 0.4) * 0.15 * dt;
+      // Birth rotation
+      rotAngle += (c.birthSpinSpeed || 0.4) * (c.birthSpinMult || 0.15) * dt;
       // Idle base rotation
       if (birth > 0.98) rotAngle += c.rotationSpeed * 0.5 * dt;
 
@@ -456,7 +520,10 @@ export default function Scene({
       }
 
       sphere.rotation.y = rotAngle;
-      sphere.rotation.x = Math.sin(el * 0.2) * 0.04 * birth;
+      sphere.rotation.x =
+        Math.sin(el * (c.birthTiltSpeed || 0.2)) *
+        (c.birthTiltAmp || 0.04) *
+        birth;
 
       // Proximity reporting — project sphere to screen, measure distance from mouse
       let cubeProx = 0;
@@ -657,13 +724,13 @@ export default function Scene({
         cubeQuat.normalize();
       }
       sphere.position.set(
-        menuPos.x + chatArcX,
-        menuPos.y + birthY,
+        menuPos.x + chatArcX + birthX,
+        menuPos.y + birthY + birthYOffset,
         birthZ - bounceZ + chatZ + chatArc
       );
       glassCube.position.set(
-        menuPos.x + chatArcX,
-        menuPos.y + birthY,
+        menuPos.x + chatArcX + birthX,
+        menuPos.y + birthY + birthYOffset,
         birthZ - bounceZ + chatZ + chatArc
       );
 
@@ -784,7 +851,7 @@ export default function Scene({
         const gSize = c.glassCubeSize || 3.6;
         glassCube.scale
           .set(gSize, gSize, gSize)
-          .multiplyScalar(bR * menuScale * clickScale);
+          .multiplyScalar(bR * menuScale * clickScale * birthScaleCurve);
         glassUniforms.uRefract.value = c.glassRefraction || 0.15;
         glassUniforms.uBlur.value = c.glassBlur || 2.9;
         glassUniforms.uEdgeAlpha.value = c.glassEdgeAlpha || 1;
