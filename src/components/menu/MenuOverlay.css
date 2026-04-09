@@ -45,11 +45,11 @@
   
   /* Change these two rules */
   .menu-panel--left {
-    border-radius: 20px 120px 120px 20px;
+    border-radius: 120px;
   }
 
   .menu-panel--right {
-    border-radius: 120px 20px 20px 120px;
+    border-radius: 120px;
   }
 
   /* ── MOBILE: stack panels, left becomes horizontal nav bar ── */
@@ -111,10 +111,10 @@
   /* ── TABLET PORTRAIT: tighten padding ── */
   @media (min-width: 769px) and (max-width: 1024px) {
     .menu-panel--left {
-      border-radius: 20px 60px 60px 20px;
+      border-radius: 120px;
     }
     .menu-panel--right {
-      border-radius: 60px 20px 20px 60px;
+      border-radius: 120px;
     }
     .menu-nav {
       padding: 24px 24px 60px;
@@ -139,13 +139,16 @@
   }
   
   .menu-name-left {
-    text-align: right;
-    padding: 48px 40px 0 40px;
+    position: absolute;
+    left: 36px;
+    top: 50%;
+    transform: translate(-50%, -50%) rotate(-90deg);
+    white-space: nowrap;
     opacity: 0;
   }
   
   .menu-name-right {
-    padding: 48px 48px 0 48px;
+    padding: 70px 70px 0 70px;
     text-align: left;
     opacity: 0;
   }
@@ -185,7 +188,7 @@
   /* ── Right panel inner ── */
   .menu-right-inner {
     flex: 1;
-    padding: 40px 48px 80px;
+    padding: 70px 70px;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
@@ -268,7 +271,7 @@
   .menu-spec-tag {
     font-size: 11px;
     padding: 7px 16px;
-    border-radius: 6px;
+    border-radius: 20px;
     background: var(--t) 0.025);
     border: 0.5px solid var(--t) 0.08);
     color: var(--t) 0.6);

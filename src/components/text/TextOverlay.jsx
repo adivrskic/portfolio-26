@@ -187,7 +187,7 @@ export default function TextOverlay({
           aria-label="Open menu"
           style={{
             position: "fixed",
-            bottom: `clamp(20px, calc(${c.textBottom}vh - 60px), 30vh)`,
+            bottom: 24,
             left: "50%",
             transform: "translateX(-50%)",
             zIndex: 2,
@@ -195,7 +195,7 @@ export default function TextOverlay({
             background: "none",
             border: "none",
             cursor: "pointer",
-            padding: "18px 20px",
+            padding: "14px 16px",
             minWidth: 48,
             minHeight: 48,
             opacity: revealed ? c.textOpacity * 0.7 * ff : 0,

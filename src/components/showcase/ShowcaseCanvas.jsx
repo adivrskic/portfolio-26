@@ -1,4 +1,11 @@
-import { Suspense, useRef, useState, useEffect, useCallback } from "react";
+import {
+  Suspense,
+  useRef,
+  useMemo,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
 import * as THREE from "three";
 import { Canvas, useThree, useFrame, useLoader } from "@react-three/fiber";
 import {
@@ -92,8 +99,10 @@ const PROJECTS = [
 const N = PROJECTS.length;
 const SECTION_H = 14;
 const HERO_H = 8;
-const FOOTER_H = 4;
-const TOTAL_H = HERO_H + N * SECTION_H + FOOTER_H;
+// Last project center + half section for scrolling past
+const SETTLE_START = HERO_H + (N - 1) * SECTION_H + SECTION_H * 0.5;
+// Extra 8 units for cube settling zone at the end
+const TOTAL_H = SETTLE_START + 8;
 
 // ── Preload all textures + font so they're cached before showcase opens ──
 PROJECTS.forEach((p) => {
@@ -140,7 +149,7 @@ function CameraScroll() {
 
     const maxScroll = size.height * (TOTAL_H / viewport.height);
     const page = (state.top / Math.max(1, maxScroll)) * TOTAL_H;
-    lerp.current = THREE.MathUtils.lerp(lerp.current, page, 0.04);
+    lerp.current = THREE.MathUtils.lerp(lerp.current, page, 0.12);
     camera.position.y = -lerp.current + introOffset.current;
     camera.position.x = 0;
   });
@@ -290,6 +299,10 @@ function ProjectSection({ project, index, s, vw, vh }) {
 function Hero({ s, vw }) {
   const groupRef = useRef();
   const opRef = useRef(0);
+  // Lock font size after first valid measurement to prevent jitter
+  const lockedVw = useRef(null);
+  if (vw > 1 && lockedVw.current === null) lockedVw.current = vw;
+  const w = lockedVw.current || vw;
 
   useFrame(({ camera }) => {
     if (!groupRef.current) return;
@@ -308,13 +321,13 @@ function Hero({ s, vw }) {
     <group position={[0, 0, -1]} ref={groupRef}>
       <Text
         position={[0, 0, 0]}
-        fontSize={vw * 0.12}
+        fontSize={w * 0.12}
         lineHeight={1}
         letterSpacing={-0.03}
         anchorX="center"
         anchorY="middle"
         textAlign="center"
-        maxWidth={vw * 0.95}
+        maxWidth={w * 0.95}
         color="#1a1a2e"
       >
         Selected Work
@@ -323,62 +336,8 @@ function Hero({ s, vw }) {
   );
 }
 
-// ── Footer ──
-function FooterSection({ s }) {
-  const y = -(HERO_H + N * SECTION_H + 2);
-  const groupRef = useRef();
-  const opRef = useRef(0);
-
-  useFrame(({ camera }) => {
-    if (!groupRef.current) return;
-    const dist = Math.abs(camera.position.y - y);
-    const target = clamp(1 - (dist - 2) / 4, 0, 1);
-    opRef.current += (target - opRef.current) * 0.03;
-    groupRef.current.traverse((child) => {
-      if (child.material && child.material.opacity !== undefined) {
-        child.material.opacity = opRef.current;
-        child.material.transparent = true;
-      }
-    });
-  });
-
-  return (
-    <group position={[0, y, 0]} ref={groupRef}>
-      <Text
-        position={[0, 1, 0]}
-        fontSize={0.16 * s}
-        letterSpacing={0.3}
-        anchorX="center"
-        anchorY="middle"
-        color="#bbbbbb"
-      >
-        THANK YOU FOR SCROLLING
-      </Text>
-      <Text
-        position={[-1.5, -0.2, 0]}
-        fontSize={0.28 * s}
-        letterSpacing={0.04}
-        anchorX="center"
-        anchorY="middle"
-        color="#1a1a2e"
-      >
-        ← Home
-      </Text>
-      <Text
-        position={[1.5, -0.2, 0]}
-        fontSize={0.28 * s}
-        letterSpacing={0.04}
-        anchorX="center"
-        anchorY="middle"
-        color="#1a1a2e"
-      >
-        Contact →
-      </Text>
-    </group>
-  );
-}
-
-// ── Glass cube — arcs between image grids, holds at each section ──
+// ── Glass cube — arcs between image grids, settles at end ──
+// Transition effects: refraction blur, scale breathing, rotation burst
 function ShowcaseCube() {
   const cubeRef = useRef();
   const glowRef = useRef();
@@ -386,62 +345,78 @@ function ShowcaseCube() {
   const { viewport, size } = useThree();
   const lerp = useRef(0);
   const glowColor = useRef(new THREE.Color("#ffffff"));
+  const scaleSmooth = useRef(1);
+  // Rotation burst state
+  const spinVelX = useRef(0);
+  const spinVelY = useRef(0);
+  const prevIdx = useRef(-1);
 
   useFrame(({ clock }) => {
     if (!cubeRef.current) return;
     const maxScroll = size.height * (TOTAL_H / viewport.height);
     const raw = (state.top / Math.max(1, maxScroll)) * TOTAL_H;
-    lerp.current = THREE.MathUtils.lerp(lerp.current, raw, 0.035);
+    lerp.current = THREE.MathUtils.lerp(lerp.current, raw, 0.1);
     const scroll = lerp.current;
 
     const t = (1 + Math.sin(clock.getElapsedTime() * 1.0)) / 2;
     const vw = viewport.width;
-    const vh = viewport.height;
 
     const inHero = scroll < HERO_H * 0.6;
     const projScroll = Math.max(0, scroll - HERO_H * 0.5);
     const rawIdx = projScroll / SECTION_H;
     const idx = Math.min(N - 1, Math.floor(rawIdx));
     const sectionT = clamp(rawIdx - idx, 0, 1);
-    const footerStart = HERO_H + N * SECTION_H - 1;
-    const inFooter = scroll > footerStart;
+    const inSettle = scroll > SETTLE_START;
+    const settleT = clamp((scroll - SETTLE_START) / 8, 0, 1);
 
-    // Image grid center X for current section
-    const imageSide = idx % 2 === 0 ? -1 : 1; // image side = opposite text side
+    const imageSide = idx % 2 === 0 ? -1 : 1;
     const prevImageSide = idx === 0 ? 0 : (idx - 1) % 2 === 0 ? -1 : 1;
     const imageX = imageSide * vw * 0.26;
     const prevImageX = prevImageSide * vw * 0.26;
 
-    // Arc transition: completes in first 45%, then holds — slower for elegance
     const transRaw = clamp(sectionT / 0.45, 0, 1);
     const transT = ease(transRaw);
-    // Downward dip during the cross — arc effect
     const arcDip = Math.sin(transRaw * Math.PI) * -0.8;
+    // How "mid-transition" we are (peaks at 0.5 of the arc)
+    const midArc = Math.sin(transRaw * Math.PI);
 
-    let targetX, targetY;
+    // ── Rotation burst — spin impulse when crossing to a new section ──
+    if (
+      idx !== prevIdx.current &&
+      prevIdx.current >= 0 &&
+      !inHero &&
+      !inSettle
+    ) {
+      const dir = idx > prevIdx.current ? 1 : -1;
+      spinVelY.current += dir * 0.15;
+      spinVelX.current += dir * 0.06;
+    }
+    prevIdx.current = idx;
+
+    let targetX, targetY, targetScale;
     if (inHero) {
       targetX = 0;
       targetY = -scroll;
-    } else if (inFooter) {
+      targetScale = 1;
+    } else if (inSettle) {
       targetX = 0;
-      targetY = -(HERO_H + N * SECTION_H + 1.5);
+      targetY = -(SETTLE_START + settleT * 1);
+      // Expand outward and fade — like the main scene cube zoom
+      targetScale = 1 + settleT * 4;
     } else {
-      // Arc from previous image position to current image position
       targetX = prevImageX + (imageX - prevImageX) * transT;
-      // Y: section center, with arc dip during transition, then hold
       const sectionCenterY = -(HERO_H + idx * SECTION_H);
       if (transRaw < 1) {
-        // During transition: arc dip
         targetY = sectionCenterY + arcDip;
       } else {
-        // Holding: stay at section, only move when scrolling into next section
         const holdDrift = clamp((sectionT - 0.45) / 0.55, 0, 1);
-        const nextY = -(HERO_H + (idx + 1) * SECTION_H);
+        const nextY = -(HERO_H + Math.min(idx + 1, N - 1) * SECTION_H);
         targetY = THREE.MathUtils.lerp(sectionCenterY, nextY, holdDrift * 0.3);
       }
+      // ── Scale breathing — shrink mid-arc, grow back on landing ──
+      targetScale = 1 - midArc * 0.12;
     }
 
-    // Smooth follow — slow and deliberate
     cubeRef.current.position.x = THREE.MathUtils.lerp(
       cubeRef.current.position.x,
       targetX,
@@ -454,34 +429,65 @@ function ShowcaseCube() {
     );
     cubeRef.current.position.z = 2;
 
-    cubeRef.current.scale.setScalar(1);
+    scaleSmooth.current = THREE.MathUtils.lerp(
+      scaleSmooth.current,
+      targetScale,
+      0.04
+    );
+    cubeRef.current.scale.setScalar(scaleSmooth.current);
 
-    // Gentle rotation — slow and elegant
-    cubeRef.current.rotation.x += 0.001;
-    cubeRef.current.rotation.y += 0.002;
-
-    if (inFooter) {
-      cubeRef.current.rotation.x *= 0.998;
-      cubeRef.current.rotation.z *= 0.998;
+    // ── Rotation — base idle + burst decay ──
+    const rotMult = 1 - settleT * 0.9;
+    spinVelX.current *= 0.96; // decay
+    spinVelY.current *= 0.96;
+    cubeRef.current.rotation.x += (0.001 + spinVelX.current) * rotMult;
+    cubeRef.current.rotation.y += (0.002 + spinVelY.current) * rotMult;
+    if (inSettle) {
+      cubeRef.current.rotation.x *= 0.997;
+      cubeRef.current.rotation.z *= 0.997;
     }
 
-    // Glow
+    // ── Refraction blur — ramp material during transitions + settle fade ──
+    const mat =
+      cubeRef.current?.children?.[0]?.material || cubeRef.current?.material;
+    if (mat) {
+      // roughness: base 0.02, peaks mid-arc, ramps up during settle
+      mat.roughness = 0.02 + midArc * 0.1 + settleT * 0.3;
+      if (mat.chromaticAberration !== undefined) {
+        mat.chromaticAberration = 0.05 + midArc * 0.2 + settleT * 0.4;
+      }
+      mat.ior = 1.5 + midArc * 0.15;
+      // Fade out during settle
+      mat.opacity = 1 - settleT;
+      mat.transparent = true;
+    }
+
+    // Hide cube entirely when fully settled
+    if (settleT > 0.98) {
+      cubeRef.current.visible = false;
+    } else {
+      cubeRef.current.visible = true;
+    }
+
     const accent = new THREE.Color(
-      !inHero && !inFooter ? PROJECTS[idx].accent : "#ffffff"
+      !inHero && !inSettle ? PROJECTS[idx].accent : "#ffffff"
     );
     glowColor.current.lerp(accent, 0.03);
     if (glowRef.current) {
       glowRef.current.color.copy(glowColor.current);
-      glowRef.current.intensity = !inHero ? 3 + transT * 2 : 0.5;
+      glowRef.current.intensity =
+        (!inHero ? 3 + transT * 2 : 0.5) * (1 - settleT);
       glowRef.current.position.copy(cubeRef.current.position);
       glowRef.current.position.z += 1;
     }
 
     if (shadowRef.current) {
       shadowRef.current.position.x = cubeRef.current.position.x;
-      shadowRef.current.position.y = cubeRef.current.position.y - 2.8;
-      const ss = 3.5 + t * 0.3;
+      shadowRef.current.position.y =
+        cubeRef.current.position.y - 2.8 * scaleSmooth.current;
+      const ss = (3.5 + t * 0.3) * scaleSmooth.current;
       shadowRef.current.scale.set(ss * 1.2, ss, ss);
+      shadowRef.current.material.opacity = 0.12 * (1 - settleT);
     }
   });
 
@@ -515,12 +521,183 @@ function ShowcaseCube() {
   );
 }
 
-// ── Scene ──
-function Content() {
+// ── Glass cube clump at the settling zone ──
+const CLUMP_COUNT = 25;
+const CLUMP_CUBE_SIZE = 0.6;
+
+function SettleClump() {
+  const meshRef = useRef();
+  const groupRef = useRef();
+  const mat4 = useMemo(() => new THREE.Matrix4(), []);
+  const tmpV = useMemo(() => new THREE.Vector3(), []);
+  const dq = useMemo(() => new THREE.Quaternion(), []);
+  const euler = useMemo(() => new THREE.Euler(), []);
+  const { size, viewport } = useThree();
+  const opSmooth = useRef(0);
+
+  const particles = useMemo(() => {
+    const rfs = (r) => THREE.MathUtils.randFloatSpread(r);
+    const arr = [];
+    for (let i = 0; i < CLUMP_COUNT; i++) {
+      arr.push({
+        pos: new THREE.Vector3(rfs(10), rfs(8), rfs(4)),
+        vel: new THREE.Vector3(rfs(0.3), rfs(0.3), rfs(0.1)),
+        angVel: new THREE.Vector3(rfs(0.3), rfs(0.3), rfs(0.2)),
+        quat: new THREE.Quaternion().setFromEuler(
+          new THREE.Euler(rfs(Math.PI), rfs(Math.PI), rfs(Math.PI))
+        ),
+      });
+    }
+    return arr;
+  }, []);
+
+  const geo = useMemo(
+    () =>
+      new THREE.BoxGeometry(
+        CLUMP_CUBE_SIZE,
+        CLUMP_CUBE_SIZE,
+        CLUMP_CUBE_SIZE,
+        2,
+        2,
+        2
+      ),
+    []
+  );
+
+  useFrame(({ camera }, dt) => {
+    if (!meshRef.current || !groupRef.current) return;
+    const d = Math.min(dt, 0.033);
+
+    // Compute settle progress from camera position
+    const camY = -camera.position.y;
+    const settleT = clamp((camY - SETTLE_START) / 8, 0, 1);
+    const targetOp = settleT;
+    opSmooth.current += (targetOp - opSmooth.current) * 0.04;
+
+    // Apply opacity to material
+    const mat = meshRef.current.material;
+    if (mat) {
+      mat.opacity = opSmooth.current * 0.85;
+    }
+
+    for (let i = 0; i < CLUMP_COUNT; i++) {
+      const p = particles[i];
+      tmpV.copy(p.pos).normalize().multiplyScalar(-6);
+      p.vel.addScaledVector(tmpV, d);
+      p.vel.multiplyScalar(1 - 2.5 * d);
+      p.angVel.multiplyScalar(1 - 1.5 * d);
+      p.pos.addScaledVector(p.vel, d);
+
+      for (let j = i + 1; j < CLUMP_COUNT; j++) {
+        const o = particles[j];
+        tmpV.subVectors(p.pos, o.pos);
+        const d2 = tmpV.lengthSq();
+        const minD = CLUMP_CUBE_SIZE * 2.2;
+        if (d2 < minD * minD && d2 > 0.001) {
+          const dist = Math.sqrt(d2);
+          tmpV.divideScalar(dist);
+          const push = (minD - dist) * 0.15;
+          p.pos.addScaledVector(tmpV, push);
+          o.pos.addScaledVector(tmpV, -push);
+          p.angVel.x += tmpV.y * push * 2;
+          p.angVel.y += tmpV.x * push * 2;
+        }
+      }
+
+      if (p.angVel.length() > 0.001) {
+        euler.set(p.angVel.x * d, p.angVel.y * d, p.angVel.z * d);
+        dq.setFromEuler(euler);
+        p.quat.premultiply(dq).normalize();
+      }
+
+      mat4.compose(p.pos, p.quat, tmpV.set(1, 1, 1));
+      meshRef.current.setMatrixAt(i, mat4);
+    }
+    meshRef.current.instanceMatrix.needsUpdate = true;
+  });
+
+  return (
+    <group ref={groupRef} position={[0, -(SETTLE_START + 4), 0]}>
+      <instancedMesh
+        ref={meshRef}
+        args={[geo, undefined, CLUMP_COUNT]}
+        castShadow
+        receiveShadow
+      >
+        <meshPhysicalMaterial
+          transmission={1}
+          roughness={0.08}
+          thickness={0.5}
+          ior={1.5}
+          envMapIntensity={1}
+          transparent
+          opacity={0}
+          color="#ffffff"
+        />
+      </instancedMesh>
+    </group>
+  );
+}
+
+// ── Name text behind the clump at settle zone ──
+function SettleName() {
+  const groupRef = useRef();
+  const opRef = useRef(0);
+  const lockedVw = useRef(null);
   const { viewport } = useThree();
-  const s = Math.min(1, viewport.width / 16);
-  const vw = viewport.width;
-  const vh = viewport.height;
+  if (viewport.width > 1 && lockedVw.current === null)
+    lockedVw.current = viewport.width;
+  const vw = lockedVw.current || viewport.width;
+
+  useFrame(({ camera }) => {
+    if (!groupRef.current) return;
+    const camY = -camera.position.y;
+    const settleT = clamp((camY - SETTLE_START) / 8, 0, 1);
+    const target = settleT;
+    opRef.current += (target - opRef.current) * 0.035;
+    groupRef.current.traverse((child) => {
+      if (child.material && child.material.opacity !== undefined) {
+        child.material.opacity = opRef.current * 0.15;
+        child.material.transparent = true;
+      }
+    });
+  });
+
+  return (
+    <group ref={groupRef} position={[0, -(SETTLE_START + 4), -3]}>
+      <Text
+        position={[0, 0, 0]}
+        fontSize={vw * 0.14}
+        lineHeight={1}
+        letterSpacing={0.25}
+        anchorX="center"
+        anchorY="middle"
+        textAlign="center"
+        maxWidth={vw * 0.95}
+        color="#1a1a2e"
+      >
+        ADI VRSKIC
+      </Text>
+    </group>
+  );
+}
+
+// ── Scene ──
+function Content({ onVpHeight }) {
+  const { viewport } = useThree();
+  // Lock dimensions after first valid measurement — prevents text size jitter on mount
+  const lockedRef = useRef(null);
+  if (viewport.width > 1 && lockedRef.current === null) {
+    lockedRef.current = { w: viewport.width, h: viewport.height };
+  }
+  const vw = lockedRef.current?.w || viewport.width;
+  const vh = lockedRef.current?.h || viewport.height;
+  const s = Math.min(1, vw / 16);
+
+  // Report viewport height to parent for scroll calculation
+  useEffect(() => {
+    if (onVpHeight) onVpHeight(viewport.height);
+  }, [viewport.height, onVpHeight]);
 
   return (
     <>
@@ -536,8 +713,9 @@ function Content() {
           vh={vh}
         />
       ))}
-      <FooterSection s={s} />
       <ShowcaseCube />
+      <SettleName />
+      <SettleClump />
     </>
   );
 }
@@ -545,15 +723,21 @@ function Content() {
 // ── Main export ──
 export default function ShowcaseCanvas({ open, onClose }) {
   const scrollArea = useRef();
+  const containerRef = useRef();
   const [visible, setVisible] = useState(false);
   const pullRef = useRef(0);
   const closingRef = useRef(false);
+  // Measured from R3F — the exact world-space viewport height
+  const [vpHeight, setVpHeight] = useState(null);
+  const [containerH, setContainerH] = useState(null);
+  const [scrollProgress, setScrollProgress] = useState(0);
 
   useEffect(() => {
     if (open) {
       state.top = 0;
       pullRef.current = 0;
       closingRef.current = false;
+      setScrollProgress(0);
       if (scrollArea.current) scrollArea.current.scrollTop = 0;
       setVisible(true);
     } else {
@@ -563,8 +747,24 @@ export default function ShowcaseCanvas({ open, onClose }) {
     }
   }, [open]);
 
+  // Measure container height precisely via ResizeObserver
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      setContainerH(entry.contentRect.height);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [visible]);
+
+  const handleVpHeight = useCallback((h) => setVpHeight(h), []);
+
   const onScroll = useCallback((e) => {
-    state.top = e.target.scrollTop;
+    const el = e.target;
+    state.top = el.scrollTop;
+    const max = el.scrollHeight - el.clientHeight;
+    if (max > 0) setScrollProgress(el.scrollTop / max);
   }, []);
 
   // Scroll up at top → close showcase and return to scene
@@ -576,10 +776,8 @@ export default function ShowcaseCanvas({ open, onClose }) {
         pullRef.current = 0;
         return;
       }
-      // Only respond to upward scroll
       if (e.deltaY < 0) {
         pullRef.current += Math.abs(e.deltaY);
-        // Threshold: ~150px of upward scroll at top triggers close
         if (pullRef.current > 150) {
           closingRef.current = true;
           onClose();
@@ -591,12 +789,20 @@ export default function ShowcaseCanvas({ open, onClose }) {
     [onClose]
   );
 
-  const scrollPages = Math.ceil(TOTAL_H / 10);
+  // Precise scroll div height: containerH * (1 + TOTAL_H / vpHeight)
+  // This makes scrollTop max = containerH * TOTAL_H / vpHeight = maxScroll exactly
+  let scrollDivPx = null;
+  if (vpHeight && containerH) {
+    scrollDivPx = Math.round(containerH * (1 + TOTAL_H / vpHeight));
+  }
+  // Fallback before R3F measures viewport (brief flash before first frame)
+  const fallbackHeight = `${Math.round((1 + TOTAL_H / 9.94) * 100)}%`;
 
   if (!visible) return null;
 
   return (
     <div
+      ref={containerRef}
       style={{
         position: "fixed",
         inset: 0,
@@ -606,7 +812,6 @@ export default function ShowcaseCanvas({ open, onClose }) {
         overflow: "hidden",
       }}
     >
-      {/* Canvas */}
       <Canvas
         dpr={[1, 2]}
         raycaster={{ enabled: false }}
@@ -635,11 +840,11 @@ export default function ShowcaseCanvas({ open, onClose }) {
           />
         </Environment>
         <Suspense fallback={null}>
-          <Content />
+          <Content onVpHeight={handleVpHeight} />
         </Suspense>
       </Canvas>
 
-      {/* Scroll overlay — no mouse tracking */}
+      {/* Scroll overlay */}
       <div
         ref={scrollArea}
         onScroll={onScroll}
@@ -655,8 +860,102 @@ export default function ShowcaseCanvas({ open, onClose }) {
           zIndex: 3,
         }}
       >
-        <div style={{ height: `${scrollPages * 100}vh` }} />
+        <div
+          style={{
+            height: scrollDivPx ? `${scrollDivPx}px` : fallbackHeight,
+          }}
+        />
       </div>
+
+      {/* End overlay — fades in when scrolled to the settling zone */}
+      {(() => {
+        const opacity = clamp((scrollProgress - 0.85) / 0.15, 0, 1);
+        const yShift = (1 - opacity) * 30;
+        return (
+          <div
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              zIndex: 5,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "flex-end",
+              paddingBottom: 48,
+              gap: 20,
+              opacity,
+              transform: `translateY(${yShift}px)`,
+              transition: "opacity 0.3s ease, transform 0.3s ease",
+              pointerEvents: opacity > 0.3 ? "auto" : "none",
+            }}
+          >
+            <span
+              style={{
+                fontSize: 9,
+                fontFamily: "'Inter',-apple-system,sans-serif",
+                fontWeight: 300,
+                letterSpacing: "0.3em",
+                textTransform: "uppercase",
+                color: "rgba(26,26,46,0.25)",
+              }}
+            >
+              End of showcase
+            </span>
+            <div style={{ display: "flex", gap: 32 }}>
+              <button
+                onClick={() => {
+                  if (scrollArea.current) {
+                    scrollArea.current.scrollTo({ top: 0, behavior: "smooth" });
+                  }
+                }}
+                style={{
+                  fontSize: 13,
+                  fontFamily: "'Inter',-apple-system,sans-serif",
+                  fontWeight: 300,
+                  letterSpacing: "0.06em",
+                  color: "rgba(26,26,46,0.6)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: "8px 16px",
+                  borderRadius: 6,
+                  transition: "background 0.2s",
+                }}
+                onMouseEnter={(e) =>
+                  (e.target.style.background = "rgba(26,26,46,0.04)")
+                }
+                onMouseLeave={(e) => (e.target.style.background = "none")}
+              >
+                ↑ Back to top
+              </button>
+              <button
+                onClick={onClose}
+                style={{
+                  fontSize: 13,
+                  fontFamily: "'Inter',-apple-system,sans-serif",
+                  fontWeight: 300,
+                  letterSpacing: "0.06em",
+                  color: "rgba(26,26,46,0.6)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: "8px 16px",
+                  borderRadius: 6,
+                  transition: "background 0.2s",
+                }}
+                onMouseEnter={(e) =>
+                  (e.target.style.background = "rgba(26,26,46,0.04)")
+                }
+                onMouseLeave={(e) => (e.target.style.background = "none")}
+              >
+                Contact →
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       <Loader />
     </div>

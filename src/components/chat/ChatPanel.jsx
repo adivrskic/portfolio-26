@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import gsap from "gsap";
+import { X } from "lucide-react";
 import { FONT_FAMILY } from "../../constants/style";
 import { SEASON_META } from "../../constants/themes";
 import { splitIntoLines } from "../../utils/text";
@@ -250,6 +251,7 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
   const headerRef = useRef(null);
   const msgsRef = useRef(null);
   const inputAreaRef = useRef(null);
+  const closeBtnRef = useRef(null);
   const tlRef = useRef(null);
   const [active, setActive] = useState(false);
 
@@ -258,6 +260,7 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
     const hdr = headerRef.current;
     const msgs = msgsRef.current;
     const inp = inputAreaRef.current;
+    const cb = closeBtnRef.current;
     const panel = panelRef.current;
     if (!bg || !panel) return;
 
@@ -267,7 +270,6 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
 
     if (open) {
       setActive(true);
-      // Panel reveal — clipPath like menu right panel
       tl.set(panel, { pointerEvents: "auto" });
       tl.fromTo(
         bg,
@@ -280,7 +282,6 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
         },
         0
       );
-      // Header stagger in
       if (hdr)
         tl.fromTo(
           hdr,
@@ -288,7 +289,6 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
           { opacity: 1, y: 0, duration: 0.7, ease: "power2.out" },
           0.5
         );
-      // Messages area
       if (msgs)
         tl.fromTo(
           msgs,
@@ -296,7 +296,6 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
           { opacity: 1, y: 0, duration: 0.7, ease: "power2.out" },
           0.6
         );
-      // Input area
       if (inp)
         tl.fromTo(
           inp,
@@ -304,9 +303,21 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
           { opacity: 1, y: 0, duration: 0.7, ease: "power2.out" },
           0.7
         );
+      if (cb)
+        tl.fromTo(
+          cb,
+          { scale: 0, opacity: 0 },
+          { scale: 1, opacity: 1, duration: 0.5, ease: "back.out(2)" },
+          0.6
+        );
       tl.call(() => inputRef.current?.focus(), [], 1.2);
     } else {
-      // Close — fast content fade, then panel clip out
+      if (cb)
+        tl.to(
+          cb,
+          { scale: 0, opacity: 0, duration: 0.2, ease: "power2.in" },
+          0
+        );
       if (inp)
         tl.to(inp, { opacity: 0, y: -6, duration: 0.15, ease: "power2.in" }, 0);
       if (msgs)
@@ -444,7 +455,7 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
             background: "rgba(232,232,238,0.74)",
             backdropFilter: "blur(50px) saturate(1.15)",
             WebkitBackdropFilter: "blur(50px) saturate(1.15)",
-            borderRadius: window.innerWidth < 768 ? 0 : "120px 20px 20px 120px",
+            borderRadius: window.innerWidth < 768 ? 0 : 120,
             clipPath: "inset(0 100% 0 0)",
             opacity: 0,
           }}
@@ -456,7 +467,7 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
           style={{
             position: "relative",
             zIndex: 1,
-            padding: "28px 32px 0",
+            padding: "70px 70px 0",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "flex-start",
@@ -474,48 +485,24 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
               return (
                 <p
                   style={{
-                    fontSize: 11,
+                    fontSize: 16,
                     fontWeight: 300,
-                    color: "rgba(18,18,40,0.2)",
+                    color: "rgba(18,18,40,0.25)",
                     fontFamily: F,
                     margin: 0,
                     letterSpacing: "0.2em",
                     textTransform: "uppercase",
                     display: "flex",
                     alignItems: "center",
-                    gap: 6,
+                    gap: 8,
                   }}
                 >
-                  <Ic size={13} strokeWidth={1.2} color="rgba(18,18,40,0.2)" />
+                  <Ic size={16} strokeWidth={1.2} color="rgba(18,18,40,0.25)" />
                   {s.label}
                 </p>
               );
             })()}
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: "rgba(255,255,255,0.4)",
-              border: "0.5px solid rgba(18,18,40,0.04)",
-              borderRadius: 8,
-              padding: "5px 12px",
-              cursor: "pointer",
-              fontSize: 10,
-              fontFamily: F,
-              color: "rgba(18,18,40,0.3)",
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              backdropFilter: "blur(8px)",
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.color = "rgba(18,18,40,0.5)";
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.color = "rgba(18,18,40,0.3)";
-            }}
-          >
-            close
-          </button>
         </div>
 
         {/* Messages */}
@@ -535,7 +522,7 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
               position: "absolute",
               inset: 0,
               overflowY: "auto",
-              padding: "24px 32px",
+              padding: "24px 70px",
               display: "flex",
               flexDirection: "column",
               gap: 2,
@@ -635,7 +622,7 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
           style={{
             position: "relative",
             zIndex: 1,
-            padding: "0 32px 32px",
+            padding: "0 70px 80px",
             opacity: 0,
           }}
         >
@@ -727,6 +714,42 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
             </button>
           </div>
         </div>
+
+        {/* Close button — bottom center, matches menu style */}
+        <button
+          ref={closeBtnRef}
+          onClick={onClose}
+          style={{
+            position: "fixed",
+            bottom: 24,
+            left: "50vw",
+            translate: "-50% 0",
+            width: 48,
+            height: 48,
+            borderRadius: "50%",
+            border: "0.5px solid rgba(18,18,40,0.06)",
+            background: "rgba(232,232,238,0.85)",
+            backdropFilter: "blur(20px) saturate(1.15)",
+            WebkitBackdropFilter: "blur(20px) saturate(1.15)",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: 0,
+            transform: "scale(0)",
+            boxShadow: "0 2px 16px rgba(0,0,0,0.06)",
+            zIndex: 20,
+            transition: "background 0.3s",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(232,232,238,0.95)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "rgba(232,232,238,0.85)";
+          }}
+        >
+          <X size={18} strokeWidth={1.5} color="rgba(18,18,40,0.45)" />
+        </button>
       </div>
     </>
   );

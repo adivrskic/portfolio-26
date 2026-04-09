@@ -28,6 +28,7 @@ export default function App() {
   const [activeSeason, setActiveSeason] = useState(getCurrentSeason);
   const [showcaseOpen, setShowcaseOpen] = useState(false);
   const [showcaseTransition, setShowcaseTransition] = useState(false);
+  const showcaseEverTriggered = useRef(false);
   const configRef = useRef(config);
 
   useEffect(() => {
@@ -57,6 +58,7 @@ export default function App() {
   }, [chatMode]);
 
   const handleCubeShowcase = useCallback(() => {
+    showcaseEverTriggered.current = true;
     setShowcaseTransition(true);
     setTimeout(() => {
       setShowcaseOpen(true);
@@ -123,6 +125,7 @@ export default function App() {
             config={config}
             gradientCanvas={gradCanvas}
             scrollProgress={0}
+            showcaseTriggered={showcaseEverTriggered.current}
           />
           {chatMounted && (
             <ChatPanel

@@ -206,6 +206,337 @@ export default function Scene({
     glassEdges.renderOrder = 11;
     glassCube.add(glassEdges);
 
+    // ── Glowing smiley / audio wave inside the cube ──
+    const smileyCanvas = document.createElement("canvas");
+    smileyCanvas.width = 256;
+    smileyCanvas.height = 256;
+    const sCtx = smileyCanvas.getContext("2d");
+    const smCx = 128,
+      smCy = 128;
+    let dizzySmooth = 0;
+    let chatMorph = 0; // 0 = smiley, 1 = wave
+    let sleepSmooth = 0; // 0 = awake, 1 = sleeping
+    let glitchTimer = 0;
+    let glitchOffset = 0;
+    let glitchSlice = -1;
+
+    function hexRgb(hex) {
+      if (!hex || typeof hex !== "string") return { r: 180, g: 200, b: 255 };
+      const h = hex.replace("#", "");
+      return {
+        r: parseInt(h.substring(0, 2), 16) || 180,
+        g: parseInt(h.substring(2, 4), 16) || 200,
+        b: parseInt(h.substring(4, 6), 16) || 255,
+      };
+    }
+
+    // ── Draw smiley face ──
+    function drawFaceLayer(dizzy, time, lookX, lookY, alpha, surprise, sleep) {
+      const lx = (lookX || 0) * 12;
+      const ly = (lookY || 0) * -8;
+      const sp = surprise || 0;
+      const sl = sleep || 0;
+      const fx = smCx + lx;
+      const fy = smCy + ly;
+      const eyeL = { x: fx - 30, y: fy - 18 - sp * 4 };
+      const eyeR = { x: fx + 30, y: fy - 18 - sp * 4 };
+
+      sCtx.save();
+      sCtx.globalAlpha = alpha;
+
+      // Glow
+      const glow = sCtx.createRadialGradient(
+        smCx + lx * 0.3,
+        smCy + ly * 0.3,
+        20,
+        smCx,
+        smCy,
+        110
+      );
+      glow.addColorStop(0, "rgba(255,255,255,0.12)");
+      glow.addColorStop(0.5, "rgba(200,220,255,0.04)");
+      glow.addColorStop(1, "rgba(200,220,255,0)");
+      sCtx.fillStyle = glow;
+      sCtx.fillRect(0, 0, 256, 256);
+
+      // ── Floating zzz when sleepy ──
+      if (sl > 0.3) {
+        sCtx.font = "bold 14px Inter, sans-serif";
+        sCtx.fillStyle = `rgba(255,255,255,${sl * 0.5})`;
+        const zBase = time * 0.6;
+        for (let zi = 0; zi < 3; zi++) {
+          const zOff = (zBase + zi * 1.2) % 3.6;
+          const zx = fx + 38 + zi * 8;
+          const zy = fy - 20 - zOff * 18;
+          const za = Math.max(0, 1 - zOff / 3.6) * sl * 0.45;
+          const zScale = 10 + zi * 3;
+          sCtx.save();
+          sCtx.globalAlpha = za;
+          sCtx.font = `bold ${zScale}px Inter, sans-serif`;
+          sCtx.fillText("z", zx, zy);
+          sCtx.restore();
+        }
+      }
+
+      function drawFace(ox, oy, tint, a2) {
+        sCtx.save();
+        sCtx.globalAlpha = a2;
+
+        const eyeR_size = 8 + sp * 4;
+
+        if (sl > 0.3) {
+          // Sleepy eyes — closed downward arcs
+          sCtx.strokeStyle = tint;
+          sCtx.lineWidth = 3;
+          sCtx.lineCap = "round";
+          [eyeL, eyeR].forEach((eye) => {
+            sCtx.beginPath();
+            sCtx.arc(
+              eye.x + ox,
+              eye.y + oy + 2,
+              7,
+              0.15 * Math.PI,
+              0.85 * Math.PI
+            );
+            sCtx.stroke();
+          });
+        } else if (sp > 0.3) {
+          // Surprised eyes — open rings
+          sCtx.strokeStyle = tint;
+          sCtx.lineWidth = 2.5 + sp;
+          sCtx.beginPath();
+          sCtx.arc(eyeL.x + ox, eyeL.y + oy, eyeR_size, 0, Math.PI * 2);
+          sCtx.stroke();
+          sCtx.beginPath();
+          sCtx.arc(eyeR.x + ox, eyeR.y + oy, eyeR_size, 0, Math.PI * 2);
+          sCtx.stroke();
+          sCtx.fillStyle = tint;
+          sCtx.beginPath();
+          sCtx.arc(eyeL.x + ox, eyeL.y + oy, 2.5, 0, Math.PI * 2);
+          sCtx.fill();
+          sCtx.beginPath();
+          sCtx.arc(eyeR.x + ox, eyeR.y + oy, 2.5, 0, Math.PI * 2);
+          sCtx.fill();
+        } else if (dizzy < 0.15) {
+          // Normal eyes
+          sCtx.fillStyle = tint;
+          sCtx.beginPath();
+          sCtx.arc(eyeL.x + ox, eyeL.y + oy, eyeR_size, 0, Math.PI * 2);
+          sCtx.fill();
+          sCtx.beginPath();
+          sCtx.arc(eyeR.x + ox, eyeR.y + oy, eyeR_size, 0, Math.PI * 2);
+          sCtx.fill();
+        } else {
+          sCtx.strokeStyle = tint;
+          sCtx.lineWidth = 2.5;
+          sCtx.lineCap = "round";
+          [eyeL, eyeR].forEach((eye, ei) => {
+            const spin = time * (3 + dizzy * 4) + ei * Math.PI;
+            const spiralR = 5 + dizzy * 6;
+            sCtx.beginPath();
+            for (let a = 0; a < Math.PI * 4; a += 0.15) {
+              if (dizzy > 0.5 && Math.random() < 0.03) continue;
+              const r = (a / (Math.PI * 4)) * spiralR;
+              sCtx.lineTo(
+                eye.x + ox + Math.cos(a + spin) * r,
+                eye.y + oy + Math.sin(a + spin) * r
+              );
+            }
+            sCtx.stroke();
+          });
+        }
+        // Mouth
+        sCtx.strokeStyle = tint;
+        sCtx.lineCap = "round";
+        sCtx.beginPath();
+        if (sl > 0.3) {
+          // Sleepy mouth — small flat line, slightly droopy
+          sCtx.lineWidth = 3;
+          sCtx.moveTo(fx + ox - 12, fy + 8 + oy);
+          sCtx.quadraticCurveTo(
+            fx + ox,
+            fy + 12 + oy,
+            fx + ox + 12,
+            fy + 8 + oy
+          );
+        } else if (sp > 0.3) {
+          // Surprised O mouth
+          sCtx.lineWidth = 3;
+          const oSize = 10 + sp * 8;
+          sCtx.arc(fx + ox, fy + 12 + oy, oSize, 0, Math.PI * 2);
+        } else if (dizzy < 0.3) {
+          sCtx.lineWidth = 5;
+          sCtx.arc(fx + ox, fy - 2 + oy, 38, 0.2 * Math.PI, 0.8 * Math.PI);
+        } else {
+          const wobble = dizzy * 6;
+          for (let i = 0; i <= 20; i++) {
+            const t2 = i / 20;
+            const angle = 0.2 * Math.PI + t2 * 0.6 * Math.PI;
+            const wx = fx + ox + Math.cos(angle) * 38;
+            const wy =
+              fy -
+              2 +
+              oy +
+              Math.sin(angle) * 38 +
+              Math.sin(t2 * Math.PI * 3 + time * 5) * wobble;
+            if (i === 0) sCtx.moveTo(wx, wy);
+            else sCtx.lineTo(wx, wy);
+          }
+        }
+        sCtx.stroke();
+        sCtx.restore();
+      }
+
+      // Glitch triggers
+      glitchTimer -= 1;
+      if (glitchTimer <= 0) {
+        glitchTimer =
+          dizzy > 0.3
+            ? Math.floor(2 + Math.random() * 4)
+            : Math.floor(8 + Math.random() * 20);
+        glitchOffset = (Math.random() - 0.5) * (6 + dizzy * 20);
+        glitchSlice =
+          Math.random() < 0.15 + dizzy * 0.4
+            ? Math.floor(Math.random() * 200 + 28)
+            : -1;
+      }
+
+      const glitchAmt = dizzy * 0.4 + (Math.abs(glitchOffset) > 4 ? 0.3 : 0);
+      if (glitchAmt > 0.1) {
+        const split = 2 + glitchAmt * 5;
+        sCtx.globalCompositeOperation = "lighter";
+        drawFace(
+          -split,
+          0,
+          `rgba(255,80,80,${glitchAmt * 0.4})`,
+          glitchAmt * 0.5
+        );
+        drawFace(
+          split,
+          0,
+          `rgba(80,80,255,${glitchAmt * 0.4})`,
+          glitchAmt * 0.5
+        );
+        sCtx.globalCompositeOperation = "source-over";
+      }
+      drawFace(0, 0, "rgba(255,255,255,0.85)", 0.7 + dizzy * 0.15);
+
+      if (glitchSlice > 0 && Math.abs(glitchOffset) > 2) {
+        const sliceH = 8 + Math.random() * 16;
+        const imgData = sCtx.getImageData(0, glitchSlice, 256, sliceH);
+        sCtx.clearRect(0, glitchSlice, 256, sliceH);
+        sCtx.putImageData(imgData, glitchOffset, glitchSlice);
+      }
+      sCtx.fillStyle = "rgba(0,0,0,0.04)";
+      for (let y = 0; y < 256; y += 4) sCtx.fillRect(0, y, 256, 1);
+      if (Math.random() < dizzy * 0.08) {
+        sCtx.fillStyle = `rgba(255,255,255,${0.03 + Math.random() * 0.06})`;
+        sCtx.fillRect(0, 0, 256, 256);
+      }
+      sCtx.restore();
+    }
+
+    // ── Draw audio wave visualizer ──
+    const BAR_COUNT = 10;
+    const barPhases = Array.from(
+      { length: BAR_COUNT },
+      () => Math.random() * Math.PI * 2
+    );
+    const barSpeeds = Array.from(
+      { length: BAR_COUNT },
+      () => 1.2 + Math.random() * 1.8
+    );
+
+    function drawWaveLayer(time, alpha, colors) {
+      sCtx.save();
+      sCtx.globalAlpha = alpha;
+
+      const cols = [
+        hexRgb(colors?.[0]),
+        hexRgb(colors?.[1]),
+        hexRgb(colors?.[2]),
+        hexRgb(colors?.[3]),
+      ];
+
+      // Very soft glow center
+      const glow = sCtx.createRadialGradient(smCx, smCy, 8, smCx, smCy, 70);
+      const gc = cols[1] || cols[0];
+      glow.addColorStop(0, `rgba(${gc.r},${gc.g},${gc.b},0.05)`);
+      glow.addColorStop(1, `rgba(${gc.r},${gc.g},${gc.b},0)`);
+      sCtx.fillStyle = glow;
+      sCtx.fillRect(0, 0, 256, 256);
+
+      const totalW = 110;
+      const gap = totalW / BAR_COUNT;
+      const barW = gap * 0.45;
+      const startX = smCx - totalW / 2 + gap / 2;
+
+      for (let i = 0; i < BAR_COUNT; i++) {
+        const t = i / (BAR_COUNT - 1);
+        const h1 = Math.sin(time * barSpeeds[i] + barPhases[i]) * 0.5 + 0.5;
+        const h2 = Math.sin(time * 1.4 + i * 0.9) * 0.5 + 0.5;
+        const h3 = Math.sin(time * 2.6 + i * 0.5) * 0.3 + 0.5;
+        const height = (h1 * 0.5 + h2 * 0.3 + h3 * 0.2) * 55 + 8;
+
+        // Color: cycle through theme colors per bar
+        const colIdx = i % cols.length;
+        const cr = cols[colIdx].r;
+        const cg = cols[colIdx].g;
+        const cb = cols[colIdx].b;
+
+        const bx = startX + i * gap;
+        const r = barW / 2;
+
+        // Glow
+        sCtx.shadowColor = `rgba(${cr},${cg},${cb},0.5)`;
+        sCtx.shadowBlur = 8;
+
+        sCtx.fillStyle = `rgba(${cr},${cg},${cb},0.85)`;
+        sCtx.beginPath();
+        sCtx.roundRect(bx - r, smCy - height / 2, barW, height, r);
+        sCtx.fill();
+
+        sCtx.shadowBlur = 0;
+      }
+
+      sCtx.restore();
+    }
+
+    // ── Combined draw — sequential fade: face out → pause → wave in ──
+    function drawCubeFace(
+      dizzy,
+      time,
+      lookX,
+      lookY,
+      morph,
+      colors,
+      surprise,
+      sleep
+    ) {
+      sCtx.clearRect(0, 0, 256, 256);
+      const faceAlpha = Math.max(0, 1 - morph * 2.5);
+      const waveAlpha = Math.max(0, (morph - 0.5) * 2);
+      if (faceAlpha > 0.01)
+        drawFaceLayer(dizzy, time, lookX, lookY, faceAlpha, surprise, sleep);
+      if (waveAlpha > 0.01) drawWaveLayer(time, waveAlpha, colors);
+    }
+
+    drawCubeFace(0, 0, 0, 0, 0, null, 0, 0);
+    const smileyTex = new THREE.CanvasTexture(smileyCanvas);
+    smileyTex.needsUpdate = true;
+    const smileyMat = new THREE.SpriteMaterial({
+      map: smileyTex,
+      transparent: true,
+      opacity: 0.6,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const smiley = new THREE.Sprite(smileyMat);
+    smiley.scale.set(0.55, 0.55, 1);
+    smiley.position.set(0, 0, 0.05);
+    smiley.renderOrder = 12;
+    glassCube.add(smiley);
+
     let lastCornerR = 0.08;
     // Quaternion-based rotation — spin always matches screen-space mouse direction
     const cubeQuat = new THREE.Quaternion();
@@ -216,17 +547,20 @@ export default function Scene({
     const mouse = new THREE.Vector2(-999, -999),
       mouseWorld = new THREE.Vector3(),
       mouseSmooth = new THREE.Vector3();
+    let lastActivity = performance.now();
     const raycaster = new THREE.Raycaster(),
       mSp = new THREE.Sphere(new THREE.Vector3(), 1);
     const onMM = (e) => {
       mouse.x = (e.clientX / W()) * 2 - 1;
       mouse.y = -(e.clientY / H()) * 2 + 1;
+      lastActivity = performance.now();
     };
     const onTM = (e) => {
       if (e.touches.length > 0) {
         const t = e.touches[0];
         mouse.x = (t.clientX / W()) * 2 - 1;
         mouse.y = -(t.clientY / H()) * 2 + 1;
+        lastActivity = performance.now();
       }
     };
     window.addEventListener("mousemove", onMM);
@@ -247,6 +581,15 @@ export default function Scene({
       return raycaster.ray.intersectSphere(mSp, new THREE.Vector3());
     };
     const onDown = (e) => {
+      lastActivity = performance.now();
+      // Don't interact with cube when overlays are open
+      if (
+        menuOpenRef.current ||
+        chatModeRef.current ||
+        showcaseOpenRef.current ||
+        showcaseTransRef.current
+      )
+        return;
       if (!testCubeHit(e)) return;
       isHolding = true;
       holdFired = false;
@@ -324,6 +667,14 @@ export default function Scene({
 
     function loop() {
       raf = requestAnimationFrame(loop);
+
+      // When showcase is open, hide canvas entirely and skip all rendering
+      if (showcaseOpenRef.current) {
+        renderer.domElement.style.visibility = "hidden";
+        return;
+      }
+      renderer.domElement.style.visibility = "visible";
+
       const dt = Math.min(clock.getDelta(), 0.0333);
       const el = clock.elapsedTime;
       const c = cfg.current;
@@ -438,54 +789,63 @@ export default function Scene({
 
       // ── Position animation: damped spring ──
       const mOpen = menuOpenRef.current;
-      // ── Menu floating cubes ──
+      // ── Menu floating cubes — two glass cubes, left and right ──
       if (mOpen && !menuCubesShown) {
         menuCubesShown = true;
-        // Distributed zones to avoid overlap: top-left, right-mid, bottom-left
+        const cubeSize = (c.glassCubeSize || 3.6) * 0.55;
+        const cr = c.glassCornerRadius || 0.08;
         const zones = [
-          { x: [-6, -3.5], y: [1.5, 3.5], z: [-5, -2] },
-          { x: [3.5, 6], y: [-0.5, 1.5], z: [-6, -3] },
-          { x: [-4, -1.5], y: [-3.5, -1.5], z: [-4, -1.5] },
+          { x: [-1.5, 1.5], y: [1.5, 3.5], z: [-5, -3] }, // above, behind
+          { x: [-1.5, 1.5], y: [-3.5, -1.5], z: [-5, -3] }, // below, behind
         ];
         zones.forEach((zone, i) => {
           const px = zone.x[0] + Math.random() * (zone.x[1] - zone.x[0]);
           const py = zone.y[0] + Math.random() * (zone.y[1] - zone.y[0]);
           const pz = zone.z[0] + Math.random() * (zone.z[1] - zone.z[0]);
-          const size = 0.35 + Math.random() * 0.5;
-          const g = new THREE.BoxGeometry(size, size, size);
-          const m = new THREE.MeshBasicMaterial({
-            color: 0xd0d4e8,
+          const g = new RoundedBoxGeometry(
+            cubeSize,
+            cubeSize,
+            cubeSize,
+            4,
+            cr * cubeSize
+          );
+          const m = new THREE.MeshPhysicalMaterial({
+            transmission: 0.92,
+            roughness: 0.05,
+            ior: 1.5,
+            thickness: 1.2,
             transparent: true,
             opacity: 0,
-            wireframe: false,
+            metalness: 0,
+            envMapIntensity: 1.2,
+            color: 0xffffff,
           });
-          const edges = new THREE.EdgesGeometry(g);
+          const edgeGeo = new THREE.EdgesGeometry(g);
           const lineMat = new THREE.LineBasicMaterial({
-            color: 0xb0b4c8,
+            color: 0xffffff,
             transparent: true,
             opacity: 0,
           });
           const mesh = new THREE.Mesh(g, m);
-          const wire = new THREE.LineSegments(edges, lineMat);
+          const wire = new THREE.LineSegments(edgeGeo, lineMat);
           mesh.add(wire);
-          mesh.position.set(px, py - 1.5, pz); // start below target
-          mesh.scale.setScalar(0.01); // start tiny
+          mesh.position.set(px, py - 1.5, pz);
+          mesh.scale.setScalar(0.01);
           mesh.rotation.set(
-            Math.random() * 2,
-            Math.random() * 2,
-            Math.random()
+            Math.random() * 0.6,
+            Math.random() * 0.6,
+            Math.random() * 0.3
           );
           mesh.userData.rotSpeed = new THREE.Vector3(
-            (Math.random() - 0.5) * 0.25,
-            (Math.random() - 0.5) * 0.35,
+            (Math.random() - 0.5) * 0.12,
+            (Math.random() - 0.5) * 0.18,
             0
           );
           mesh.userData.targetY = py;
-          mesh.userData.targetScale = 1;
-          mesh.userData.delay = i * 0.15; // stagger entrance
+          mesh.userData.delay = i * 0.2;
           mesh.userData.born = performance.now();
           scene.add(mesh);
-          menuCubes.push({ mesh, mat: m, lineMat, geo: g, edges });
+          menuCubes.push({ mesh, mat: m, lineMat, geo: g, edges: edgeGeo });
         });
       }
       if (
@@ -507,22 +867,18 @@ export default function Scene({
         const age = (performance.now() - mc.mesh.userData.born) / 1000;
         const delay = mc.mesh.userData.delay || 0;
         const t = Math.max(0, age - delay);
-        // Smooth ease for entrance
-        const entrance = Math.min(1, t / 0.8);
+        const entrance = Math.min(1, t / 1.0); // slower entrance
         const ease = entrance * entrance * (3 - 2 * entrance);
-        const targetOp = mOpen ? 0.15 * ease : 0;
-        const targetLineOp = mOpen ? 0.25 * ease : 0;
+        const targetOp = mOpen ? 0.88 * ease : 0;
+        const targetLineOp = mOpen ? 0.1 * ease : 0;
         const targetS = mOpen ? ease : 0;
-        mc.mat.opacity += (targetOp - mc.mat.opacity) * 3 * dt;
-        mc.lineMat.opacity += (targetLineOp - mc.lineMat.opacity) * 3 * dt;
-        // Scale in
+        mc.mat.opacity += (targetOp - mc.mat.opacity) * 2.5 * dt;
+        mc.lineMat.opacity += (targetLineOp - mc.lineMat.opacity) * 2.5 * dt;
         const curS = mc.mesh.scale.x;
-        mc.mesh.scale.setScalar(curS + (targetS - curS) * 3 * dt);
-        // Float up to target Y
+        mc.mesh.scale.setScalar(curS + (targetS - curS) * 2.5 * dt);
         const ty = mc.mesh.userData.targetY || 0;
         mc.mesh.position.y +=
-          ((mOpen ? ty : ty - 1.5) - mc.mesh.position.y) * 3 * dt;
-        // Gentle rotation
+          ((mOpen ? ty : ty - 1.5) - mc.mesh.position.y) * 2.5 * dt;
         mc.mesh.rotation.x += mc.mesh.userData.rotSpeed.x * dt;
         mc.mesh.rotation.y += mc.mesh.userData.rotSpeed.y * dt;
       });
@@ -532,11 +888,11 @@ export default function Scene({
       const targetZ = inChat ? 4 : 0;
       const targetS = inChat ? 1.6 : 1;
       const stiffness = inChat
-        ? c.chatStiffness || 2.5
-        : c.chatReturnStiffness || 6.0;
+        ? c.chatStiffness || 1.8
+        : c.chatReturnStiffness || 5.0;
       const damping = inChat
-        ? c.chatDamping || 3.0
-        : c.chatReturnDamping || 4.5;
+        ? c.chatDamping || 3.5
+        : c.chatReturnDamping || 4.0;
       const dxM = targetX - menuPos.x,
         dyM = targetY - menuPos.y;
       menuVel.x += (dxM * stiffness - menuVel.x * damping) * dt;
@@ -551,8 +907,8 @@ export default function Scene({
       chatZVel += (dzM * stiffness - chatZVel * damping) * dt;
       chatZ += chatZVel * dt;
       // Parabolic arc: push away + leftward, then curve back
-      const arcStiff = c.chatArcStiffness || 2.8;
-      const arcDamp = c.chatArcDamping || 2.2;
+      const arcStiff = c.chatArcStiffness || 2.0;
+      const arcDamp = c.chatArcDamping || 2.5;
       chatArcVel += (0 - chatArc) * arcStiff * dt - chatArcVel * arcDamp * dt;
       chatArc += chatArcVel * dt;
       chatArcXVel +=
@@ -566,23 +922,24 @@ export default function Scene({
         chatArcX = 0;
         chatArcXVel = 0;
       }
-      // Chat spin — spin right on enter
+      // Chat spin — big spin burst on enter
       if (inChat && !wasInChat) {
-        chatSpinBurst = c.chatSpinKick || 2.5;
-        // Velocity-only kicks — no position jumps, arc builds smoothly
-        chatArcVel = c.chatArcKickZ || -8;
-        chatArcXVel = c.chatArcKickX || -5;
-        angVel.y += c.chatSpinKick || 2.5; // direct spin impulse
+        chatSpinBurst = c.chatSpinKick || 5.0;
+        chatArcVel = c.chatArcKickZ || -6;
+        chatArcXVel = c.chatArcKickX || -4;
+        angVel.y += c.chatSpinKick || 5.0;
+        angVel.x += 1.5;
         wasInChat = true;
       }
       if (!inChat && wasInChat) {
-        chatSpinBurst = -(c.chatSpinKick || 2.5);
-        chatArcVel = -(c.chatArcKickZ || -8);
-        chatArcXVel = -(c.chatArcKickX || -5);
-        angVel.y -= c.chatSpinKick || 2.5;
+        chatSpinBurst = -(c.chatSpinKick || 5.0);
+        chatArcVel = -(c.chatArcKickZ || -6);
+        chatArcXVel = -(c.chatArcKickX || -4);
+        angVel.y -= c.chatSpinKick || 5.0;
+        angVel.x -= 1.5;
         wasInChat = false;
       }
-      chatSpinBurst *= Math.max(0, 1 - (c.chatSpinDecay || 1.8) * dt);
+      chatSpinBurst *= Math.max(0, 1 - (c.chatSpinDecay || 1.4) * dt);
       rotAngle += chatSpinBurst * dt;
       angVel.y += chatSpinBurst * 0.5 * dt;
       // Mouse → camera-space torque on angular velocity (always consistent)
@@ -607,14 +964,49 @@ export default function Scene({
         angVel.x += (c.glassRotSpeedX || 0.62) * 0.08 * dt;
       }
       // Drag
-      const drag = 0.9;
+      const drag = 0.75;
       angVel.x -= angVel.x * drag * dt;
       angVel.y -= angVel.y * drag * dt;
       angVel.z -= angVel.z * drag * dt;
       // Clamp
-      angVel.clampLength(0, 4);
+      angVel.clampLength(0, 8);
       // Apply angular velocity to quaternion (world-space rotation)
       const avLen = angVel.length();
+
+      // ── Smiley / wave visualizer ──
+      const dizzyTarget = Math.min(1, Math.max(0, (avLen - 1.5) / 3.5));
+      dizzySmooth +=
+        (dizzyTarget - dizzySmooth) *
+        (dizzyTarget > dizzySmooth ? 3 : 1.5) *
+        dt;
+      // Smooth morph: 0 = smiley face, 1 = wave visualizer
+      const morphTarget = chatModeRef.current ? 1 : 0;
+      chatMorph += (morphTarget - chatMorph) * 1.8 * dt;
+      // Sleep: ramp after 15s of inactivity
+      const idleTime = (performance.now() - lastActivity) / 1000;
+      const sleepTarget = idleTime > 15 ? Math.min(1, (idleTime - 15) / 3) : 0;
+      sleepSmooth += (sleepTarget - sleepSmooth) * 2 * dt;
+      // Safe mouse coords (0,0 if cursor hasn't entered yet)
+      const safeMx = mouse.x < -900 ? 0 : mouse.x;
+      const safeMy = mouse.y < -900 ? 0 : mouse.y;
+      const themeColors = [
+        c.gradColor1,
+        c.gradColor2,
+        c.gradColor3,
+        c.gradColor4,
+      ];
+      drawCubeFace(
+        dizzySmooth,
+        el,
+        safeMx,
+        safeMy,
+        chatMorph,
+        themeColors,
+        scZoom,
+        sleepSmooth
+      );
+      smileyTex.needsUpdate = true;
+
       if (avLen > 0.0001) {
         const axis = angVel.clone().normalize();
         const dq = new THREE.Quaternion().setFromAxisAngle(axis, avLen * dt);
@@ -622,8 +1014,8 @@ export default function Scene({
         cubeQuat.normalize();
       }
       // Showcase transition: cube gently zooms toward camera and enlarges
-      if (showcaseTransRef.current) {
-        scZoom = Math.min(1, scZoom + dt * 0.55); // slow elegant ramp
+      if (showcaseTransRef.current || showcaseOpenRef.current) {
+        scZoom = Math.min(1, scZoom + dt * 1.0); // ~1s to fully zoom
       } else {
         scZoom = Math.max(0, scZoom - dt * 1.5);
       }
@@ -647,9 +1039,10 @@ export default function Scene({
       sphere.position.set(px, py, pz);
       glassCube.position.set(px, py, pz);
 
-      // Glass cube — always visible (shatter/helix removed)
-      glassCube.visible = true;
-      glassEdges.visible = true;
+      // Glass cube — hidden when fully zoomed into showcase
+      const cubeVisible = zoomEased < 0.99;
+      glassCube.visible = cubeVisible;
+      glassEdges.visible = cubeVisible;
 
       {
         const cr = c.glassCornerRadius || 0.08;
@@ -679,7 +1072,7 @@ export default function Scene({
         glassUniforms.uOpacity.value =
           (c.glassOpacity != null ? c.glassOpacity : 0.92) *
           birthOpacity *
-          (1 - zoomEased * 0.85);
+          (1 - zoomEased);
         glassUniforms.uTint.value.set(
           c.glassTintR || 0.9,
           c.glassTintG || 0.92,

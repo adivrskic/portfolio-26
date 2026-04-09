@@ -228,11 +228,16 @@ function ThemeCard({ theme: t, isActive, onClick }) {
 
     // Gradual reveal: animate revealRef toward 1 when active, 0 when not
     if (isActiveRef.current) {
-      revealRef.current = Math.min(1, revealRef.current + 0.04);
+      revealRef.current = Math.min(1, revealRef.current + 0.08);
     } else if (!prevActiveRef.current) {
       // Stay at 0 if never been active in this cycle
     }
     prevActiveRef.current = isActiveRef.current;
+
+    // Fade in the canvas as it reveals
+    if (mainRef.current) {
+      mainRef.current.style.opacity = Math.min(1, revealRef.current * 2);
+    }
 
     const reveal = revealRef.current;
     if (reveal < 1) {
@@ -438,6 +443,8 @@ function ThemeCard({ theme: t, isActive, onClick }) {
           borderRadius: 14,
           pointerEvents: "none",
           zIndex: 0,
+          opacity: 0,
+          transition: "opacity 0.1s",
         }}
       />
       <div
@@ -787,13 +794,7 @@ export default function MenuOverlay({
               className="menu-name"
               style={{ color: T + "0.65)", fontFamily: F }}
             >
-              Adi
-            </p>
-            <p
-              className="menu-name"
-              style={{ color: T + "0.65)", fontFamily: F, marginTop: 4 }}
-            >
-              Vrskic
+              Adi Vrskic
             </p>
           </div>
 
@@ -840,7 +841,7 @@ export default function MenuOverlay({
           <div
             style={{
               flex: 1,
-              padding: "70px 48px 80px",
+              padding: "70px 70px",
               boxSizing: "border-box",
               display: "flex",
               flexDirection: "column",
@@ -930,7 +931,7 @@ export default function MenuOverlay({
                         style={{
                           fontSize: 11,
                           padding: "7px 16px",
-                          borderRadius: 6,
+                          borderRadius: 20,
                           background: T + "0.025)",
                           border: "0.5px solid " + T + "0.08)",
                           color: T + "0.6)",
@@ -1305,7 +1306,6 @@ export default function MenuOverlay({
                 (() => {
                   return (
                     <>
-                      <div data-stg style={{ marginBottom: 16 }}></div>
                       <div
                         data-stg
                         style={{
@@ -1315,7 +1315,6 @@ export default function MenuOverlay({
                           minHeight: 0,
                           position: "relative",
                           overflow: "visible",
-                          padding: "70px 0",
                         }}
                       >
                         {themes.map((t) => (

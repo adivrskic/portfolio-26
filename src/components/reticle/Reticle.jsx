@@ -14,6 +14,7 @@ export default function Reticle({
   config: c,
   gradientCanvas,
   scrollProgress,
+  showcaseTriggered,
 }) {
   if (IS_TOUCH) return null;
   const ref = useRef(null);
@@ -34,6 +35,9 @@ export default function Reticle({
   const chatRef = useRef(false);
   scrollRef.current = scrollProgress;
   chatRef.current = chatMode;
+
+  // Permanently dismiss hold pill once showcase has been triggered
+  if (showcaseTriggered) holdDismissed.current = true;
 
   useEffect(() => {
     const onMove = (e) => {

@@ -1,556 +1,737 @@
-import { useEffect, useRef, useState, useCallback } from "react";
-import { FONT_FAMILY, DARK_RGBA } from "../../constants/style";
-import { X } from "lucide-react";
+import { Suspense, useRef, useState, useEffect, useCallback } from "react";
+import * as THREE from "three";
+import { Canvas, useThree, useFrame, useLoader } from "@react-three/fiber";
+import {
+  Text as DreiText,
+  Environment,
+  Lightformer,
+  Shadow,
+  Loader,
+} from "@react-three/drei";
+import GlassCube from "../scene/GlassCube";
 
-const F = FONT_FAMILY;
-const D = DARK_RGBA;
+// Inter font for 3D text — matches the rest of the site
+const FONT_URL =
+  "https://cdn.jsdelivr.net/npm/@fontsource/inter@5.1.1/files/inter-latin-300-normal.woff";
+function Text(props) {
+  return <DreiText font={FONT_URL} {...props} />;
+}
 
-// ── Enriched showcase data ──
+const state = { top: 0 };
+
+function ease(t) {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+function clamp(v, a, b) {
+  return Math.max(a, Math.min(b, v));
+}
+
 const PROJECTS = [
   {
-    id: "nimbus",
     number: "01",
     title: "Nimbus",
-    tag: "AI WEBSITE GENERATOR",
-    desc: "Full-stack AI application that generates production-ready, responsive websites from plain-English prompts. Users describe what they want, customize with 60+ design controls, watch the site stream in real-time, then export as static HTML or scaffolded framework projects.",
-    features: [
-      "Real-time HTML streaming with live preview",
-      "60+ design options — layout, typography, color, animation",
-      "Multi-page generation with tab navigation",
-      "Export to Vite + React, Next.js, Astro, or static HTML",
-    ],
-    tech: ["React 19", "Supabase", "Claude API", "Stripe"],
-    year: "2025",
+    tag: "AI WEBSITE GENERATOR · 2025",
+    text: "Full-stack AI that generates production-ready websites from prompts. Real-time streaming, 60+ design controls, multi-format export.",
     accent: "#1a8fe0",
-    image:
-      "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=900&h=520&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=600&h=400&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600&h=400&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=600&h=400&fit=crop&q=80",
+    ],
   },
   {
-    id: "xsbl",
     number: "02",
     title: "XSBL",
-    tag: "WEB ACCESSIBILITY SUITE",
-    desc: "Comprehensive web accessibility auditing and monitoring platform with a full dashboard. Integrates AI for automated analysis, Slack for team alerts, and email for scheduled reporting. Helps organizations maintain WCAG compliance at scale.",
-    features: [
-      "AI-powered accessibility analysis",
-      "Slack & email notification pipelines",
-      "WCAG compliance tracking dashboard",
-      "Automated scheduled auditing",
-    ],
-    tech: ["React", "AI", "Slack API", "Node.js"],
-    year: "2024",
+    tag: "WEB ACCESSIBILITY · 2024",
+    text: "Accessibility auditing platform with AI analysis, Slack alerts, and WCAG compliance tracking at scale.",
     accent: "#8b5cf6",
-    image:
-      "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=900&h=520&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=600&h=400&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=600&h=400&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600&h=400&fit=crop&q=80",
+    ],
   },
   {
-    id: "nimbus-wms",
     number: "03",
     title: "Nimbus WMS",
-    tag: "AI WAREHOUSE MANAGEMENT",
-    desc: "Full inventory and warehouse management platform powered by AI. Web dashboard for operations plus native Android and iOS mobile apps for warehouse floor use. AI-driven demand forecasting, inventory optimization, and intelligent routing.",
-    features: [
-      "AI demand forecasting & optimization",
-      "Native Android & iOS mobile apps",
-      "Real-time inventory tracking",
-      "Intelligent warehouse routing",
-    ],
-    tech: ["React", "React Native", "AI/ML", "Python"],
-    year: "2024",
+    tag: "AI WAREHOUSE · 2024",
+    text: "Inventory platform with AI demand forecasting, intelligent routing, and native mobile apps.",
     accent: "#10b981",
-    image:
-      "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=900&h=520&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&h=400&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=600&h=400&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1565688534245-05d6b5be184a?w=600&h=400&fit=crop&q=80",
+    ],
   },
   {
-    id: "pillow",
     number: "04",
     title: "Pillow",
-    tag: "NEUMORPHISM COMPONENT LIBRARY",
-    desc: "React component library built around the neumorphism design system. Ready-to-use soft UI components with consistent shadow styling, customizable theming engine, and a clean developer-facing API.",
-    features: [
-      "Soft UI design system",
-      "Customizable theming engine",
-      "Clean composable API",
-      "Accessible by default",
-    ],
-    tech: ["React", "SCSS", "Storybook", "Rollup"],
-    year: "2023",
+    tag: "COMPONENT LIBRARY · 2023",
+    text: "Neumorphism React library with soft UI design, customizable theming, and composable API.",
     accent: "#f59e0b",
-    image:
-      "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=900&h=520&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&h=400&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1545235617-9465d2a55698?w=600&h=400&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&h=400&fit=crop&q=80",
+    ],
   },
   {
-    id: "ascend",
     number: "05",
-    title: "Ascend",
-    tag: "CHROME START PAGE",
-    desc: "Custom Chrome new-tab page integrating real-time APIs for news headlines, weather forecasts, geolocation, and live traffic. A clean, functional daily dashboard that replaces the default start page.",
-    features: [
-      "Real-time news, weather, traffic",
-      "Geolocation-aware content",
-      "Minimal daily dashboard",
-      "Chrome extension architecture",
-    ],
-    tech: ["JavaScript", "REST APIs", "Chrome APIs"],
-    year: "2023",
-    accent: "#ef4444",
-    image:
-      "https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=900&h=520&fit=crop&q=80",
-  },
-  {
-    id: "halo",
-    number: "06",
     title: "Halo",
-    tag: "3D ART PROJECT",
-    desc: "Creative coding experiment rendering neon text around a 3D object using Three.js and WebGL. An exploration of typography in three-dimensional space with dynamic lighting and camera interaction.",
-    features: [
-      "Three.js / WebGL rendering",
-      "3D neon text effects",
-      "Dynamic lighting system",
-      "Interactive camera controls",
-    ],
-    tech: ["Three.js", "WebGL", "GLSL", "JavaScript"],
-    year: "2023",
+    tag: "3D ART · 2023",
+    text: "Creative coding — neon text around a 3D object with dynamic lighting in WebGL.",
     accent: "#a855f7",
-    image:
-      "https://images.unsplash.com/photo-1633356122102-3fe601e05bd2?w=900&h=520&fit=crop&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1633356122102-3fe601e05bd2?w=600&h=400&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=600&h=400&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=600&h=400&fit=crop&q=80",
+    ],
   },
 ];
 
-// ── Showcase ──
-export default function Showcase({ open, onClose, onScrollProgress }) {
-  const [mounted, setMounted] = useState(false);
-  const [entering, setEntering] = useState(false);
-  const scrollRef = useRef(null);
-  const sectionsRef = useRef([]);
-  const progressRef = useRef(0);
-  const rafRef = useRef(null);
+const N = PROJECTS.length;
+const SECTION_H = 14;
+const HERO_H = 8;
+// Last project center + half section for scrolling past
+const SETTLE_START = HERO_H + (N - 1) * SECTION_H + SECTION_H * 0.5;
+// Extra 8 units for cube settling zone at the end
+const TOTAL_H = SETTLE_START + 8;
+
+// ── Preload all textures + font so they're cached before showcase opens ──
+PROJECTS.forEach((p) => {
+  p.images.forEach((url) => {
+    useLoader.preload(THREE.TextureLoader, url);
+  });
+});
+
+// ── Eagerly preload via browser — fires at import time, long before showcase opens ──
+if (typeof document !== "undefined") {
+  const head = document.head;
+  // Font
+  const fl = document.createElement("link");
+  fl.rel = "preload";
+  fl.href = FONT_URL;
+  fl.as = "fetch";
+  fl.crossOrigin = "anonymous";
+  head.appendChild(fl);
+  // All project images
+  PROJECTS.forEach((p) => {
+    p.images.forEach((url) => {
+      const il = document.createElement("link");
+      il.rel = "preload";
+      il.href = url;
+      il.as = "image";
+      head.appendChild(il);
+    });
+  });
+}
+
+// ── Camera — scrolls Y, intro rise from below ──
+function CameraScroll() {
+  const { camera, viewport, size } = useThree();
+  const lerp = useRef(0);
+  const introOffset = useRef(null);
+
+  useFrame(() => {
+    // Init offset on first frame — content starts below camera
+    if (introOffset.current === null)
+      introOffset.current = viewport.height * 1.3;
+    // Decay offset to 0 — content rises into view
+    introOffset.current *= 0.975;
+    if (Math.abs(introOffset.current) < 0.01) introOffset.current = 0;
+
+    const maxScroll = size.height * (TOTAL_H / viewport.height);
+    const page = (state.top / Math.max(1, maxScroll)) * TOTAL_H;
+    lerp.current = THREE.MathUtils.lerp(lerp.current, page, 0.04);
+    camera.position.y = -lerp.current + introOffset.current;
+    camera.position.x = 0;
+  });
+  return null;
+}
+
+// ── Image plane ──
+function Img({ url, w, h }) {
+  const tex = useLoader(THREE.TextureLoader, url);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return (
+    <mesh>
+      <planeGeometry args={[w, h]} />
+      <meshBasicMaterial map={tex} toneMapped={false} />
+    </mesh>
+  );
+}
+
+// ── Image grid: 50vw × 100vh — top spans full, 2 below ──
+function ImageGrid({ images, side, vw, vh }) {
+  const gap = 0.2;
+  const gridW = vw * 0.48;
+  const totalH = vh * 0.92;
+  const topH = totalH * 0.6;
+  const botH = totalH * 0.4 - gap;
+  const botW = (gridW - gap) / 2;
+  const cx = side * vw * 0.26;
+
+  return (
+    <group position={[cx, 0, 0]}>
+      {/* Top image — full grid width */}
+      <group position={[0, (totalH - topH) / 2, 0]}>
+        <Suspense fallback={null}>
+          <Img url={images[0]} w={gridW} h={topH} />
+        </Suspense>
+      </group>
+      {/* Bottom left */}
+      <group position={[-(botW + gap) / 2, -(totalH - botH) / 2, 0]}>
+        <Suspense fallback={null}>
+          <Img url={images[1]} w={botW} h={botH} />
+        </Suspense>
+      </group>
+      {/* Bottom right */}
+      <group position={[(botW + gap) / 2, -(totalH - botH) / 2, 0]}>
+        <Suspense fallback={null}>
+          <Img url={images[2]} w={botW} h={botH} />
+        </Suspense>
+      </group>
+    </group>
+  );
+}
+
+// ── Project section ──
+// ── Fade group — fades children based on camera proximity ──
+function FadeGroup({ sectionY, children }) {
+  const groupRef = useRef();
+  const opRef = useRef(0);
+
+  useFrame(({ camera }) => {
+    if (!groupRef.current) return;
+    // Distance from camera center to section center
+    const dist = Math.abs(camera.position.y - sectionY);
+    // Fade in when within ~6 units, fully visible within ~3
+    const target = clamp(1 - (dist - 3) / 4, 0, 1);
+    opRef.current += (target - opRef.current) * 0.035;
+    // Also add a subtle upward drift as it fades in
+    const drift = (1 - opRef.current) * 1.2;
+    groupRef.current.position.y = drift;
+    // Apply opacity to all text materials in the group
+    groupRef.current.traverse((child) => {
+      if (child.material && child.material.opacity !== undefined) {
+        child.material.opacity = opRef.current;
+        child.material.transparent = true;
+      }
+    });
+  });
+
+  return <group ref={groupRef}>{children}</group>;
+}
+
+function ProjectSection({ project, index, s, vw, vh }) {
+  const textSide = index % 2 === 0 ? 1 : -1;
+  const imageSide = -textSide;
+  const sectionY = -(HERO_H + index * SECTION_H);
+
+  const textX = textSide * vw * 0.02;
+  const anc = textSide > 0 ? "left" : "right";
+  const tAlign = textSide > 0 ? "left" : "right";
+  const textMaxW = vw * 0.44;
+
+  return (
+    <group position={[0, sectionY, 0]}>
+      <FadeGroup sectionY={sectionY}>
+        <ImageGrid images={project.images} side={imageSide} vw={vw} vh={vh} />
+
+        <Text
+          position={[textX, vh * 0.35, 0.5]}
+          fontSize={0.2 * s}
+          letterSpacing={0.15}
+          anchorX={anc}
+          color="#cccccc"
+        >
+          {project.number}
+        </Text>
+        <Text
+          position={[textX, vh * 0.28, 0.5]}
+          fontSize={0.15 * s}
+          letterSpacing={0.2}
+          anchorX={anc}
+          textAlign={tAlign}
+          color="#aaaaaa"
+        >
+          {project.tag}
+        </Text>
+        <Text
+          position={[textX, vh * 0.08, 0.5]}
+          fontSize={1.6 * s}
+          lineHeight={1.05}
+          letterSpacing={-0.04}
+          anchorX={anc}
+          anchorY="middle"
+          textAlign={tAlign}
+          maxWidth={textMaxW}
+          color="black"
+        >
+          {project.title}
+        </Text>
+        <Text
+          position={[textX, -vh * 0.12, 0.5]}
+          fontSize={0.34 * s}
+          lineHeight={1.8}
+          letterSpacing={-0.01}
+          anchorX={anc}
+          anchorY="top"
+          textAlign={tAlign}
+          maxWidth={textMaxW}
+          color="#777777"
+        >
+          {project.text}
+        </Text>
+      </FadeGroup>
+    </group>
+  );
+}
+
+// ── Hero ──
+function Hero({ s, vw }) {
+  const groupRef = useRef();
+  const opRef = useRef(0);
+
+  useFrame(({ camera }) => {
+    if (!groupRef.current) return;
+    const dist = Math.abs(camera.position.y);
+    const target = clamp(1 - (dist - 1) / 5, 0, 1);
+    opRef.current += (target - opRef.current) * 0.03;
+    groupRef.current.traverse((child) => {
+      if (child.material && child.material.opacity !== undefined) {
+        child.material.opacity = opRef.current;
+        child.material.transparent = true;
+      }
+    });
+  });
+
+  return (
+    <group position={[0, 0, -1]} ref={groupRef}>
+      <Text
+        position={[0, 0, 0]}
+        fontSize={vw * 0.12}
+        lineHeight={1}
+        letterSpacing={-0.03}
+        anchorX="center"
+        anchorY="middle"
+        textAlign="center"
+        maxWidth={vw * 0.95}
+        color="#1a1a2e"
+      >
+        Selected Work
+      </Text>
+    </group>
+  );
+}
+
+// ── Glass cube — arcs between image grids, settles at end ──
+function ShowcaseCube() {
+  const cubeRef = useRef();
+  const glowRef = useRef();
+  const shadowRef = useRef();
+  const { viewport, size } = useThree();
+  const lerp = useRef(0);
+  const glowColor = useRef(new THREE.Color("#ffffff"));
+  const scaleSmooth = useRef(1);
+
+  useFrame(({ clock }) => {
+    if (!cubeRef.current) return;
+    const maxScroll = size.height * (TOTAL_H / viewport.height);
+    const raw = (state.top / Math.max(1, maxScroll)) * TOTAL_H;
+    lerp.current = THREE.MathUtils.lerp(lerp.current, raw, 0.035);
+    const scroll = lerp.current;
+
+    const t = (1 + Math.sin(clock.getElapsedTime() * 1.0)) / 2;
+    const vw = viewport.width;
+
+    const inHero = scroll < HERO_H * 0.6;
+    const projScroll = Math.max(0, scroll - HERO_H * 0.5);
+    const rawIdx = projScroll / SECTION_H;
+    const idx = Math.min(N - 1, Math.floor(rawIdx));
+    const sectionT = clamp(rawIdx - idx, 0, 1);
+    const inSettle = scroll > SETTLE_START;
+    const settleT = clamp((scroll - SETTLE_START) / 8, 0, 1);
+
+    const imageSide = idx % 2 === 0 ? -1 : 1;
+    const prevImageSide = idx === 0 ? 0 : (idx - 1) % 2 === 0 ? -1 : 1;
+    const imageX = imageSide * vw * 0.26;
+    const prevImageX = prevImageSide * vw * 0.26;
+
+    const transRaw = clamp(sectionT / 0.45, 0, 1);
+    const transT = ease(transRaw);
+    const arcDip = Math.sin(transRaw * Math.PI) * -0.8;
+
+    let targetX, targetY, targetScale;
+    if (inHero) {
+      targetX = 0;
+      targetY = -scroll;
+      targetScale = 1;
+    } else if (inSettle) {
+      targetX = 0;
+      targetY = -(SETTLE_START + settleT * 2);
+      targetScale = 1 - settleT * 0.65;
+    } else {
+      targetX = prevImageX + (imageX - prevImageX) * transT;
+      const sectionCenterY = -(HERO_H + idx * SECTION_H);
+      if (transRaw < 1) {
+        targetY = sectionCenterY + arcDip;
+      } else {
+        const holdDrift = clamp((sectionT - 0.45) / 0.55, 0, 1);
+        const nextY = -(HERO_H + Math.min(idx + 1, N - 1) * SECTION_H);
+        targetY = THREE.MathUtils.lerp(sectionCenterY, nextY, holdDrift * 0.3);
+      }
+      targetScale = 1;
+    }
+
+    cubeRef.current.position.x = THREE.MathUtils.lerp(
+      cubeRef.current.position.x,
+      targetX,
+      0.025
+    );
+    cubeRef.current.position.y = THREE.MathUtils.lerp(
+      cubeRef.current.position.y,
+      targetY,
+      0.025
+    );
+    cubeRef.current.position.z = 2;
+
+    scaleSmooth.current = THREE.MathUtils.lerp(
+      scaleSmooth.current,
+      targetScale,
+      0.03
+    );
+    cubeRef.current.scale.setScalar(scaleSmooth.current);
+
+    const rotMult = 1 - settleT * 0.9;
+    cubeRef.current.rotation.x += 0.001 * rotMult;
+    cubeRef.current.rotation.y += 0.002 * rotMult;
+    if (inSettle) {
+      cubeRef.current.rotation.x *= 0.997;
+      cubeRef.current.rotation.z *= 0.997;
+    }
+
+    const accent = new THREE.Color(
+      !inHero && !inSettle ? PROJECTS[idx].accent : "#ffffff"
+    );
+    glowColor.current.lerp(accent, 0.03);
+    if (glowRef.current) {
+      glowRef.current.color.copy(glowColor.current);
+      glowRef.current.intensity =
+        (!inHero ? 3 + transT * 2 : 0.5) * (1 - settleT * 0.7);
+      glowRef.current.position.copy(cubeRef.current.position);
+      glowRef.current.position.z += 1;
+    }
+
+    if (shadowRef.current) {
+      shadowRef.current.position.x = cubeRef.current.position.x;
+      shadowRef.current.position.y =
+        cubeRef.current.position.y - 2.8 * scaleSmooth.current;
+      const ss = (3.5 + t * 0.3) * scaleSmooth.current;
+      shadowRef.current.scale.set(ss * 1.2, ss, ss);
+      shadowRef.current.material.opacity = 0.12 + settleT * 0.08;
+    }
+  });
+
+  return (
+    <>
+      <GlassCube
+        ref={cubeRef}
+        size={4.0}
+        cornerRadius={0.55}
+        thickness={2.5}
+        backsideThickness={5}
+        roughness={0.02}
+        ior={1.5}
+        chromaticAberration={0.05}
+        transmission={1}
+        samples={8}
+        resolution={512}
+        enableIdleSpin={false}
+        showEdges={true}
+        edgeOpacity={0.06}
+      />
+      <pointLight ref={glowRef} intensity={0.5} distance={18} />
+      <Shadow
+        ref={shadowRef}
+        opacity={0.12}
+        rotation-x={-Math.PI / 2}
+        position={[0, -3, 0]}
+        scale={[3.5, 3.5, 3.5]}
+      />
+    </>
+  );
+}
+
+// ── Scene ──
+function Content({ onVpHeight }) {
+  const { viewport } = useThree();
+  const s = Math.min(1, viewport.width / 16);
+  const vw = viewport.width;
+  const vh = viewport.height;
+
+  // Report viewport height to parent for scroll calculation
+  useEffect(() => {
+    if (onVpHeight) onVpHeight(viewport.height);
+  }, [viewport.height, onVpHeight]);
+
+  return (
+    <>
+      <CameraScroll />
+      <Hero s={s} vw={vw} />
+      {PROJECTS.map((p, i) => (
+        <ProjectSection
+          key={p.number}
+          project={p}
+          index={i}
+          s={s}
+          vw={vw}
+          vh={vh}
+        />
+      ))}
+      <ShowcaseCube />
+    </>
+  );
+}
+
+// ── Main export ──
+export default function ShowcaseCanvas({ open, onClose }) {
+  const scrollArea = useRef();
+  const containerRef = useRef();
+  const [visible, setVisible] = useState(false);
+  const pullRef = useRef(0);
+  const closingRef = useRef(false);
+  // Measured from R3F — the exact world-space viewport height
+  const [vpHeight, setVpHeight] = useState(null);
+  const [containerH, setContainerH] = useState(null);
+  const [scrollProgress, setScrollProgress] = useState(0);
 
   useEffect(() => {
     if (open) {
-      setMounted(true);
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() => setEntering(true))
-      );
+      state.top = 0;
+      pullRef.current = 0;
+      closingRef.current = false;
+      setScrollProgress(0);
+      if (scrollArea.current) scrollArea.current.scrollTop = 0;
+      setVisible(true);
     } else {
-      setEntering(false);
-      const t = setTimeout(() => setMounted(false), 800);
+      closingRef.current = false;
+      const t = setTimeout(() => setVisible(false), 800);
       return () => clearTimeout(t);
     }
   }, [open]);
 
-  // ── Scroll-driven animation loop ──
-  const tick = useCallback(() => {
-    const container = scrollRef.current;
-    if (!container) return;
-    const sections = sectionsRef.current.filter(Boolean);
-    const scrollTop = container.scrollTop;
-    const viewH = container.clientHeight;
-
-    // Overall progress for cube
-    const maxScroll = container.scrollHeight - viewH;
-    const overallProgress = maxScroll > 0 ? scrollTop / maxScroll : 0;
-    progressRef.current = overallProgress;
-    if (onScrollProgress) onScrollProgress(overallProgress, sections.length);
-
-    // Per-section fade/zoom/parallax
-    sections.forEach((el, i) => {
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const center = rect.top + rect.height / 2;
-      const dist = (center - viewH / 2) / viewH; // -1 to 1
-      const absDist = Math.abs(dist);
-
-      // Opacity: peak at center, fade at edges
-      const opacity = Math.max(0, 1 - absDist * 1.4);
-      // Scale: slight zoom
-      const scale = 0.92 + 0.08 * (1 - absDist);
-      // Parallax Y shift
-      const yShift = dist * 40;
-
-      const inner = el.querySelector("[data-sc-inner]");
-      if (inner) {
-        inner.style.opacity = opacity;
-        inner.style.transform = `translateY(${yShift}px) scale(${scale})`;
-      }
-    });
-
-    rafRef.current = requestAnimationFrame(tick);
-  }, [onScrollProgress]);
-
+  // Measure container height precisely via ResizeObserver
   useEffect(() => {
-    if (!mounted || !entering) return;
-    rafRef.current = requestAnimationFrame(tick);
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, [mounted, entering, tick]);
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      setContainerH(entry.contentRect.height);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [visible]);
 
-  if (!mounted) return null;
+  const handleVpHeight = useCallback((h) => setVpHeight(h), []);
 
-  const active = entering && open;
+  const onScroll = useCallback((e) => {
+    const el = e.target;
+    state.top = el.scrollTop;
+    const max = el.scrollHeight - el.clientHeight;
+    if (max > 0) setScrollProgress(el.scrollTop / max);
+  }, []);
+
+  // Scroll up at top → close showcase and return to scene
+  const onWheel = useCallback(
+    (e) => {
+      if (closingRef.current) return;
+      const el = scrollArea.current;
+      if (!el || el.scrollTop > 2) {
+        pullRef.current = 0;
+        return;
+      }
+      if (e.deltaY < 0) {
+        pullRef.current += Math.abs(e.deltaY);
+        if (pullRef.current > 150) {
+          closingRef.current = true;
+          onClose();
+        }
+      } else {
+        pullRef.current = 0;
+      }
+    },
+    [onClose]
+  );
+
+  // Precise scroll div height: containerH * (1 + TOTAL_H / vpHeight)
+  // This makes scrollTop max = containerH * TOTAL_H / vpHeight = maxScroll exactly
+  let scrollDivPx = null;
+  if (vpHeight && containerH) {
+    scrollDivPx = Math.round(containerH * (1 + TOTAL_H / vpHeight));
+  }
+  // Fallback before R3F measures viewport (brief flash before first frame)
+  const fallbackHeight = `${Math.round((1 + TOTAL_H / 9.94) * 100)}%`;
+
+  if (!visible) return null;
 
   return (
     <div
+      ref={containerRef}
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 9,
-        opacity: active ? 1 : 0,
-        transition: active
-          ? "opacity 0.8s cubic-bezier(0.16,1,0.3,1)"
-          : "opacity 0.6s ease",
-        pointerEvents: active ? "auto" : "none",
+        zIndex: 1,
+        cursor: "default",
+        background: "#e8e8ee",
+        overflow: "hidden",
       }}
     >
-      {/* Frosted backdrop */}
+      <Canvas
+        dpr={[1, 2]}
+        raycaster={{ enabled: false }}
+        camera={{ position: [0, 0, 12], fov: 45, far: 200, near: 0.1 }}
+        gl={{
+          powerPreference: "high-performance",
+          alpha: false,
+          antialias: true,
+        }}
+        onCreated={({ gl }) => gl.setClearColor("#e8e8ee")}
+      >
+        <ambientLight intensity={0.5} />
+        <spotLight
+          castShadow
+          angle={0.3}
+          penumbra={1}
+          position={[0, 10, 20]}
+          intensity={4}
+        />
+        <Environment resolution={256}>
+          <Lightformer
+            intensity={5}
+            position={[10, 5, 0]}
+            scale={[10, 50, 1]}
+            onUpdate={(self) => self.lookAt(0, 0, 0)}
+          />
+        </Environment>
+        <Suspense fallback={null}>
+          <Content onVpHeight={handleVpHeight} />
+        </Suspense>
+      </Canvas>
+
+      {/* Scroll overlay */}
       <div
+        ref={scrollArea}
+        onScroll={onScroll}
+        onWheel={onWheel}
         style={{
           position: "absolute",
-          inset: 0,
-          background: "rgba(232,232,238,0.6)",
-          backdropFilter: "blur(40px) saturate(1.2)",
-          WebkitBackdropFilter: "blur(40px) saturate(1.2)",
-        }}
-      />
-
-      {/* Close button */}
-      <button
-        onClick={onClose}
-        style={{
-          position: "fixed",
-          top: 28,
-          right: 28,
-          zIndex: 20,
-          width: 44,
-          height: 44,
-          borderRadius: "50%",
-          border: "0.5px solid " + D + "0.08)",
-          background: "rgba(255,255,255,0.6)",
-          backdropFilter: "blur(12px)",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          opacity: active ? 1 : 0,
-          transform: active ? "scale(1)" : "scale(0.8)",
-          transition: "all 0.5s cubic-bezier(0.16,1,0.3,1) 0.3s",
-        }}
-      >
-        <X size={16} strokeWidth={1.5} color={D + "0.5)"} />
-      </button>
-
-      {/* Scroll container */}
-      <div
-        ref={scrollRef}
-        style={{
-          position: "relative",
-          zIndex: 1,
+          top: 0,
+          left: 0,
           width: "100%",
           height: "100%",
-          overflowY: "auto",
-          overflowX: "hidden",
+          overflow: "auto",
+          cursor: "default",
+          zIndex: 3,
         }}
       >
-        {/* Hero / intro */}
         <div
           style={{
-            height: "100vh",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            opacity: active ? 1 : 0,
-            transform: active ? "translateY(0)" : "translateY(30px)",
-            transition:
-              "opacity 1s cubic-bezier(0.16,1,0.3,1) 0.2s, transform 1s cubic-bezier(0.16,1,0.3,1) 0.2s",
+            height: scrollDivPx ? `${scrollDivPx}px` : fallbackHeight,
           }}
-        >
-          <span
-            style={{
-              fontSize: 10,
-              fontFamily: F,
-              fontWeight: 300,
-              letterSpacing: "0.3em",
-              textTransform: "uppercase",
-              color: D + "0.3)",
-              marginBottom: 16,
-            }}
-          >
-            Selected Work
-          </span>
-          <h1
-            style={{
-              fontSize: "clamp(32px, 5vw, 56px)",
-              fontFamily: F,
-              fontWeight: 100,
-              color: D + "0.85)",
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              margin: 0,
-              lineHeight: 1.1,
-            }}
-          >
-            Showcase
-          </h1>
-          <p
-            style={{
-              fontSize: 14,
-              fontFamily: F,
-              fontWeight: 300,
-              color: D + "0.4)",
-              marginTop: 20,
-              maxWidth: 360,
-              textAlign: "center",
-              lineHeight: 1.8,
-            }}
-          >
-            AI products, creative coding, and developer tools — built
-            end-to-end.
-          </p>
-          <div
-            style={{
-              marginTop: 48,
-              fontSize: 10,
-              fontFamily: F,
-              fontWeight: 300,
-              letterSpacing: "0.15em",
-              color: D + "0.25)",
-              animation: "showcaseFloat 3s ease-in-out infinite",
-            }}
-          >
-            ↓ SCROLL
-          </div>
-        </div>
-
-        {/* Project sections */}
-        {PROJECTS.map((p, i) => {
-          const left = i % 2 === 0;
-          return (
-            <section
-              key={p.id}
-              ref={(el) => (sectionsRef.current[i] = el)}
-              style={{
-                minHeight: "100vh",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: "80px 0",
-                position: "relative",
-              }}
-            >
-              <div
-                data-sc-inner
-                style={{
-                  width: "100%",
-                  maxWidth: 1100,
-                  margin: "0 auto",
-                  padding: "0 48px",
-                  display: "flex",
-                  flexDirection: left ? "row" : "row-reverse",
-                  alignItems: "center",
-                  gap: 60,
-                  opacity: 0,
-                  willChange: "transform, opacity",
-                }}
-              >
-                {/* Image side */}
-                <div style={{ flex: "1 1 50%", position: "relative" }}>
-                  <div
-                    style={{
-                      position: "relative",
-                      borderRadius: 16,
-                      overflow: "hidden",
-                      aspectRatio: "16/10",
-                      background: D + "0.03)",
-                      border: "0.5px solid " + D + "0.06)",
-                    }}
-                  >
-                    <img
-                      src={p.image}
-                      alt={p.title}
-                      loading="lazy"
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                        display: "block",
-                        filter: "saturate(0.85)",
-                      }}
-                    />
-                    {/* Accent overlay */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        inset: 0,
-                        background: `linear-gradient(135deg, ${p.accent}15, transparent 60%)`,
-                        mixBlendMode: "multiply",
-                      }}
-                    />
-                    {/* Number badge */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: 16,
-                        [left ? "right" : "left"]: 16,
-                        fontSize: 11,
-                        fontFamily: F,
-                        fontWeight: 300,
-                        letterSpacing: "0.15em",
-                        color: "rgba(255,255,255,0.7)",
-                        background: "rgba(0,0,0,0.25)",
-                        backdropFilter: "blur(8px)",
-                        padding: "6px 14px",
-                        borderRadius: 20,
-                      }}
-                    >
-                      {p.number}
-                    </div>
-                  </div>
-                  {/* Tech chips under image */}
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 6,
-                      flexWrap: "wrap",
-                      marginTop: 14,
-                      justifyContent: left ? "flex-start" : "flex-end",
-                    }}
-                  >
-                    {p.tech.map((t) => (
-                      <span
-                        key={t}
-                        style={{
-                          fontSize: 9,
-                          fontFamily: F,
-                          fontWeight: 400,
-                          letterSpacing: "0.08em",
-                          textTransform: "uppercase",
-                          padding: "5px 12px",
-                          borderRadius: 4,
-                          background: D + "0.03)",
-                          border: "0.5px solid " + D + "0.06)",
-                          color: D + "0.45)",
-                        }}
-                      >
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Text side */}
-                <div
-                  style={{
-                    flex: "1 1 40%",
-                    textAlign: left ? "left" : "right",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: 9,
-                      fontFamily: F,
-                      fontWeight: 400,
-                      letterSpacing: "0.2em",
-                      textTransform: "uppercase",
-                      color: p.accent,
-                      opacity: 0.7,
-                    }}
-                  >
-                    {p.tag}
-                  </span>
-                  <h2
-                    style={{
-                      fontSize: "clamp(28px, 3.5vw, 44px)",
-                      fontFamily: F,
-                      fontWeight: 100,
-                      color: D + "0.88)",
-                      letterSpacing: "0.06em",
-                      margin: "12px 0 20px",
-                      lineHeight: 1.1,
-                    }}
-                  >
-                    {p.title}
-                  </h2>
-                  <p
-                    style={{
-                      fontSize: 14,
-                      fontFamily: F,
-                      fontWeight: 300,
-                      color: D + "0.55)",
-                      lineHeight: 1.9,
-                      margin: "0 0 24px",
-                    }}
-                  >
-                    {p.desc}
-                  </p>
-                  <ul
-                    style={{
-                      listStyle: "none",
-                      padding: 0,
-                      margin: 0,
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 8,
-                      alignItems: left ? "flex-start" : "flex-end",
-                    }}
-                  >
-                    {p.features.map((f, fi) => (
-                      <li
-                        key={fi}
-                        style={{
-                          fontSize: 12,
-                          fontFamily: F,
-                          fontWeight: 300,
-                          color: D + "0.45)",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          flexDirection: left ? "row" : "row-reverse",
-                        }}
-                      >
-                        <span
-                          style={{
-                            width: 4,
-                            height: 4,
-                            borderRadius: "50%",
-                            background: p.accent,
-                            opacity: 0.5,
-                            flexShrink: 0,
-                          }}
-                        />
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                  <div
-                    style={{
-                      marginTop: 28,
-                      fontSize: 11,
-                      fontFamily: F,
-                      fontWeight: 300,
-                      letterSpacing: "0.1em",
-                      color: D + "0.25)",
-                    }}
-                  >
-                    {p.year}
-                  </div>
-                </div>
-              </div>
-            </section>
-          );
-        })}
-
-        {/* End spacer */}
-        <div style={{ height: "50vh" }} />
+        />
       </div>
 
-      <style>{`
-        @keyframes showcaseFloat {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-6px); }
-        }
-      `}</style>
+      {/* End overlay — fades in when scrolled to the settling zone */}
+      {(() => {
+        const opacity = clamp((scrollProgress - 0.85) / 0.15, 0, 1);
+        const yShift = (1 - opacity) * 30;
+        return (
+          <div
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              zIndex: 5,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "flex-end",
+              paddingBottom: 48,
+              gap: 20,
+              opacity,
+              transform: `translateY(${yShift}px)`,
+              transition: "opacity 0.3s ease, transform 0.3s ease",
+              pointerEvents: opacity > 0.3 ? "auto" : "none",
+            }}
+          >
+            <span
+              style={{
+                fontSize: 9,
+                fontFamily: "'Inter',-apple-system,sans-serif",
+                fontWeight: 300,
+                letterSpacing: "0.3em",
+                textTransform: "uppercase",
+                color: "rgba(26,26,46,0.25)",
+              }}
+            >
+              End of showcase
+            </span>
+            <div style={{ display: "flex", gap: 32 }}>
+              <button
+                onClick={() => {
+                  if (scrollArea.current) {
+                    scrollArea.current.scrollTo({ top: 0, behavior: "smooth" });
+                  }
+                }}
+                style={{
+                  fontSize: 13,
+                  fontFamily: "'Inter',-apple-system,sans-serif",
+                  fontWeight: 300,
+                  letterSpacing: "0.06em",
+                  color: "rgba(26,26,46,0.6)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: "8px 16px",
+                  borderRadius: 6,
+                  transition: "background 0.2s",
+                }}
+                onMouseEnter={(e) =>
+                  (e.target.style.background = "rgba(26,26,46,0.04)")
+                }
+                onMouseLeave={(e) => (e.target.style.background = "none")}
+              >
+                ↑ Back to top
+              </button>
+              <button
+                onClick={onClose}
+                style={{
+                  fontSize: 13,
+                  fontFamily: "'Inter',-apple-system,sans-serif",
+                  fontWeight: 300,
+                  letterSpacing: "0.06em",
+                  color: "rgba(26,26,46,0.6)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: "8px 16px",
+                  borderRadius: 6,
+                  transition: "background 0.2s",
+                }}
+                onMouseEnter={(e) =>
+                  (e.target.style.background = "rgba(26,26,46,0.04)")
+                }
+                onMouseLeave={(e) => (e.target.style.background = "none")}
+              >
+                Contact →
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
+      <Loader />
     </div>
   );
 }

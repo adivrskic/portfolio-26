@@ -1,13 +1,24 @@
 import { useState, useEffect } from "react";
-import { Snail, Rabbit, Send, User, Mail, DollarSign, Clock } from "lucide-react";
+import {
+  Snail,
+  Rabbit,
+  Send,
+  User,
+  Mail,
+  DollarSign,
+  Clock,
+} from "lucide-react";
 import { FONT_FAMILY, DARK_RGBA } from "../../constants/style";
-import { SERVICES, BUDGET_LABELS, TIMELINE_LABELS } from "../../constants/services";
+import {
+  SERVICES,
+  BUDGET_LABELS,
+  TIMELINE_LABELS,
+} from "../../constants/services";
 import Field from "./Field";
 import SliderRow from "./SliderRow";
 
 const F = FONT_FAMILY;
 const D = DARK_RGBA;
-
 
 export default function ContactForm({ compact, textColor, inputColor }) {
   const D = textColor || "rgba(26,26,46,";
@@ -51,26 +62,57 @@ export default function ContactForm({ compact, textColor, inputColor }) {
     }));
   };
 
-  const submit = () => {
+  // ── CHANGE THIS to your Supabase project URL ──
+  const CONTACT_URL =
+    "https://YOUR_PROJECT_REF.supabase.co/functions/v1/contact";
+
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState(null);
+
+  const submit = async () => {
     const e = validate();
     setErrors(e);
     setSubmitted(true);
+    setSendError(null);
     if (Object.keys(e).length > 0) return;
-    setSent(true);
-    setTimeout(() => {
-      setSent(false);
-      setForm({
-        name: "",
-        email: "",
-        services: [],
-        budget: 1,
-        timeline: 2,
-        message: "",
+
+    setSending(true);
+    try {
+      const res = await fetch(CONTACT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name.trim(),
+          email: form.email.trim(),
+          services: form.services,
+          budget: BUDGET_LABELS[form.budget] || "",
+          timeline: TIMELINE_LABELS[form.timeline] || "",
+          message: form.message.trim(),
+        }),
       });
-      setSubmitted(false);
-      setErrors({});
-      setCharCount(0);
-    }, 2500);
+
+      if (!res.ok) throw new Error("Failed to send");
+
+      setSent(true);
+      setTimeout(() => {
+        setSent(false);
+        setForm({
+          name: "",
+          email: "",
+          services: [],
+          budget: 1,
+          timeline: 2,
+          message: "",
+        });
+        setSubmitted(false);
+        setErrors({});
+        setCharCount(0);
+      }, 2500);
+    } catch (err) {
+      setSendError("Something went wrong — try emailing directly.");
+    } finally {
+      setSending(false);
+    }
   };
 
   // Live-clear errors as user fixes them after submit
@@ -182,11 +224,14 @@ export default function ContactForm({ compact, textColor, inputColor }) {
             <span
               style={{
                 fontSize: 9,
-                padding: "2px 8px",
+                fontFamily: F,
+                padding: "3px 10px",
                 borderRadius: 10,
-                background: "rgba(200,60,60,0.08)",
-                color: "rgba(200,60,60,0.55)",
+                background: "rgba(200,60,60,0.06)",
+                border: "0.5px solid rgba(200,60,60,0.12)",
+                color: "rgba(200,60,60,0.5)",
                 fontWeight: 400,
+                letterSpacing: "0.03em",
               }}
             >
               pick at least one
@@ -400,6 +445,7 @@ export default function ContactForm({ compact, textColor, inputColor }) {
       {/* Send */}
       <button
         onClick={submit}
+        disabled={sending || sent}
         style={{
           ...base,
           cursor: "pointer",
@@ -431,8 +477,26 @@ export default function ContactForm({ compact, textColor, inputColor }) {
         }}
       >
         <Send size={12} strokeWidth={sw} />
-        {sent ? "Message sent — I'll be in touch" : "Send message"}
+        {sent
+          ? "Message sent — I'll be in touch"
+          : sending
+          ? "Sending..."
+          : "Send message"}
       </button>
+      {sendError && (
+        <p
+          style={{
+            fontSize: 11,
+            fontFamily: F,
+            fontWeight: 300,
+            color: "rgba(200,60,60,0.6)",
+            textAlign: "center",
+            margin: "4px 0 0",
+          }}
+        >
+          {sendError}
+        </p>
+      )}
     </div>
   );
 }
