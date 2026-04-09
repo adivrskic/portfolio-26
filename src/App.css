@@ -19,7 +19,12 @@
   }
 }
 .app-root.hide-cursor {
-  cursor: none;
+  cursor: crosshair;
+}
+@media (hover: hover) and (pointer: fine) {
+  .app-root.hide-cursor {
+    cursor: none;
+  }
 }
 input[type="range"] {
   -webkit-appearance: none;

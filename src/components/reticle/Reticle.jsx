@@ -1,7 +1,11 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Fingerprint } from "lucide-react";
 import { sampleLuminance } from "../../utils/color";
 import { BG_COLOR } from "../../constants/style";
+
+// Skip entirely on touch-only devices
+const IS_TOUCH =
+  typeof window !== "undefined" && window.matchMedia("(hover: none)").matches;
 
 export default function Reticle({
   proximity,
@@ -11,6 +15,7 @@ export default function Reticle({
   gradientCanvas,
   scrollProgress,
 }) {
+  if (IS_TOUCH) return null;
   const ref = useRef(null);
   const lineRef = useRef(null);
   const line2Ref = useRef(null);

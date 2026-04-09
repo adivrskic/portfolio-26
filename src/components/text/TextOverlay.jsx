@@ -146,11 +146,11 @@ export default function TextOverlay({
               style={{
                 display: "inline-block",
                 color: c.textColor,
-                fontSize: `${c.fontSize}vw`,
+                fontSize: `clamp(14px, ${c.fontSize}vw, 48px)`,
                 fontWeight: c.fontWeight,
                 fontFamily: "'Inter',-apple-system,sans-serif",
                 textTransform: "uppercase",
-                letterSpacing: `${c.letterSpacing}em`,
+                letterSpacing: `clamp(0.1em, ${c.letterSpacing}em, 0.5em)`,
                 minWidth: ch === " " ? "0.3em" : "auto",
                 lineHeight: 1,
                 opacity: revealed ? c.textOpacity * ff : 0,
@@ -187,7 +187,7 @@ export default function TextOverlay({
           aria-label="Open menu"
           style={{
             position: "fixed",
-            bottom: `calc(${c.textBottom}vh - 60px)`,
+            bottom: `clamp(20px, calc(${c.textBottom}vh - 60px), 30vh)`,
             left: "50%",
             transform: "translateX(-50%)",
             zIndex: 2,
@@ -195,7 +195,9 @@ export default function TextOverlay({
             background: "none",
             border: "none",
             cursor: "pointer",
-            padding: "14px 16px",
+            padding: "18px 20px",
+            minWidth: 48,
+            minHeight: 48,
             opacity: revealed ? c.textOpacity * 0.7 * ff : 0,
             transition: `opacity 0.6s cubic-bezier(.33,1,.68,1) ${
               !initialRevealDone ? (c.menuBtnDelay || 1.3) + "s" : "0s"

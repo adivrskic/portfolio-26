@@ -45,17 +45,91 @@
   
   /* Change these two rules */
   .menu-panel--left {
-    padding-top: 70px;
     border-radius: 20px 120px 120px 20px;
   }
 
   .menu-panel--right {
     border-radius: 120px 20px 20px 120px;
   }
+
+  /* ── MOBILE: stack panels, left becomes horizontal nav bar ── */
+  @media (max-width: 768px) {
+    .menu-wrapper {
+      flex-direction: column;
+      padding: 8px;
+      gap: 8px;
+    }
+    .menu-panel--left {
+      flex: 0 0 auto;
+      border-radius: 16px;
+      max-height: none;
+    }
+    .menu-panel--right {
+      flex: 1;
+      border-radius: 16px;
+      min-height: 0;
+    }
+    .menu-name-left {
+      display: none !important;
+    }
+    .menu-nav {
+      flex-direction: row;
+      padding: 12px 16px;
+      gap: 0;
+      justify-content: center;
+    }
+    .menu-nav-item {
+      text-align: center;
+      padding: 8px 12px;
+    }
+    .menu-nav-label {
+      font-size: 12px !important;
+      letter-spacing: 0.1em !important;
+    }
+    .menu-name-right {
+      padding: 20px 20px 0;
+    }
+    .menu-right-inner {
+      padding: 16px 20px 60px;
+    }
+    .menu-heading {
+      font-size: 22px;
+    }
+    .menu-body {
+      font-size: 13px;
+    }
+    .menu-card-grid {
+      grid-template-columns: 1fr;
+    }
+    .menu-close-btn {
+      bottom: 12px;
+      width: 40px;
+      height: 40px;
+    }
+  }
+  
+  /* ── TABLET PORTRAIT: tighten padding ── */
+  @media (min-width: 769px) and (max-width: 1024px) {
+    .menu-panel--left {
+      border-radius: 20px 60px 60px 20px;
+    }
+    .menu-panel--right {
+      border-radius: 60px 20px 20px 60px;
+    }
+    .menu-nav {
+      padding: 24px 24px 60px;
+    }
+    .menu-right-inner {
+      padding: 24px 28px 60px;
+    }
+    .menu-nav-label {
+      font-size: 2.2vw;
+    }
+  }
   
   /* ── Name labels ── */
   .menu-name {
-    font-size: 1.1vw;
+    font-size: clamp(10px, 1.1vw, 16px);
     letter-spacing: 0.4em;
     color: var(--t) 0.65);
     font-weight: 100;
@@ -85,7 +159,6 @@
     justify-content: center;
     padding: 40px 40px 80px;
     box-sizing: border-box;
-    margin-top: -70px;
   }
   
   .menu-nav-item {
@@ -98,7 +171,7 @@
   }
   
   .menu-nav-label {
-    font-size: 2.8vw;
+    font-size: clamp(14px, 2.8vw, 36px);
     font-weight: 100;
     line-height: 1;
     text-transform: uppercase;

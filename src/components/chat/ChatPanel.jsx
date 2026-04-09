@@ -424,11 +424,11 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
         ref={panelRef}
         style={{
           position: "fixed",
-          top: 16,
-          right: 16,
-          bottom: 16,
-          width: "calc(50% - 24px)",
-          padding: "70px 0",
+          top: window.innerWidth < 768 ? 0 : 16,
+          right: window.innerWidth < 768 ? 0 : 16,
+          bottom: window.innerWidth < 768 ? 0 : 16,
+          left: window.innerWidth < 768 ? 0 : "auto",
+          width: window.innerWidth < 768 ? "100%" : "calc(50% - 24px)",
           zIndex: 8,
           display: "flex",
           flexDirection: "column",
@@ -444,7 +444,7 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
             background: "rgba(232,232,238,0.74)",
             backdropFilter: "blur(50px) saturate(1.15)",
             WebkitBackdropFilter: "blur(50px) saturate(1.15)",
-            borderRadius: "120px 20px 20px 120px",
+            borderRadius: window.innerWidth < 768 ? 0 : "120px 20px 20px 120px",
             clipPath: "inset(0 100% 0 0)",
             opacity: 0,
           }}

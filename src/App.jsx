@@ -3,32 +3,28 @@ import { DEFAULTS, getCurrentSeason } from "./config/defaults";
 import GradientBackground from "./components/gradient/GradientBackground";
 import Scene from "./components/scene/Scene";
 import Reticle from "./components/reticle/Reticle";
-import HelixProjects from "./components/projects/HelixProjects";
 import TextOverlay from "./components/text/TextOverlay";
 import MenuOverlay from "./components/menu/MenuOverlay";
 import ChatPanel from "./components/chat/ChatPanel";
 import DebugPanel from "./components/debug/DebugPanel";
-import Footer from "./components/footer/Footer";
-import Showcase from "./components/showcase/ShowcaseCanvas";
+import ShowcaseCanvas from "./components/showcase/ShowcaseCanvas";
+import ShowcaseHTML from "./components/showcase/Showcase";
 import "./App.css";
+
+const IS_MOBILE =
+  typeof window !== "undefined" &&
+  (window.innerWidth < 768 || "ontouchstart" in window);
+const Showcase = IS_MOBILE ? ShowcaseHTML : ShowcaseCanvas;
 
 export default function App() {
   const [config, setConfig] = useState({ ...DEFAULTS });
   const [debugVisible, setDebugVisible] = useState(false);
-  const [scrollProgress, setScrollProgress] = useState(0);
   const [birthComplete, setBirthComplete] = useState(false);
   const [chatMode, setChatMode] = useState(false);
   const [chatMounted, setChatMounted] = useState(false);
   const [cubeProximity, setCubeProximity] = useState(0);
   const [gradCanvas, setGradCanvas] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [helixProgress, setHelixProgress] = useState(0);
-  const [shatterProg, setShatterProg] = useState(0);
-  const [goldUnlocked, setGoldUnlocked] = useState(true);
-  const [activeProject, setActiveProject] = useState(null);
-  const helixStateRef = useRef(null);
-  const [flashOpacity, setFlashOpacity] = useState(0);
-  const prevShatterRef = useRef(0);
   const [activeSeason, setActiveSeason] = useState(getCurrentSeason);
   const [showcaseOpen, setShowcaseOpen] = useState(false);
   const [showcaseTransition, setShowcaseTransition] = useState(false);
@@ -37,8 +33,6 @@ export default function App() {
   useEffect(() => {
     configRef.current = config;
   }, [config]);
-
-  const handleScroll = useCallback((p) => setScrollProgress(p), []);
 
   const handleBirth = useCallback(
     (p) => {
@@ -63,9 +57,7 @@ export default function App() {
   }, [chatMode]);
 
   const handleCubeShowcase = useCallback(() => {
-    // Phase 1: transition — cube zooms, main fades
     setShowcaseTransition(true);
-    // Phase 2: after animation, open showcase
     setTimeout(() => {
       setShowcaseOpen(true);
       setShowcaseTransition(false);
@@ -83,26 +75,12 @@ export default function App() {
     setTimeout(() => setChatMounted(false), 1400);
   }, []);
 
-  const handleGoldUnlock = useCallback(() => {
-    setGoldUnlocked(true);
-    setConfig((prev) => ({
-      ...prev,
-      gradColor1: "#b8860b",
-      gradColor2: "#ffd700",
-      gradColor3: "#daa520",
-      gradColor4: "#cd853f",
-    }));
-    setActiveSeason("gold");
-  }, []);
-
   const fading = showcaseTransition || showcaseOpen;
 
   return (
     <div className="app-root hide-cursor">
-      {/* Showcase sits behind everything — revealed when main content slides away */}
       <Showcase open={showcaseOpen} onClose={handleCloseShowcase} />
 
-      {/* Main content wrapper — slides up only after showcase fully opens */}
       <div
         style={{
           position: "fixed",
@@ -116,7 +94,6 @@ export default function App() {
           willChange: "transform",
         }}
       >
-        {/* UI layer — fades out in sync with the cube expanding */}
         <div
           style={{
             opacity: fading ? 0 : 1,
@@ -133,10 +110,7 @@ export default function App() {
             <TextOverlay
               config={config}
               birthComplete={birthComplete}
-              fadeFactor={Math.max(
-                0,
-                1 - scrollProgress / (config.shatterThreshold || 0.15)
-              )}
+              fadeFactor={1}
               gradientCanvas={gradCanvas}
               menuOpen={menuOpen}
               onMenuToggle={() => setMenuOpen((v) => !v)}
@@ -148,18 +122,7 @@ export default function App() {
             menuOpen={menuOpen}
             config={config}
             gradientCanvas={gradCanvas}
-            scrollProgress={scrollProgress}
-          />
-          <HelixProjects
-            shatterProgress={shatterProg}
-            activeProject={activeProject}
-            setActiveProject={setActiveProject}
-          />
-          <Footer
-            helixProgress={helixProgress}
-            shatterProgress={shatterProg}
-            onGoldUnlock={handleGoldUnlock}
-            goldUnlocked={goldUnlocked}
+            scrollProgress={0}
           />
           {chatMounted && (
             <ChatPanel
@@ -169,10 +132,8 @@ export default function App() {
             />
           )}
         </div>
-        {/* Scene (3D canvas with cube) — stays visible during zoom, slides with wrapper */}
         <Scene
           configRef={configRef}
-          onScrollProgress={handleScroll}
           onBirthProgress={handleBirth}
           gradientCanvas={gradCanvas}
           menuOpen={menuOpen}
@@ -183,24 +144,16 @@ export default function App() {
           onCubeClick={handleCubeClick}
           onCubeHold={handleCubeShowcase}
           onCubeProximity={handleCubeProximity}
-          onCardClick={useCallback((id) => setActiveProject(id), [])}
-          onHelixProgress={useCallback((hp, sp, hs) => {
-            setHelixProgress(hp);
-            setShatterProg(sp);
-            if (hs) helixStateRef.current = hs;
-            prevShatterRef.current = sp;
-          }, [])}
         />
       </div>
 
-      {/* These overlay everything — always on top */}
       <MenuOverlay
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
         config={config}
         onThemeChange={handleThemeChange}
         activeSeason={activeSeason}
-        goldUnlocked={goldUnlocked}
+        goldUnlocked={true}
         onShowcase={() => {
           setMenuOpen(false);
           setTimeout(() => handleCubeShowcase(), 600);

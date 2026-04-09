@@ -9,7 +9,6 @@ import {
   Loader,
 } from "@react-three/drei";
 import GlassCube from "../scene/GlassCube";
-import { X } from "lucide-react";
 
 // Inter font for 3D text — matches the rest of the site
 const FONT_URL =
@@ -18,7 +17,7 @@ function Text(props) {
   return <DreiText font={FONT_URL} {...props} />;
 }
 
-const state = { top: 0, mouseNDC: { x: -99, y: -99 } };
+const state = { top: 0 };
 
 function ease(t) {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
@@ -379,15 +378,14 @@ function FooterSection({ s }) {
   );
 }
 
-// ── Glass cube — arcs to image grid, holds, mouse proximity shrinks ──
+// ── Glass cube — arcs between image grids, holds at each section ──
 function ShowcaseCube() {
   const cubeRef = useRef();
   const glowRef = useRef();
   const shadowRef = useRef();
-  const { viewport, size, camera } = useThree();
+  const { viewport, size } = useThree();
   const lerp = useRef(0);
   const glowColor = useRef(new THREE.Color("#ffffff"));
-  const scaleSmooth = useRef(1);
 
   useFrame(({ clock }) => {
     if (!cubeRef.current) return;
@@ -456,19 +454,7 @@ function ShowcaseCube() {
     );
     cubeRef.current.position.z = 2;
 
-    // Mouse proximity → subtle shrink (reduced effect to prevent visual shifting)
-    const cubeScreen = cubeRef.current.position.clone().project(camera);
-    const dx = cubeScreen.x - state.mouseNDC.x;
-    const dy = cubeScreen.y - state.mouseNDC.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    const proximity = clamp(1 - dist / 1.5, 0, 1);
-    const scaleTarget = 1 - proximity * 0.1;
-    scaleSmooth.current = THREE.MathUtils.lerp(
-      scaleSmooth.current,
-      scaleTarget,
-      0.03
-    );
-    cubeRef.current.scale.setScalar(scaleSmooth.current);
+    cubeRef.current.scale.setScalar(1);
 
     // Gentle rotation — slow and elegant
     cubeRef.current.rotation.x += 0.001;
@@ -560,19 +546,18 @@ function Content() {
 export default function ShowcaseCanvas({ open, onClose }) {
   const scrollArea = useRef();
   const [visible, setVisible] = useState(false);
-  const [entered, setEntered] = useState(false);
+  const pullRef = useRef(0);
+  const closingRef = useRef(false);
 
   useEffect(() => {
     if (open) {
       state.top = 0;
+      pullRef.current = 0;
+      closingRef.current = false;
       if (scrollArea.current) scrollArea.current.scrollTop = 0;
       setVisible(true);
-      // Show close button after content has risen
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() => setEntered(true))
-      );
     } else {
-      setEntered(false);
+      closingRef.current = false;
       const t = setTimeout(() => setVisible(false), 800);
       return () => clearTimeout(t);
     }
@@ -581,6 +566,31 @@ export default function ShowcaseCanvas({ open, onClose }) {
   const onScroll = useCallback((e) => {
     state.top = e.target.scrollTop;
   }, []);
+
+  // Scroll up at top → close showcase and return to scene
+  const onWheel = useCallback(
+    (e) => {
+      if (closingRef.current) return;
+      const el = scrollArea.current;
+      if (!el || el.scrollTop > 2) {
+        pullRef.current = 0;
+        return;
+      }
+      // Only respond to upward scroll
+      if (e.deltaY < 0) {
+        pullRef.current += Math.abs(e.deltaY);
+        // Threshold: ~150px of upward scroll at top triggers close
+        if (pullRef.current > 150) {
+          closingRef.current = true;
+          onClose();
+        }
+      } else {
+        pullRef.current = 0;
+      }
+    },
+    [onClose]
+  );
+
   const scrollPages = Math.ceil(TOTAL_H / 10);
 
   if (!visible) return null;
@@ -629,16 +639,11 @@ export default function ShowcaseCanvas({ open, onClose }) {
         </Suspense>
       </Canvas>
 
-      {/* Scroll overlay */}
+      {/* Scroll overlay — no mouse tracking */}
       <div
         ref={scrollArea}
         onScroll={onScroll}
-        onPointerMove={(e) => {
-          // Use container-relative coords so NDC stays accurate at all scroll depths
-          const rect = e.currentTarget.getBoundingClientRect();
-          state.mouseNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-          state.mouseNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-        }}
+        onWheel={onWheel}
         style={{
           position: "absolute",
           top: 0,
@@ -653,30 +658,6 @@ export default function ShowcaseCanvas({ open, onClose }) {
         <div style={{ height: `${scrollPages * 100}vh` }} />
       </div>
 
-      {/* Close */}
-      <button
-        onClick={onClose}
-        style={{
-          position: "absolute",
-          top: 24,
-          right: 24,
-          zIndex: 10,
-          width: 44,
-          height: 44,
-          borderRadius: "50%",
-          border: "0.5px solid rgba(26,26,46,0.08)",
-          background: "rgba(255,255,255,0.6)",
-          backdropFilter: "blur(12px)",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          opacity: entered ? 1 : 0,
-          transition: "opacity 0.6s ease 0.6s",
-        }}
-      >
-        <X size={16} strokeWidth={1.5} color="rgba(26,26,46,0.5)" />
-      </button>
       <Loader />
     </div>
   );

@@ -9,10 +9,6 @@ import {
   glassVertexShader,
   glassFragmentShader,
 } from "./shaders/glass.glsl.js";
-import {
-  explodeVertexShader,
-  explodeFragmentShader,
-} from "./shaders/explode.glsl.js";
 
 // Shaders imported from ./shaders/ — see sphereVertexShader, sphereFragmentShader, etc.
 const FV = sphereVertexShader;
@@ -47,7 +43,6 @@ function cubicBezier(x1, y1, x2, y2) {
 
 export default function Scene({
   configRef,
-  onScrollProgress,
   onBirthProgress,
   gradientCanvas,
   menuOpen,
@@ -58,8 +53,6 @@ export default function Scene({
   onCubeClick,
   onCubeHold,
   onCubeProximity,
-  onCardClick,
-  onHelixProgress,
 }) {
   const containerRef = useRef(null);
   const gradCanvasRef = useRef(null);
@@ -86,8 +79,14 @@ export default function Scene({
     const cfg = configRef,
       W = () => window.innerWidth,
       H = () => window.innerHeight;
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const isMobile = "ontouchstart" in window || window.innerWidth < 768;
+    const renderer = new THREE.WebGLRenderer({
+      antialias: !isMobile,
+      alpha: true,
+    });
+    renderer.setPixelRatio(
+      Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2)
+    );
     renderer.setSize(W(), H());
     renderer.setClearColor(0x000000, 0);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -212,121 +211,8 @@ export default function Scene({
     const cubeQuat = new THREE.Quaternion();
     const angVel = new THREE.Vector3(0, 0, 0); // angular velocity in world space
 
-    // ── Exploding cube (Akella-style per-face explosion) ──
-    let shatterProgress = 0;
-    let wasShattered = false;
-
-    // Build explode geometry: separate every triangle, add per-face attributes
-    function buildExplodeGeo(srcGeo) {
-      const nonIndexed = srcGeo.index ? srcGeo.toNonIndexed() : srcGeo.clone();
-      const pos = nonIndexed.attributes.position;
-      const count = pos.count;
-      const triCount = count / 3;
-      const aCenter = new Float32Array(count * 3);
-      const aNormal = new Float32Array(count * 3);
-      const aRand = new Float32Array(count * 3);
-      const v0 = new THREE.Vector3(),
-        v1 = new THREE.Vector3(),
-        v2 = new THREE.Vector3();
-      const edge1 = new THREE.Vector3(),
-        edge2 = new THREE.Vector3(),
-        faceN = new THREE.Vector3();
-      for (let t = 0; t < triCount; t++) {
-        const i = t * 3;
-        v0.fromBufferAttribute(pos, i);
-        v1.fromBufferAttribute(pos, i + 1);
-        v2.fromBufferAttribute(pos, i + 2);
-        const cx = (v0.x + v1.x + v2.x) / 3;
-        const cy = (v0.y + v1.y + v2.y) / 3;
-        const cz = (v0.z + v1.z + v2.z) / 3;
-        edge1.subVectors(v1, v0);
-        edge2.subVectors(v2, v0);
-        faceN.crossVectors(edge1, edge2).normalize();
-        const rx = Math.random(),
-          ry = Math.random(),
-          rz = Math.random();
-        for (let v = 0; v < 3; v++) {
-          const j = (i + v) * 3;
-          aCenter[j] = cx;
-          aCenter[j + 1] = cy;
-          aCenter[j + 2] = cz;
-          aNormal[j] = faceN.x;
-          aNormal[j + 1] = faceN.y;
-          aNormal[j + 2] = faceN.z;
-          aRand[j] = rx;
-          aRand[j + 1] = ry;
-          aRand[j + 2] = rz;
-        }
-      }
-      nonIndexed.setAttribute("aCenter", new THREE.BufferAttribute(aCenter, 3));
-      nonIndexed.setAttribute(
-        "aFaceNormal",
-        new THREE.BufferAttribute(aNormal, 3)
-      );
-      nonIndexed.setAttribute("aRand", new THREE.BufferAttribute(aRand, 3));
-      return nonIndexed;
-    }
-
-    let shardSegs = cfg.current.shardSegments || 2;
-    const explodeGeo = buildExplodeGeo(
-      new RoundedBoxGeometry(1, 1, 1, shardSegs, 0.08)
-    );
-    const explodeUniforms = {
-      uExplode: { value: 0 },
-      uExplodeCap: { value: 0.35 },
-      uRotSpeed: { value: 0.5 },
-      uTime: { value: 0 },
-      uOpacity: { value: 0.7 },
-      uSceneTex: { value: null },
-      uBgTex: { value: null },
-      uRes: { value: new THREE.Vector2(W(), H()) },
-    };
-    const explodeMat = new THREE.ShaderMaterial({
-      uniforms: explodeUniforms,
-      vertexShader: explodeVertexShader,
-      fragmentShader: explodeFragmentShader,
-      transparent: true,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-    });
-    const explodeMesh = new THREE.Mesh(explodeGeo, explodeMat);
-    explodeMesh.visible = false;
-    explodeMesh.renderOrder = 10;
-    scene.add(explodeMesh);
-
-    // ── Scroll ──
-    let sT = 0,
-      sC = 0;
-    const onWheel = (e) => {
-      if (showcaseOpenRef.current || showcaseTransRef.current) return;
-      sT = Math.max(
-        0,
-        Math.min(
-          cfg.current.totalScrollRange,
-          sT + e.deltaY * 0.008 * cfg.current.scrollSpeed
-        )
-      );
-    };
-    window.addEventListener("wheel", onWheel, { passive: true });
-    let tY = 0;
-    const onTS = (e) => {
-      if (e.touches.length === 1) tY = e.touches[0].clientY;
-    };
-    const onTMS = (e) => {
-      if (showcaseOpenRef.current || showcaseTransRef.current) return;
-      if (e.touches.length !== 1) return;
-      const dy = tY - e.touches[0].clientY;
-      tY = e.touches[0].clientY;
-      sT = Math.max(
-        0,
-        Math.min(
-          cfg.current.totalScrollRange,
-          sT + dy * 0.02 * cfg.current.scrollSpeed
-        )
-      );
-    };
-    window.addEventListener("touchstart", onTS);
-    window.addEventListener("touchmove", onTMS);
+    // ── No scroll — shatter/helix removed ──
+    const scrollProg = 0;
     const mouse = new THREE.Vector2(-999, -999),
       mouseWorld = new THREE.Vector3(),
       mouseSmooth = new THREE.Vector3();
@@ -380,7 +266,6 @@ export default function Scene({
       // Quick click (released before hold fired) — open chat
       if (isHolding && !holdFired) {
         clickScaleVel = -0.8;
-        sT = 0;
         setTimeout(() => {
           if (onCubeClickRef.current) onCubeClickRef.current();
         }, 300);
@@ -391,6 +276,16 @@ export default function Scene({
     };
     window.addEventListener("mousedown", onDown);
     window.addEventListener("mouseup", onUp);
+    // Touch hold support
+    const onTouchDown = (e) => {
+      if (e.touches.length !== 1) return;
+      const t = e.touches[0];
+      onDown({ clientX: t.clientX, clientY: t.clientY });
+    };
+    const onTouchUp = () => onUp();
+    window.addEventListener("touchstart", onTouchDown, { passive: true });
+    window.addEventListener("touchend", onTouchUp);
+    window.addEventListener("touchcancel", onTouchUp);
 
     const onResize = () => {
       camera.aspect = W() / H();
@@ -485,25 +380,6 @@ export default function Scene({
         (c.birthStartY ?? 0) +
         ((c.birthEndY ?? 0) - (c.birthStartY ?? 0)) * birth;
 
-      // Gentle scroll friction near card positions
-      const cardCenterConv = [0.2, 0.5, 0.825];
-      const prevConv = Math.max(
-        0,
-        Math.min(
-          1,
-          (sC / c.totalScrollRange - (c.shatterThreshold || 0.15)) /
-            (c.convergenceRange || 0.67)
-        )
-      );
-      let scrollRate = 0.08;
-      for (let ci = 0; ci < cardCenterConv.length; ci++) {
-        const dist = Math.abs(prevConv - cardCenterConv[ci]);
-        if (dist < 0.04) scrollRate = Math.min(scrollRate, 0.04);
-      }
-      sC += (sT - sC) * scrollRate;
-      const sc = sC;
-      const scrollProg = Math.max(0, Math.min(1, sc / c.totalScrollRange));
-      if (onScrollProgress) onScrollProgress(scrollProg);
       // Birth rotation
       rotAngle += (c.birthSpinSpeed || 0.4) * (c.birthSpinMult || 0.15) * dt;
       // Idle base rotation
@@ -716,16 +592,12 @@ export default function Scene({
       prevMouseY = mouse.y;
       const validMouse = mouse.x > -900 && prevMouseX > -900;
 
-      // Progress bar fill progress (0→1 as ring fills)
-      const shatterStart = c.shatterThreshold || 0.15;
-
       // Mouse-driven spin
       if (validMouse && cubeProx > 0.5 && birth > 0.95) {
         const speed = Math.sqrt(mdx * mdx + mdy * mdy);
         const proxStrength = Math.pow(cubeProx, 2);
         const mass = 5.0;
-        const strength =
-          (6 + speed * 100) * proxStrength * (1 - shatterProgress);
+        const strength = (6 + speed * 100) * proxStrength;
         angVel.y += (mdx * strength) / mass;
         angVel.x += (-mdy * strength * 0.8) / mass;
       }
@@ -775,103 +647,11 @@ export default function Scene({
       sphere.position.set(px, py, pz);
       glassCube.position.set(px, py, pz);
 
-      // ── Scroll-driven transition (reversible) ──
-      const shatterTriggered = scrollProg >= shatterStart;
-      const targetSP = shatterTriggered
-        ? Math.min(1, (scrollProg - shatterStart) / (1 - shatterStart))
-        : 0;
-      const lerpRate = shatterTriggered ? 0.18 : 0.06;
-      shatterProgress += (targetSP - shatterProgress) * lerpRate;
-      if (shatterTriggered && shatterProgress < 0.05) shatterProgress = 0.05;
-      const sp = shatterProgress;
+      // Glass cube — always visible (shatter/helix removed)
+      glassCube.visible = true;
+      glassEdges.visible = true;
 
-      // Track transition trigger moment (for particle stream only)
-      if (shatterTriggered && !wasShattered) {
-        wasShattered = true;
-      }
-      if (!shatterTriggered && wasShattered) {
-        wasShattered = false;
-      }
-
-      // After glass breaks, kill the spin quickly
-      if (shatterTriggered) {
-        const postDrag = 0.95;
-        angVel.x *= Math.max(0, 1 - postDrag * dt * 8);
-        angVel.y *= Math.max(0, 1 - postDrag * dt * 8);
-        angVel.z *= Math.max(0, 1 - postDrag * dt * 8);
-      }
-
-      // Explosion progress — scroll-driven, fully reversible
-      // Ramps 0→1 over a small scroll range past the threshold
-      const explodeRange = 0.12; // 12% of total scroll
-      const explodeT = Math.max(
-        0,
-        Math.min(1, (scrollProg - shatterStart) / explodeRange)
-      );
-
-      // Glass cube visible when explosion hasn't started
-      const cubeVis = explodeT < 0.01;
-      glassCube.visible = cubeVis;
-      glassEdges.visible = cubeVis;
-
-      // Glass shards — fade out quickly after shatter, gone before cards appear
-      const shardFadeStart = c.shatterThreshold || 0.15;
-      const shardPostScroll = Math.max(
-        0,
-        Math.min(1, (scrollProg - shardFadeStart) / 0.1)
-      );
-      explodeMesh.visible = explodeT > 0.01 && shardPostScroll < 0.95;
-      if (explodeMesh.visible) {
-        explodeMesh.position.copy(glassCube.position);
-        const hLen = c.helixLength || 60;
-        const hTurns = c.helixTurns || 10;
-        const convForShards = Math.max(
-          0,
-          Math.min(
-            1,
-            (scrollProg - (c.shatterThreshold || 0.15)) /
-              (c.convergenceRange || 0.67)
-          )
-        );
-        const shardYShift =
-          (convForShards *
-            hTurns *
-            Math.PI *
-            (c.helixRotationMult || 0.8) *
-            hLen) /
-          (hTurns * Math.PI * 2);
-        explodeMesh.position.y +=
-          shardYShift + shardPostScroll * shardPostScroll * 18;
-        explodeMesh.quaternion.copy(cubeQuat);
-        const gSize = c.glassCubeSize || 3.6;
-        explodeMesh.scale
-          .set(gSize, gSize, gSize)
-          .multiplyScalar(bR * menuScale);
-        explodeUniforms.uExplode.value = explodeT;
-        explodeUniforms.uExplodeCap.value = c.explodeCap || 0.35;
-        explodeUniforms.uRotSpeed.value = c.shardRotSpeed || 0.5;
-        explodeUniforms.uTime.value = el;
-        explodeUniforms.uOpacity.value =
-          (c.shatterOpacity || 0.7) * (1 - shardPostScroll);
-        explodeUniforms.uRes.value.set(W(), H());
-        const newSegs = c.shardSegments || 2;
-        if (newSegs !== shardSegs) {
-          shardSegs = newSegs;
-          const rebuildGeo = buildExplodeGeo(
-            new RoundedBoxGeometry(
-              1,
-              1,
-              1,
-              shardSegs,
-              c.glassCornerRadius || 0.08
-            )
-          );
-          explodeMesh.geometry.dispose();
-          explodeMesh.geometry = rebuildGeo;
-        }
-      }
-
-      if (cubeVis) {
+      {
         const cr = c.glassCornerRadius || 0.08;
         if (Math.abs(cr - lastCornerR) > 0.005) {
           lastCornerR = cr;
@@ -881,12 +661,6 @@ export default function Scene({
           const newEdgeGeo = new THREE.EdgesGeometry(newGeo);
           glassEdges.geometry.dispose();
           glassEdges.geometry = newEdgeGeo;
-          // Rebuild explode geo from new geometry
-          const newExplodeGeo = buildExplodeGeo(
-            new RoundedBoxGeometry(1, 1, 1, shardSegs, cr)
-          );
-          explodeMesh.geometry.dispose();
-          explodeMesh.geometry = newExplodeGeo;
         }
         glassCube.quaternion.copy(cubeQuat);
         const gSize = c.glassCubeSize || 3.6;
@@ -923,7 +697,7 @@ export default function Scene({
       fU.uTime.value = el;
       fU.uScrollProgress.value = scrollProg;
       fU.uShape.value = 0;
-      fU.uMeshAlpha.value = birthOpacity * (1 - shatterProgress);
+      fU.uMeshAlpha.value = birthOpacity;
       fU.uTetraScale.value = c.tetraScale;
       fU.uCubeScale.value = c.cubeScale;
       fU.uShapeTiltX.value = c.shapeTiltX || 0;
@@ -993,33 +767,27 @@ export default function Scene({
       }
       if (bgTex) bgTex.needsUpdate = true;
 
-      // Two-pass: scene to RT (no glass/explode), then full scene to screen
+      // Two-pass: scene to RT (no glass), then full scene to screen
       const gVis = glassCube.visible;
-      const eVis = explodeMesh.visible;
       glassCube.visible = false;
-      explodeMesh.visible = false;
       renderer.setRenderTarget(sceneRT);
       renderer.render(scene, camera);
       renderer.setRenderTarget(null);
       glassCube.visible = gVis;
-      explodeMesh.visible = eVis;
-      // Feed scene textures to both glass and explode shaders
       glassUniforms.uSceneTex.value = sceneRT.texture;
-      explodeUniforms.uSceneTex.value = sceneRT.texture;
-      if (bgTex) explodeUniforms.uBgTex.value = bgTex;
       renderer.render(scene, camera);
     }
     loop();
     return () => {
       cancelAnimationFrame(raf);
-      window.removeEventListener("wheel", onWheel);
-      window.removeEventListener("touchstart", onTS);
-      window.removeEventListener("touchmove", onTMS);
       window.removeEventListener("mousemove", onMM);
       window.removeEventListener("touchmove", onTM);
       window.removeEventListener("resize", onResize);
       window.removeEventListener("mousedown", onDown);
       window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("touchstart", onTouchDown);
+      window.removeEventListener("touchend", onTouchUp);
+      window.removeEventListener("touchcancel", onTouchUp);
       container.removeChild(renderer.domElement);
       renderer.dispose();
       sphereGeo.dispose();
@@ -1027,9 +795,6 @@ export default function Scene({
       glassMat.dispose();
       glassEdgeGeo.dispose();
       glassEdgeMat.dispose();
-      explodeGeo.dispose();
-      explodeMat.dispose();
-      scene.remove(explodeMesh);
       menuCubes.forEach((mc) => {
         scene.remove(mc.mesh);
         mc.geo.dispose();

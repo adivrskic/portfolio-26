@@ -2,6 +2,10 @@ import { useEffect, useRef } from "react";
 import { hslToRgb, hexToHsl } from "../../utils/color";
 import { rand } from "../../utils/math";
 
+const IS_MOBILE =
+  typeof window !== "undefined" &&
+  ("ontouchstart" in window || window.innerWidth < 768);
+
 export default function GradientBackground({
   config: c,
   onCanvasReady,
@@ -134,7 +138,7 @@ export default function GradientBackground({
       configRef.current.gradColor3 || "#3d9e5c",
       configRef.current.gradColor4 || "#d4f0c6",
     ].map(hexToHsl);
-    const BLOB_COUNT = configRef.current.blobCount || 15,
+    const BLOB_COUNT = IS_MOBILE ? 8 : configRef.current.blobCount || 15,
       blobs = [];
     for (let i = 0; i < BLOB_COUNT; i++) {
       const tc = themeColors[i % themeColors.length];
@@ -223,8 +227,8 @@ export default function GradientBackground({
         H * expand
       );
 
-      // ── Brush stamps ──
-      if (activeRef.current && mouse.x > 0 && mouse.y > 0) {
+      // ── Brush stamps (desktop only — no brush on touch devices) ──
+      if (!IS_MOBILE && activeRef.current && mouse.x > 0 && mouse.y > 0) {
         const dx = smooth.x - prevX,
           dy = smooth.y - prevY;
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -289,7 +293,7 @@ export default function GradientBackground({
 
       // ── Gold glitter trail — spawns at cursor, stays in place, fades out ──
       const isGold = (cc.gradColor1 || "").toLowerCase() === "#b8860b";
-      if (isGold && glitterRef.current) {
+      if (!IS_MOBILE && isGold && glitterRef.current) {
         const gt = glitterRef.current;
         const trail = gt.trail;
         const GOLD_TONES = [
