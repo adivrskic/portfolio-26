@@ -444,6 +444,7 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
           display: "flex",
           flexDirection: "column",
           pointerEvents: "none",
+          cursor: "default",
         }}
       >
         {/* Background — clipPath reveal like menu right panel */}

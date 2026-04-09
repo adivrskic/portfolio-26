@@ -16,6 +16,7 @@ import {
   Loader,
 } from "@react-three/drei";
 import GlassCube from "../scene/GlassCube";
+import { Flex, Box } from "@react-three/flex";
 
 // Inter font for 3D text — matches the rest of the site
 const FONT_URL =
@@ -24,7 +25,88 @@ function Text(props) {
   return <DreiText font={FONT_URL} {...props} />;
 }
 
-const state = { top: 0 };
+const state = { top: 0, section: 0, totalSections: 0 };
+
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  LAYOUT CONFIG — edit these values to tweak everything          ║
+// ║  Save the file and HMR will reload instantly                    ║
+// ╚══════════════════════════════════════════════════════════════════╝
+const L = {
+  // ── Section spacing (world units) ──
+  sectionH: 14, // vertical distance between sections
+  heroH: 8, // hero section height
+
+  // ── Images (3 in a row) — all values are multipliers of vw/vh ──
+  img: {
+    halfWidth: 0.46, // total row width as fraction of vw
+    gap: 0.15, // gap between images (world units)
+    aspect: 0.65, // image height = width × this
+    centerX: 0.25, // horizontal center of content half (× vw)
+    offsetY: 0.12, // push images up from section center (× vh)
+  },
+
+  // ── Text — positions are multipliers of vh, from section center ──
+  text: {
+    centerX: 0.25, // horizontal position (× vw, matches img.centerX)
+    maxWidth: 0.44, // max text width (× vw)
+    number: { y: -0.06, size: 0.12, spacing: 0.2, color: "#bbbbbb" },
+    tag: { y: -0.11, size: 0.08, spacing: 0.25, color: "#aaaaaa" },
+    title: { y: -0.2, size: 0.7, spacing: -0.03, color: "#1a1a2e", lineH: 1.1 },
+    body: { y: -0.34, size: 0.2, spacing: 0, color: "#888888", lineH: 1.8 },
+  },
+
+  // ── Accent backdrop (colored plane behind cube) ──
+  backdrop: {
+    centerX: 0.25, // horizontal center (× vw)
+    width: 0.5, // width (× vw)
+    height: 0.85, // height (× vh)
+    z: -2, // z depth (behind everything)
+    opacity: 0.18, // target opacity when visible
+    fadeSpeed: 0.04, // lerp speed for fade
+    visRange: 4, // camera distance to start showing
+  },
+
+  // ── Glass cube ──
+  cube: {
+    size: 1.8, // scale at project sections
+    centerX: 0.25, // horizontal position (× vw, cube side)
+    z: 5, // z depth (in front of everything)
+    fadeSpeed: 0.08, // lerp speed for scale fade in/out
+    hiddenPause: 0.1, // seconds to stay hidden before teleporting
+    push: {
+      radius: 14, // cursor push detection radius
+      strength: 6, // max push force
+      response: 0.1, // how fast push reacts
+      decayActive: 0.95, // inertia decay when cursor is near
+      decayIdle: 0.92, // inertia decay when cursor is far
+    },
+  },
+
+  // ── Animations ──
+  anim: {
+    cameraLerp: 0.045, // camera snap-scroll speed
+    textFade: 0.03, // text opacity lerp
+    textDrift: 2.0, // text slide-up distance (world units)
+    textStagger: 0.2, // delay multiplier between text elements
+    textVisRange: 4, // camera distance for text to start showing
+    imgFade: 0.03, // image opacity lerp
+    imgScale: 0.025, // image scale-up lerp
+    imgScaleFrom: 0.92, // starting scale for images
+    wheelDebounce: 1000, // ms between scroll snaps
+  },
+
+  // ── 3D perspective ──
+  perspective: {
+    imgRotY: 0.03, // image grid Y rotation (radians)
+    textRotY: 0.015, // text Y rotation (radians, half of images)
+  },
+
+  // ── Hero ──
+  hero: {
+    titleSize: 0.12, // × vw
+    titleColor: "#1a1a2e",
+  },
+};
 
 function ease(t) {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
@@ -97,59 +179,70 @@ const PROJECTS = [
 ];
 
 const N = PROJECTS.length;
-const SECTION_H = 14;
-const HERO_H = 8;
+const SECTION_H = L.sectionH;
+const HERO_H = L.heroH;
 // Last project center + half section for scrolling past
 const SETTLE_START = HERO_H + (N - 1) * SECTION_H + SECTION_H * 0.5;
 // Extra 8 units for cube settling zone at the end
 const TOTAL_H = SETTLE_START + 8;
 
-// ── Preload all textures + font so they're cached before showcase opens ──
+// ── Eagerly preload via browser — fires at import time, long before showcase opens ──
+const ALL_IMAGE_URLS = PROJECTS.flatMap((p) => p.images);
+const preloadPromise =
+  typeof document !== "undefined"
+    ? Promise.all([
+        // Font
+        fetch(FONT_URL, { mode: "cors" }).catch(() => {}),
+        // All images — load via Image() for reliable caching
+        ...ALL_IMAGE_URLS.map(
+          (url) =>
+            new Promise((resolve) => {
+              const img = new Image();
+              img.crossOrigin = "anonymous";
+              img.onload = resolve;
+              img.onerror = resolve;
+              img.src = url;
+            })
+        ),
+      ])
+    : Promise.resolve();
+
+// Also do R3F-level preload so useLoader hits cache
 PROJECTS.forEach((p) => {
   p.images.forEach((url) => {
     useLoader.preload(THREE.TextureLoader, url);
   });
 });
 
-// ── Eagerly preload via browser — fires at import time, long before showcase opens ──
-if (typeof document !== "undefined") {
-  const head = document.head;
-  // Font
-  const fl = document.createElement("link");
-  fl.rel = "preload";
-  fl.href = FONT_URL;
-  fl.as = "fetch";
-  fl.crossOrigin = "anonymous";
-  head.appendChild(fl);
-  // All project images
-  PROJECTS.forEach((p) => {
-    p.images.forEach((url) => {
-      const il = document.createElement("link");
-      il.rel = "preload";
-      il.href = url;
-      il.as = "image";
-      head.appendChild(il);
-    });
-  });
+// ── Section positions ──
+function getSectionY(idx) {
+  if (idx <= 0) return 0; // hero
+  if (idx <= N) return HERO_H + (idx - 1) * SECTION_H; // projects 1-N
+  return SETTLE_START; // settle
 }
+const TOTAL_SECTIONS = N + 2; // hero + N projects + settle
+state.totalSections = TOTAL_SECTIONS;
 
-// ── Camera — scrolls Y, intro rise from below ──
+// ── Camera — snaps to sections ──
 function CameraScroll() {
-  const { camera, viewport, size } = useThree();
+  const { camera, viewport } = useThree();
   const lerp = useRef(0);
   const introOffset = useRef(null);
 
   useFrame(() => {
-    // Init offset on first frame — content starts below camera
     if (introOffset.current === null)
       introOffset.current = viewport.height * 1.3;
-    // Decay offset to 0 — content rises into view
     introOffset.current *= 0.975;
     if (Math.abs(introOffset.current) < 0.01) introOffset.current = 0;
 
-    const maxScroll = size.height * (TOTAL_H / viewport.height);
-    const page = (state.top / Math.max(1, maxScroll)) * TOTAL_H;
-    lerp.current = THREE.MathUtils.lerp(lerp.current, page, 0.12);
+    const targetY = getSectionY(state.section);
+    lerp.current = THREE.MathUtils.lerp(
+      lerp.current,
+      targetY,
+      L.anim.cameraLerp
+    );
+    // Keep state.top in sync for other components
+    state.top = lerp.current;
     camera.position.y = -lerp.current + introOffset.current;
     camera.position.x = 0;
   });
@@ -168,132 +261,226 @@ function Img({ url, w, h }) {
   );
 }
 
-// ── Image grid: 50vw × 100vh — top spans full, 2 below ──
-function ImageGrid({ images, side, vw, vh }) {
-  const gap = 0.2;
-  const gridW = vw * 0.48;
-  const totalH = vh * 0.92;
-  const topH = totalH * 0.6;
-  const botH = totalH * 0.4 - gap;
-  const botW = (gridW - gap) / 2;
-  const cx = side * vw * 0.26;
-
-  return (
-    <group position={[cx, 0, 0]}>
-      {/* Top image — full grid width */}
-      <group position={[0, (totalH - topH) / 2, 0]}>
-        <Suspense fallback={null}>
-          <Img url={images[0]} w={gridW} h={topH} />
-        </Suspense>
-      </group>
-      {/* Bottom left */}
-      <group position={[-(botW + gap) / 2, -(totalH - botH) / 2, 0]}>
-        <Suspense fallback={null}>
-          <Img url={images[1]} w={botW} h={botH} />
-        </Suspense>
-      </group>
-      {/* Bottom right */}
-      <group position={[(botW + gap) / 2, -(totalH - botH) / 2, 0]}>
-        <Suspense fallback={null}>
-          <Img url={images[2]} w={botW} h={botH} />
-        </Suspense>
-      </group>
-    </group>
-  );
-}
-
-// ── Project section ──
-// ── Fade group — fades children based on camera proximity ──
-function FadeGroup({ sectionY, children, parallaxStrength = 0.08 }) {
-  const groupRef = useRef();
-  const opRef = useRef(0);
+// ── Image row: 3 images side by side ──
+// ── Text fade — fades + translates up, with stagger delay ──
+function TextFade({ sectionY, delay = 0, children }) {
+  const ref = useRef();
+  const op = useRef(0);
+  const started = useRef(false);
 
   useFrame(({ camera }) => {
-    if (!groupRef.current) return;
+    if (!ref.current) return;
     const dist = Math.abs(camera.position.y - sectionY);
-    const target = clamp(1 - (dist - 2) / 5, 0, 1);
-    opRef.current += (target - opRef.current) * 0.05;
-    // Parallax: content drifts slightly slower than camera
-    const camDelta = camera.position.y - sectionY;
-    const drift = camDelta * parallaxStrength + (1 - opRef.current) * 0.8;
-    groupRef.current.position.y = drift;
-    groupRef.current.traverse((child) => {
+    const visible = dist < L.anim.textVisRange;
+    if (visible && !started.current) started.current = true;
+    const target = visible ? 1 : 0;
+    const d = started.current
+      ? Math.max(0, target - delay * L.anim.textStagger)
+      : 0;
+    op.current += (d - op.current) * L.anim.textFade;
+    const drift = (1 - op.current) * L.anim.textDrift;
+    ref.current.position.y = drift;
+    ref.current.traverse((child) => {
       if (child.material && child.material.opacity !== undefined) {
-        child.material.opacity = opRef.current;
+        child.material.opacity = op.current;
         child.material.transparent = true;
       }
     });
   });
 
-  return <group ref={groupRef}>{children}</group>;
+  return <group ref={ref}>{children}</group>;
 }
 
-function ProjectSection({ project, index, s, vw, vh }) {
-  const textSide = index % 2 === 0 ? 1 : -1;
-  const imageSide = -textSide;
-  const sectionY = -(HERO_H + index * SECTION_H);
+// ── Image fade — fades + scales up ──
+function ImageFade({ sectionY, children }) {
+  const ref = useRef();
+  const op = useRef(0);
+  const sc = useRef(L.anim.imgScaleFrom);
 
-  const textX = textSide * vw * 0.02;
-  const anc = textSide > 0 ? "left" : "right";
-  const tAlign = textSide > 0 ? "left" : "right";
-  const textMaxW = vw * 0.38;
+  useFrame(({ camera }) => {
+    if (!ref.current) return;
+    const dist = Math.abs(camera.position.y - sectionY);
+    const target = dist < L.anim.textVisRange ? 1 : 0;
+    op.current += (target - op.current) * L.anim.imgFade;
+    sc.current +=
+      ((target > 0.5 ? 1 : L.anim.imgScaleFrom) - sc.current) * L.anim.imgScale;
+    ref.current.scale.setScalar(sc.current);
+    ref.current.traverse((child) => {
+      if (child.material && child.material.opacity !== undefined) {
+        child.material.opacity = op.current;
+        child.material.transparent = true;
+      }
+    });
+  });
+
+  return <group ref={ref}>{children}</group>;
+}
+
+// ── Accent plane — fills the cube's half with project color ──
+function AccentPlane({ sectionY, color, w, h }) {
+  const matRef = useRef();
+
+  useFrame(({ camera }) => {
+    if (!matRef.current) return;
+    const dist = Math.abs(camera.position.y - sectionY);
+    const target = dist < L.backdrop.visRange ? L.backdrop.opacity : 0;
+    matRef.current.opacity +=
+      (target - matRef.current.opacity) * L.backdrop.fadeSpeed;
+  });
+
+  return (
+    <mesh position={[0, 0, L.backdrop.z]}>
+      <planeGeometry args={[w * 0.9, h * 0.85]} />
+      <meshBasicMaterial
+        ref={matRef}
+        color={color}
+        transparent
+        opacity={0}
+        depthWrite={false}
+        toneMapped={false}
+      />
+    </mesh>
+  );
+}
+
+// ── Project section — @react-three/flex layout ──
+function ProjectSection({ project, index, s, vw, vh }) {
+  const sectionY = -(HERO_H + index * SECTION_H);
+  const flip = index % 2 !== 0;
+  const pad = vw * 0.03;
+  const imgGap = vw * 0.01;
+  const imgAspect = 0.65;
 
   return (
     <group position={[0, sectionY, 0]}>
-      <FadeGroup sectionY={sectionY}>
-        <ImageGrid images={project.images} side={imageSide} vw={vw} vh={vh} />
+      <Flex
+        position={[-vw / 2, vh / 2, 0]}
+        size={[vw, vh, 0]}
+        flexDirection={flip ? "row-reverse" : "row"}
+        alignItems="center"
+      >
+        {/* ── Content half: images + text ── */}
+        <Box
+          flex={1}
+          flexDirection="column"
+          padding={pad}
+          justifyContent="center"
+        >
+          {/* Image row — explicit height so Yoga can compute layout */}
+          {(() => {
+            const rowW = vw / 2 - pad * 2;
+            const singleW = (rowW - imgGap * 2) / 3;
+            const singleH = singleW * imgAspect;
+            return (
+              <Box
+                width={rowW}
+                height={singleH}
+                flexDirection="row"
+                marginBottom={vh * 0.04}
+              >
+                {project.images.map((url, i) => (
+                  <Box
+                    key={i}
+                    width={singleW}
+                    height={singleH}
+                    marginLeft={i > 0 ? imgGap : 0}
+                  >
+                    <ImageFade sectionY={sectionY}>
+                      <Suspense fallback={null}>
+                        <Img url={url} w={singleW} h={singleH} />
+                      </Suspense>
+                    </ImageFade>
+                  </Box>
+                ))}
+              </Box>
+            );
+          })()}
 
-        <Text
-          position={[textX, vh * 0.32, 0.5]}
-          fontSize={0.14 * s}
-          letterSpacing={0.2}
-          anchorX={anc}
-          color="#bbbbbb"
-        >
-          {project.number}
-        </Text>
-        <Text
-          position={[textX, vh * 0.26, 0.5]}
-          fontSize={0.1 * s}
-          letterSpacing={0.25}
-          anchorX={anc}
-          textAlign={tAlign}
-          color="#aaaaaa"
-        >
-          {project.tag}
-        </Text>
-        <Text
-          position={[textX, vh * 0.1, 0.5]}
-          fontSize={1.1 * s}
-          lineHeight={1.1}
-          letterSpacing={-0.03}
-          anchorX={anc}
-          anchorY="middle"
-          textAlign={tAlign}
-          maxWidth={textMaxW}
-          color="#1a1a2e"
-        >
-          {project.title}
-        </Text>
-        <Text
-          position={[textX, -vh * 0.08, 0.5]}
-          fontSize={0.24 * s}
-          lineHeight={1.8}
-          letterSpacing={0}
-          anchorX={anc}
-          anchorY="top"
-          textAlign={tAlign}
-          maxWidth={textMaxW}
-          color="#888888"
-        >
-          {project.text}
-        </Text>
-      </FadeGroup>
+          {/* Number */}
+          <Box height={L.text.number.size * s * 1.5} marginBottom={vh * 0.01}>
+            <TextFade sectionY={sectionY} delay={0}>
+              <Text
+                fontSize={L.text.number.size * s}
+                letterSpacing={L.text.number.spacing}
+                color={L.text.number.color}
+                anchorX="left"
+              >
+                {project.number}
+              </Text>
+            </TextFade>
+          </Box>
+
+          {/* Tag */}
+          <Box height={L.text.tag.size * s * 1.5} marginBottom={vh * 0.02}>
+            <TextFade sectionY={sectionY} delay={1}>
+              <Text
+                fontSize={L.text.tag.size * s}
+                letterSpacing={L.text.tag.spacing}
+                color={L.text.tag.color}
+                anchorX="left"
+              >
+                {project.tag}
+              </Text>
+            </TextFade>
+          </Box>
+
+          {/* Title */}
+          <Box height={L.text.title.size * s * 1.3} marginBottom={vh * 0.02}>
+            {(w) => (
+              <TextFade sectionY={sectionY} delay={2}>
+                <Text
+                  fontSize={L.text.title.size * s}
+                  lineHeight={L.text.title.lineH}
+                  letterSpacing={L.text.title.spacing}
+                  color={L.text.title.color}
+                  anchorX="left"
+                  anchorY="top"
+                  textAlign="left"
+                  maxWidth={w}
+                >
+                  {project.title}
+                </Text>
+              </TextFade>
+            )}
+          </Box>
+
+          {/* Description */}
+          <Box height={L.text.body.size * s * 5}>
+            {(w) => (
+              <TextFade sectionY={sectionY} delay={3}>
+                <Text
+                  fontSize={L.text.body.size * s}
+                  lineHeight={L.text.body.lineH}
+                  letterSpacing={L.text.body.spacing}
+                  color={L.text.body.color}
+                  anchorX="left"
+                  anchorY="top"
+                  textAlign="left"
+                  maxWidth={w}
+                >
+                  {project.text}
+                </Text>
+              </TextFade>
+            )}
+          </Box>
+        </Box>
+
+        {/* ── Cube half: accent backdrop ── */}
+        <Box flex={1} justifyContent="center" alignItems="center" centerAnchor>
+          {(w, h) => (
+            <AccentPlane
+              sectionY={sectionY}
+              color={project.accent}
+              w={w}
+              h={h}
+            />
+          )}
+        </Box>
+      </Flex>
     </group>
   );
 }
 
-// ── Hero ──// ── Hero ──
 function Hero({ s, vw }) {
   const groupRef = useRef();
   const opRef = useRef(0);
@@ -319,14 +506,14 @@ function Hero({ s, vw }) {
     <group position={[0, 0, -1]} ref={groupRef}>
       <Text
         position={[0, 0, 0]}
-        fontSize={w * 0.12}
+        fontSize={w * L.hero.titleSize}
         lineHeight={1}
         letterSpacing={-0.03}
         anchorX="center"
         anchorY="middle"
         textAlign="center"
         maxWidth={w * 0.95}
-        color="#1a1a2e"
+        color={L.hero.titleColor}
       >
         Selected Work
       </Text>
@@ -338,195 +525,176 @@ function Hero({ s, vw }) {
 // Transition effects: refraction blur, scale breathing, rotation burst
 // ── Glass cube — fades on scroll, reappears large at sections, cursor push ──
 // ── Glass cube — true fade via scale, repositions at each section ──
+// ── Glass cube — fade out → teleport → fade in, always in front ──
+// ── Glass cube — section-based, fade out → teleport → fade in ──
 function ShowcaseCube() {
   const cubeRef = useRef();
   const glowRef = useRef();
   const shadowRef = useRef();
-  const { viewport, size, pointer } = useThree();
-  const scrollLerp = useRef(0);
+  const { viewport, pointer } = useThree();
+
   const glowColor = useRef(new THREE.Color("#ffffff"));
-  const scaleSmooth = useRef(1);
+  const scaleRef = useRef(1);
   const posX = useRef(0);
   const posY = useRef(0);
   const pushX = useRef(0);
   const pushY = useRef(0);
   const spinVelX = useRef(0);
   const spinVelY = useRef(0);
-  const prevIdx = useRef(-1);
+
+  // State machine
+  const displayedSection = useRef(0); // which section cube is currently showing at
+  const phase = useRef("visible"); // visible | fading-out | hidden | fading-in
+  const hiddenTimer = useRef(0);
 
   useFrame(({ clock }) => {
     if (!cubeRef.current) return;
-    const dt = clock.getDelta ? Math.min(clock.getDelta(), 0.033) : 0.016;
-    const maxScroll = size.height * (TOTAL_H / viewport.height);
-    const raw = (state.top / Math.max(1, maxScroll)) * TOTAL_H;
-    scrollLerp.current = THREE.MathUtils.lerp(scrollLerp.current, raw, 0.1);
-    const scroll = scrollLerp.current;
-
     const vw = viewport.width;
     const vh = viewport.height;
+    const dt = 0.016;
 
-    // ── Zone detection ──
-    const inHero = scroll < HERO_H * 0.3;
-    const heroExit = scroll >= HERO_H * 0.3 && scroll < HERO_H;
-    const projScroll = Math.max(0, scroll - HERO_H * 0.5);
-    const rawIdx = projScroll / SECTION_H;
-    const idx = Math.min(N - 1, Math.floor(rawIdx));
-    const sectionT = clamp(rawIdx - idx, 0, 1);
-    const inSettle = scroll > SETTLE_START;
-    const settleT = clamp((scroll - SETTLE_START) / 8, 0, 1);
-    const inProject = !inHero && !heroExit && !inSettle;
+    const wantSection = state.section;
+    const needsChange = wantSection !== displayedSection.current;
+    const FADE_SPEED = L.cube.fadeSpeed;
+    const CUBE_SIZE_AT_SECTION = L.cube.size;
 
-    // Image grid positions — exactly matching ImageGrid component
-    // textSide = idx % 2 === 0 ? 1 : -1; imageSide = -textSide
-    const imageSide = idx % 2 === 0 ? -1 : 1;
-    const imageGridX = imageSide * vw * 0.26;
-    // Cube sits on outer edge of image grid, half off-screen
-    const cubeAtSectionX = imageSide * (vw * 0.48);
-    const sectionCenterY = -(HERO_H + idx * SECTION_H);
-
-    // Section transition progress
-    const transRaw = clamp(sectionT / 0.4, 0, 1);
-    const midArc = Math.sin(transRaw * Math.PI);
-    // How settled we are in the current section (0 = just arrived, 1 = fully settled)
-    const settled = clamp((sectionT - 0.4) / 0.3, 0, 1);
-    // How close to leaving (approaching next section)
-    const leaving = clamp((sectionT - 0.8) / 0.2, 0, 1);
-
-    // Rotation burst on section change
-    if (idx !== prevIdx.current && prevIdx.current >= 0 && inProject) {
-      const dir = idx > prevIdx.current ? 1 : -1;
-      spinVelY.current += dir * 0.15;
-      spinVelX.current += dir * 0.06;
-    }
-    prevIdx.current = idx;
-
-    // ── Target scale: 0 = fully hidden, >0 = visible ──
-    let targetScale;
-    let targetX, targetY;
-    const SECTION_CUBE_SIZE = 2.5;
-
-    if (inHero) {
-      // Hero: visible, centered
-      targetScale = 1;
-      targetX = 0;
-      targetY = -scroll;
-    } else if (heroExit) {
-      // Leaving hero: shrink to 0
-      const exitT = clamp((scroll - HERO_H * 0.3) / (HERO_H * 0.7), 0, 1);
-      targetScale = 1 - exitT;
-      targetX = 0;
-      targetY = -scroll;
-    } else if (inSettle) {
-      // Settle zone: expand and fade
-      targetScale = (1 + settleT * 4) * (1 - settleT);
-      targetX = 0;
-      targetY = -(SETTLE_START + settleT);
-    } else {
-      // Project sections:
-      // During transition (sectionT 0→0.4): scale 0 → SECTION_CUBE_SIZE (grow in)
-      // Settled (0.4→0.8): full size, at rest
-      // Leaving (0.8→1.0): shrink back to 0
-      if (transRaw < 1) {
-        // Growing in during transition
-        const growT = ease(transRaw);
-        targetScale = SECTION_CUBE_SIZE * growT;
-      } else if (leaving > 0) {
-        // Shrinking out before next section
-        targetScale = SECTION_CUBE_SIZE * (1 - ease(leaving));
+    // ── Compute target position for a given section ──
+    function getPosForSection(sec) {
+      if (sec === 0) {
+        // Hero — centered
+        return { x: 0, y: -state.top, scale: 1 };
+      } else if (sec > 0 && sec <= N) {
+        // Project section — on image grid side, half off-screen
+        const projIdx = sec - 1;
+        // Content is on contentSide, cube goes opposite
+        const cubeSide = projIdx % 2 === 0 ? 1 : -1;
+        return {
+          x: cubeSide * vw * L.cube.centerX,
+          y: -(HERO_H + projIdx * SECTION_H),
+          scale: CUBE_SIZE_AT_SECTION,
+        };
       } else {
-        // At rest
-        targetScale = SECTION_CUBE_SIZE;
+        // Settle — expand and fade
+        return {
+          x: 0,
+          y: -SETTLE_START,
+          scale: 0.01,
+        };
       }
-      targetX = cubeAtSectionX;
-      targetY = sectionCenterY;
     }
 
-    // ── Cursor push — only cube, push away from images ──
-    const mouseWX = (pointer.x * vw) / 2;
-    const mouseWY = (pointer.y * vh) / 2;
-    // Mouse in world Y needs camera offset
-    const camY = -scrollLerp.current;
-    const mouseAbsY = mouseWY + camY;
-    const cubeAbsX = posX.current;
-    const cubeAbsY = posY.current;
-    const dx = cubeAbsX - mouseWX;
-    const dy = cubeAbsY - mouseAbsY;
-    const distToCube = Math.sqrt(dx * dx + dy * dy);
-    const pushRadius = SECTION_CUBE_SIZE * 4;
-
+    // ── State machine ──
     if (
-      distToCube < pushRadius &&
-      distToCube > 0.1 &&
-      inProject &&
-      scaleSmooth.current > 0.5
+      needsChange &&
+      (phase.current === "visible" || phase.current === "fading-in")
     ) {
-      const pushStr = Math.pow(1 - distToCube / pushRadius, 2) * 3;
-      const nx = dx / distToCube;
-      const ny = dy / distToCube;
-      pushX.current += (nx * pushStr - pushX.current) * 0.08;
-      pushY.current += (ny * pushStr - pushY.current) * 0.08;
-    } else {
-      pushX.current *= 0.9;
-      pushY.current *= 0.9;
+      phase.current = "fading-out";
     }
-    if (Math.abs(pushX.current) < 0.001) pushX.current = 0;
-    if (Math.abs(pushY.current) < 0.001) pushY.current = 0;
 
-    // ── Apply position — fast lerp so it snaps to new sections quickly ──
-    posX.current = THREE.MathUtils.lerp(posX.current, targetX, 0.06);
-    posY.current = THREE.MathUtils.lerp(posY.current, targetY, 0.06);
+    if (phase.current === "fading-out") {
+      scaleRef.current = THREE.MathUtils.lerp(scaleRef.current, 0, FADE_SPEED);
+      if (scaleRef.current < 0.02) {
+        scaleRef.current = 0;
+        phase.current = "hidden";
+        hiddenTimer.current = 0;
+      }
+    } else if (phase.current === "hidden") {
+      scaleRef.current = 0;
+      hiddenTimer.current += dt;
+      if (hiddenTimer.current > 0.1) {
+        displayedSection.current = wantSection;
+        const p = getPosForSection(wantSection);
+        posX.current = p.x;
+        posY.current = p.y;
+        phase.current = "fading-in";
+        // Spin burst on arrival
+        const dir = wantSection % 2 === 0 ? 1 : -1;
+        spinVelY.current += dir * 0.12;
+        spinVelX.current += 0.05;
+      }
+    } else if (phase.current === "fading-in") {
+      const p = getPosForSection(displayedSection.current);
+      scaleRef.current = THREE.MathUtils.lerp(
+        scaleRef.current,
+        p.scale,
+        FADE_SPEED
+      );
+      posX.current = THREE.MathUtils.lerp(posX.current, p.x, 0.05);
+      posY.current = THREE.MathUtils.lerp(posY.current, p.y, 0.05);
+      if (Math.abs(scaleRef.current - p.scale) < 0.05) {
+        scaleRef.current = p.scale;
+        phase.current = "visible";
+      }
+    } else {
+      // visible — track position smoothly
+      const p = getPosForSection(displayedSection.current);
+      scaleRef.current = THREE.MathUtils.lerp(scaleRef.current, p.scale, 0.04);
+      posX.current = THREE.MathUtils.lerp(posX.current, p.x, 0.04);
+      posY.current = THREE.MathUtils.lerp(posY.current, p.y, 0.04);
+    }
+
+    // ── Cursor push — only at project sections ──
+    const inProject =
+      displayedSection.current > 0 &&
+      displayedSection.current <= N &&
+      phase.current === "visible";
+    if (inProject) {
+      const mouseWX = (pointer.x * vw) / 2;
+      const camY = -state.top;
+      const mouseAbsY = (pointer.y * vh) / 2 + camY;
+      const dx = posX.current - mouseWX;
+      const dy = posY.current - mouseAbsY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const pushRadius = L.cube.push.radius;
+      if (dist < pushRadius && dist > 0.1) {
+        const str = Math.pow(1 - dist / pushRadius, 2) * L.cube.push.strength;
+        pushX.current +=
+          ((dx / dist) * str - pushX.current) * L.cube.push.response;
+        pushY.current +=
+          ((dy / dist) * str - pushY.current) * L.cube.push.response;
+      } else {
+        pushX.current *= L.cube.push.decayActive;
+        pushY.current *= L.cube.push.decayActive;
+      }
+    } else {
+      pushX.current *= L.cube.push.decayIdle;
+      pushY.current *= L.cube.push.decayIdle;
+    }
+
+    // ── Apply ──
     cubeRef.current.position.x = posX.current + pushX.current;
     cubeRef.current.position.y = posY.current + pushY.current;
-    cubeRef.current.position.z = 1;
+    cubeRef.current.position.z = L.cube.z;
+    cubeRef.current.scale.setScalar(Math.max(0.001, scaleRef.current));
+    cubeRef.current.visible = scaleRef.current > 0.01;
 
-    // ── Scale — this IS the fade. 0 = invisible, >0 = visible ──
-    scaleSmooth.current = THREE.MathUtils.lerp(
-      scaleSmooth.current,
-      targetScale,
-      0.07
-    );
-    if (scaleSmooth.current < 0.01) scaleSmooth.current = 0;
-    cubeRef.current.scale.setScalar(Math.max(0.001, scaleSmooth.current));
-    cubeRef.current.visible = scaleSmooth.current > 0.01;
-
-    // ── Rotation ──
-    spinVelX.current *= 0.96;
-    spinVelY.current *= 0.96;
+    // Rotation
+    spinVelX.current *= 0.97;
+    spinVelY.current *= 0.97;
     cubeRef.current.rotation.x += 0.001 + spinVelX.current;
     cubeRef.current.rotation.y += 0.002 + spinVelY.current;
 
-    // ── Material — refraction effects during transitions ──
-    const mat =
-      cubeRef.current?.children?.[0]?.material || cubeRef.current?.material;
-    if (mat) {
-      mat.roughness = 0.02 + midArc * 0.08;
-      if (mat.chromaticAberration !== undefined) {
-        mat.chromaticAberration = 0.05 + midArc * 0.15;
-      }
-      mat.ior = 1.5 + midArc * 0.1;
-    }
-
-    // ── Glow ──
+    // Glow
+    const projIdx = displayedSection.current - 1;
     const accent = new THREE.Color(
-      inProject ? PROJECTS[idx].accent : "#ffffff"
+      projIdx >= 0 && projIdx < N ? PROJECTS[projIdx].accent : "#ffffff"
     );
     glowColor.current.lerp(accent, 0.03);
     if (glowRef.current) {
       glowRef.current.color.copy(glowColor.current);
       glowRef.current.intensity =
-        (inProject ? 3 : 0.5) * Math.min(1, scaleSmooth.current);
+        (inProject ? 3 : 0.5) * Math.min(1, scaleRef.current);
       glowRef.current.position.copy(cubeRef.current.position);
       glowRef.current.position.z += 1;
     }
     if (shadowRef.current) {
-      shadowRef.current.visible = scaleSmooth.current > 0.1;
+      shadowRef.current.visible = scaleRef.current > 0.1;
       shadowRef.current.position.x = cubeRef.current.position.x;
       shadowRef.current.position.y =
-        cubeRef.current.position.y - 2.5 * scaleSmooth.current;
-      const ss = 3 * scaleSmooth.current;
+        cubeRef.current.position.y - 2.5 * scaleRef.current;
+      const ss = 3 * scaleRef.current;
       shadowRef.current.scale.set(ss * 1.2, ss, ss);
-      shadowRef.current.material.opacity =
-        0.08 * Math.min(1, scaleSmooth.current);
+      shadowRef.current.material.opacity = 0.06 * Math.min(1, scaleRef.current);
     }
   });
 
@@ -551,7 +719,7 @@ function ShowcaseCube() {
       <pointLight ref={glowRef} intensity={0.5} distance={18} />
       <Shadow
         ref={shadowRef}
-        opacity={0.08}
+        opacity={0.06}
         rotation-x={-Math.PI / 2}
         position={[0, -3, 0]}
         scale={[3, 3, 3]}
@@ -571,7 +739,7 @@ function SettleClump() {
   const tmpV = useMemo(() => new THREE.Vector3(), []);
   const dq = useMemo(() => new THREE.Quaternion(), []);
   const euler = useMemo(() => new THREE.Euler(), []);
-  const { size, viewport } = useThree();
+  const { size, viewport, pointer } = useThree();
   const opSmooth = useRef(0);
 
   const particles = useMemo(() => {
@@ -607,10 +775,10 @@ function SettleClump() {
     if (!meshRef.current || !groupRef.current) return;
     const d = Math.min(dt, 0.033);
 
-    // Compute settle progress from camera position
-    const camY = -camera.position.y;
-    const settleT = clamp((camY - SETTLE_START) / 8, 0, 1);
-    const targetOp = settleT;
+    // Compute settle progress from section state
+    const isSettle = state.section >= N + 1;
+    const camDist = Math.abs(-camera.position.y - SETTLE_START);
+    const targetOp = isSettle ? clamp(1 - camDist / 4, 0, 1) : 0;
     opSmooth.current += (targetOp - opSmooth.current) * 0.04;
 
     // Apply opacity to material
@@ -619,12 +787,39 @@ function SettleClump() {
       mat.opacity = opSmooth.current * 0.85;
     }
 
+    // Cursor in world space relative to settle group
+    const vw = viewport.width;
+    const vh = viewport.height;
+    const mouseX = (pointer.x * vw) / 2;
+    const mouseY = (pointer.y * vh) / 2;
+    const pushRadius = 5;
+    const pushStrength = 18;
+
     for (let i = 0; i < CLUMP_COUNT; i++) {
       const p = particles[i];
+
+      // Attraction toward center
       tmpV.copy(p.pos).normalize().multiplyScalar(-6);
       p.vel.addScaledVector(tmpV, d);
-      p.vel.multiplyScalar(1 - 2.5 * d);
-      p.angVel.multiplyScalar(1 - 1.5 * d);
+
+      // Cursor push — repel particles from mouse
+      if (isSettle) {
+        const dx = p.pos.x - mouseX;
+        const dy = p.pos.y - mouseY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < pushRadius && dist > 0.05) {
+          const force = Math.pow(1 - dist / pushRadius, 2) * pushStrength * d;
+          p.vel.x += (dx / dist) * force;
+          p.vel.y += (dy / dist) * force;
+          // Spin from push
+          p.angVel.x += (dy / dist) * force * 0.5;
+          p.angVel.y += (dx / dist) * force * 0.5;
+        }
+      }
+
+      // Damping — high inertia
+      p.vel.multiplyScalar(1 - 1.8 * d);
+      p.angVel.multiplyScalar(1 - 1.2 * d);
       p.pos.addScaledVector(p.vel, d);
 
       for (let j = i + 1; j < CLUMP_COUNT; j++) {
@@ -656,7 +851,7 @@ function SettleClump() {
   });
 
   return (
-    <group ref={groupRef} position={[0, -(SETTLE_START + 4), 0]}>
+    <group ref={groupRef} position={[0, -SETTLE_START, 0]}>
       <instancedMesh
         ref={meshRef}
         args={[geo, undefined, CLUMP_COUNT]}
@@ -690,9 +885,9 @@ function SettleName() {
 
   useFrame(({ camera }) => {
     if (!groupRef.current) return;
-    const camY = -camera.position.y;
-    const settleT = clamp((camY - SETTLE_START) / 8, 0, 1);
-    const target = settleT;
+    const isSettle = state.section >= N + 1;
+    const camDist = Math.abs(-camera.position.y - SETTLE_START);
+    const target = isSettle ? clamp(1 - camDist / 4, 0, 1) : 0;
     opRef.current += (target - opRef.current) * 0.035;
     groupRef.current.traverse((child) => {
       if (child.material && child.material.opacity !== undefined) {
@@ -703,7 +898,7 @@ function SettleName() {
   });
 
   return (
-    <group ref={groupRef} position={[0, -(SETTLE_START + 4), -3]}>
+    <group ref={groupRef} position={[0, -SETTLE_START, -3]}>
       <Text
         position={[0, 0, 0]}
         fontSize={vw * 0.14}
@@ -760,24 +955,24 @@ function Content({ onVpHeight }) {
 }
 
 // ── Main export ──
-export default function ShowcaseCanvas({ open, onClose }) {
-  const scrollArea = useRef();
+export default function ShowcaseCanvas({ open, onClose, config }) {
   const containerRef = useRef();
   const [visible, setVisible] = useState(false);
-  const pullRef = useRef(0);
+  const [preloaded, setPreloaded] = useState(false);
   const closingRef = useRef(false);
-  // Measured from R3F — the exact world-space viewport height
   const [vpHeight, setVpHeight] = useState(null);
-  const [containerH, setContainerH] = useState(null);
-  const [scrollProgress, setScrollProgress] = useState(0);
+  const lastWheelRef = useRef(0);
+
+  // Preload all assets on mount (not on open)
+  useEffect(() => {
+    preloadPromise.then(() => setPreloaded(true));
+  }, []);
 
   useEffect(() => {
     if (open) {
+      state.section = 0;
       state.top = 0;
-      pullRef.current = 0;
       closingRef.current = false;
-      setScrollProgress(0);
-      if (scrollArea.current) scrollArea.current.scrollTop = 0;
       setVisible(true);
     } else {
       closingRef.current = false;
@@ -786,62 +981,72 @@ export default function ShowcaseCanvas({ open, onClose }) {
     }
   }, [open]);
 
-  // Measure container height precisely via ResizeObserver
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([entry]) => {
-      setContainerH(entry.contentRect.height);
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [visible]);
-
   const handleVpHeight = useCallback((h) => setVpHeight(h), []);
 
-  const onScroll = useCallback((e) => {
-    const el = e.target;
-    state.top = el.scrollTop;
-    const max = el.scrollHeight - el.clientHeight;
-    if (max > 0) setScrollProgress(el.scrollTop / max);
-  }, []);
-
-  // Scroll up at top → close showcase and return to scene
+  // Wheel handler — snap to sections with debounce
   const onWheel = useCallback(
     (e) => {
       if (closingRef.current) return;
-      const el = scrollArea.current;
-      if (!el || el.scrollTop > 2) {
-        pullRef.current = 0;
-        return;
-      }
-      if (e.deltaY < 0) {
-        pullRef.current += Math.abs(e.deltaY);
-        if (pullRef.current > 150) {
+      const now = performance.now();
+      if (now - lastWheelRef.current < L.anim.wheelDebounce) return; // debounce
+      lastWheelRef.current = now;
+
+      if (e.deltaY > 10) {
+        // Scroll down — next section
+        if (state.section < state.totalSections - 1) {
+          state.section += 1;
+        }
+      } else if (e.deltaY < -10) {
+        // Scroll up — previous section
+        if (state.section > 0) {
+          state.section -= 1;
+        } else {
+          // At hero, scroll up = close showcase
           closingRef.current = true;
           onClose();
         }
-      } else {
-        pullRef.current = 0;
       }
     },
     [onClose]
   );
 
-  // Precise scroll div height: containerH * (1 + TOTAL_H / vpHeight)
-  // This makes scrollTop max = containerH * TOTAL_H / vpHeight = maxScroll exactly
-  let scrollDivPx = null;
-  if (vpHeight && containerH) {
-    scrollDivPx = Math.round(containerH * (1 + TOTAL_H / vpHeight));
-  }
-  // Fallback before R3F measures viewport (brief flash before first frame)
-  const fallbackHeight = `${Math.round((1 + TOTAL_H / 9.94) * 100)}%`;
+  // Current section for footer visibility
+  const isAtSettle = state.section >= state.totalSections - 1;
 
   if (!visible) return null;
+
+  if (!preloaded) {
+    return (
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 1,
+          background: "#e8e8ee",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div
+          style={{
+            width: 24,
+            height: 24,
+            border: "2px solid rgba(26,26,46,0.08)",
+            borderTop: "2px solid rgba(26,26,46,0.3)",
+            borderRadius: "50%",
+            animation: "spin 0.8s linear infinite",
+          }}
+        />
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      </div>
+    );
+  }
 
   return (
     <div
       ref={containerRef}
+      onWheel={onWheel}
       style={{
         position: "fixed",
         inset: 0,
@@ -883,120 +1088,145 @@ export default function ShowcaseCanvas({ open, onClose }) {
         </Suspense>
       </Canvas>
 
-      {/* Scroll overlay */}
-      <div
-        ref={scrollArea}
-        onScroll={onScroll}
-        onWheel={onWheel}
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: "100%",
-          height: "100%",
-          overflow: "auto",
-          cursor: "default",
-          zIndex: 3,
-        }}
-      >
-        <div
-          style={{
-            height: scrollDivPx ? `${scrollDivPx}px` : fallbackHeight,
-          }}
-        />
-      </div>
-
-      {/* End overlay — fades in when scrolled to the settling zone */}
-      {(() => {
-        const opacity = clamp((scrollProgress - 0.85) / 0.15, 0, 1);
-        const yShift = (1 - opacity) * 30;
-        return (
-          <div
-            style={{
-              position: "absolute",
-              bottom: 0,
-              left: 0,
-              right: 0,
-              zIndex: 5,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "flex-end",
-              paddingBottom: 48,
-              gap: 20,
-              opacity,
-              transform: `translateY(${yShift}px)`,
-              transition: "opacity 0.3s ease, transform 0.3s ease",
-              pointerEvents: opacity > 0.3 ? "auto" : "none",
-            }}
-          >
-            <span
-              style={{
-                fontSize: 9,
-                fontFamily: "'Inter',-apple-system,sans-serif",
-                fontWeight: 300,
-                letterSpacing: "0.3em",
-                textTransform: "uppercase",
-                color: "rgba(26,26,46,0.25)",
-              }}
-            >
-              End of showcase
-            </span>
-            <div style={{ display: "flex", gap: 32 }}>
-              <button
-                onClick={() => {
-                  if (scrollArea.current) {
-                    scrollArea.current.scrollTo({ top: 0, behavior: "smooth" });
-                  }
-                }}
-                style={{
-                  fontSize: 13,
-                  fontFamily: "'Inter',-apple-system,sans-serif",
-                  fontWeight: 300,
-                  letterSpacing: "0.06em",
-                  color: "rgba(26,26,46,0.6)",
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  padding: "8px 16px",
-                  borderRadius: 6,
-                  transition: "background 0.2s",
-                }}
-                onMouseEnter={(e) =>
-                  (e.target.style.background = "rgba(26,26,46,0.04)")
-                }
-                onMouseLeave={(e) => (e.target.style.background = "none")}
-              >
-                ↑ Back to top
-              </button>
-              <button
-                onClick={onClose}
-                style={{
-                  fontSize: 13,
-                  fontFamily: "'Inter',-apple-system,sans-serif",
-                  fontWeight: 300,
-                  letterSpacing: "0.06em",
-                  color: "rgba(26,26,46,0.6)",
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  padding: "8px 16px",
-                  borderRadius: 6,
-                  transition: "background 0.2s",
-                }}
-                onMouseEnter={(e) =>
-                  (e.target.style.background = "rgba(26,26,46,0.04)")
-                }
-                onMouseLeave={(e) => (e.target.style.background = "none")}
-              >
-                Contact →
-              </button>
-            </div>
-          </div>
-        );
-      })()}
+      {/* Section progress indicator — rAF-driven, reads state.section directly */}
+      <SectionProgress
+        totalSections={TOTAL_SECTIONS}
+        themeColor={config?.gradColor1}
+      />
 
       <Loader />
+    </div>
+  );
+}
+
+// ── Section progress — vertical line with sliding marker ──
+function SectionProgress({ totalSections, themeColor }) {
+  const ticksRef = useRef([]);
+  const startRef = useRef();
+  const endRef = useRef();
+
+  const TICKS_PER = 8;
+  const TICK_SPACING = 8;
+  const TICK_H = 2;
+  const TOTAL_TICKS = totalSections * TICKS_PER;
+  const BASE_W = 6;
+  const MAX_W = 48;
+
+  const totalH = TOTAL_TICKS * TICK_SPACING;
+
+  useEffect(() => {
+    let raf;
+    function tick() {
+      raf = requestAnimationFrame(tick);
+      const sec = state.section;
+      const center = sec * TICKS_PER + TICKS_PER / 2;
+      const sigma = TICKS_PER * 1.4;
+
+      // Parse theme hex to rgb
+      const hex = themeColor || "#1a1a2e";
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      const themeRgb = `${r},${g},${b}`;
+
+      for (let i = 0; i < TOTAL_TICKS; i++) {
+        const el = ticksRef.current[i];
+        if (!el) continue;
+        const dist = Math.abs(i - center);
+        const gauss = Math.exp(-(dist * dist) / (2 * sigma * sigma));
+        const w = BASE_W + (MAX_W - BASE_W) * gauss;
+        const op = 0.06 + 0.5 * gauss;
+        el.style.width = w + "px";
+        el.style.opacity = op;
+        if (gauss > 0.15) {
+          el.style.backgroundColor = `rgba(${themeRgb},1)`;
+        } else {
+          el.style.backgroundColor = "rgba(26,26,46,1)";
+        }
+      }
+      if (startRef.current) {
+        startRef.current.style.opacity = sec === 0 ? "0.3" : "0";
+      }
+      if (endRef.current) {
+        endRef.current.style.opacity = sec >= totalSections - 1 ? "0.3" : "0";
+      }
+    }
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [totalSections, themeColor]);
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        right: 24,
+        top: "50%",
+        transform: "translateY(-50%)",
+        height: totalH,
+        zIndex: 5,
+        pointerEvents: "none",
+      }}
+    >
+      {/* Start label */}
+      <div
+        ref={startRef}
+        style={{
+          position: "absolute",
+          right: 0,
+          top: -18,
+          fontFamily: "'Inter',-apple-system,sans-serif",
+          fontSize: 8,
+          fontWeight: 300,
+          letterSpacing: "0.2em",
+          textTransform: "uppercase",
+          color: "rgba(26,26,46,1)",
+          opacity: 0,
+          transition: "opacity 0.5s",
+        }}
+      >
+        Start
+      </div>
+
+      {Array.from({ length: TOTAL_TICKS }, (_, i) => (
+        <div
+          key={i}
+          ref={(el) => {
+            ticksRef.current[i] = el;
+          }}
+          style={{
+            position: "absolute",
+            right: 0,
+            top: i * TICK_SPACING,
+            height: TICK_H,
+            width: BASE_W,
+            borderRadius: 1,
+            background: "rgba(26,26,46,1)",
+            opacity: 0.06,
+            transition:
+              "width 0.7s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.5s, background-color 0.5s",
+          }}
+        />
+      ))}
+
+      {/* End label */}
+      <div
+        ref={endRef}
+        style={{
+          position: "absolute",
+          right: 0,
+          bottom: -18,
+          fontFamily: "'Inter',-apple-system,sans-serif",
+          fontSize: 8,
+          fontWeight: 300,
+          letterSpacing: "0.2em",
+          textTransform: "uppercase",
+          color: "rgba(26,26,46,1)",
+          opacity: 0,
+          transition: "opacity 0.5s",
+        }}
+      >
+        End
+      </div>
     </div>
   );
 }

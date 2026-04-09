@@ -63,7 +63,7 @@ export default function App() {
     setTimeout(() => {
       setShowcaseOpen(true);
       setShowcaseTransition(false);
-    }, 2200);
+    }, 3200);
   }, []);
 
   const handleCloseShowcase = useCallback(() => {
@@ -81,7 +81,11 @@ export default function App() {
 
   return (
     <div className="app-root hide-cursor">
-      <Showcase open={showcaseOpen} onClose={handleCloseShowcase} />
+      <Showcase
+        open={showcaseOpen}
+        onClose={handleCloseShowcase}
+        config={config}
+      />
 
       <div
         style={{

@@ -66,7 +66,7 @@ export default function Reticle({
         ref.current.style.width = size + "px";
         ref.current.style.height = size + "px";
         ref.current.style.margin = -size / 2 + "px 0 0 " + -size / 2 + "px";
-        ref.current.style.opacity = chatMode || menuOpen ? 0.12 : opacity;
+        ref.current.style.opacity = chatMode || menuOpen ? 0 : opacity;
 
         if (++frame % 3 === 0 && gradCanvasRef.current) {
           const dpr = Math.min(window.devicePixelRatio, 2);

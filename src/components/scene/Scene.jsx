@@ -575,7 +575,8 @@ export default function Scene({
       morph,
       colors,
       surprise,
-      sleep
+      sleep,
+      holdProg
     ) {
       sCtx.clearRect(0, 0, 256, 256);
       const faceAlpha = Math.max(0, 1 - morph * 2.5);
@@ -592,9 +593,79 @@ export default function Scene({
           colors
         );
       if (waveAlpha > 0.01) drawWaveLayer(time, waveAlpha, colors);
+
+      // ── Hold progress ring ──
+      const hp = holdProg || 0;
+      if (hp > 0.01) {
+        const c1 = hexRgb(colors?.[0]);
+        const c2 = hexRgb(colors?.[1]);
+        const ringR = 90;
+        const startAngle = -Math.PI / 2;
+        const endAngle = startAngle + hp * Math.PI * 2;
+        const lineW = 3 + hp * 4;
+        const pulse = 1 + Math.sin(time * 12) * 0.15 * hp;
+
+        // Outer glow ring
+        sCtx.save();
+        sCtx.globalAlpha = hp * 0.3;
+        sCtx.strokeStyle = `rgba(${c2.r},${c2.g},${c2.b},0.4)`;
+        sCtx.lineWidth = lineW + 8;
+        sCtx.lineCap = "round";
+        sCtx.shadowColor = `rgba(${c2.r},${c2.g},${c2.b},0.6)`;
+        sCtx.shadowBlur = 12 * pulse;
+        sCtx.beginPath();
+        sCtx.arc(smCx, smCy, ringR * pulse, startAngle, endAngle);
+        sCtx.stroke();
+        sCtx.restore();
+
+        // Main progress arc — gradient from color1 to color2
+        sCtx.save();
+        sCtx.globalAlpha = 0.6 + hp * 0.35;
+        sCtx.lineWidth = lineW;
+        sCtx.lineCap = "round";
+        sCtx.shadowColor = `rgba(${c1.r},${c1.g},${c1.b},0.5)`;
+        sCtx.shadowBlur = 6 * pulse;
+
+        // Sweep gradient via multiple small arcs
+        const steps = Math.max(4, Math.floor(hp * 40));
+        for (let i = 0; i < steps; i++) {
+          const t = i / steps;
+          const a0 = startAngle + t * hp * Math.PI * 2;
+          const a1 = startAngle + (t + 1.5 / steps) * hp * Math.PI * 2;
+          const cr = Math.round(c1.r + (c2.r - c1.r) * t);
+          const cg = Math.round(c1.g + (c2.g - c1.g) * t);
+          const cb = Math.round(c1.b + (c2.b - c1.b) * t);
+          sCtx.strokeStyle = `rgba(${cr},${cg},${cb},1)`;
+          sCtx.beginPath();
+          sCtx.arc(smCx, smCy, ringR * pulse, a0, Math.min(a1, endAngle));
+          sCtx.stroke();
+        }
+
+        // Leading edge dot
+        const dotX = smCx + Math.cos(endAngle) * ringR * pulse;
+        const dotY = smCy + Math.sin(endAngle) * ringR * pulse;
+        sCtx.fillStyle = `rgba(${c2.r},${c2.g},${c2.b},${0.7 + hp * 0.3})`;
+        sCtx.shadowColor = `rgba(${c2.r},${c2.g},${c2.b},0.8)`;
+        sCtx.shadowBlur = 10 * pulse;
+        sCtx.beginPath();
+        sCtx.arc(dotX, dotY, 3 + hp * 2, 0, Math.PI * 2);
+        sCtx.fill();
+
+        sCtx.restore();
+
+        // Background track ring
+        sCtx.save();
+        sCtx.globalAlpha = 0.08;
+        sCtx.strokeStyle = `rgba(${c1.r},${c1.g},${c1.b},1)`;
+        sCtx.lineWidth = 2;
+        sCtx.beginPath();
+        sCtx.arc(smCx, smCy, ringR, 0, Math.PI * 2);
+        sCtx.stroke();
+        sCtx.restore();
+      }
     }
 
-    drawCubeFace(0, 0, 0, 0, 0, null, 0, 0);
+    drawCubeFace(0, 0, 0, 0, 0, null, 0, 0, 0);
     const smileyTex = new THREE.CanvasTexture(smileyCanvas);
     smileyTex.needsUpdate = true;
     const smileyMat = new THREE.SpriteMaterial({
@@ -679,8 +750,9 @@ export default function Scene({
     };
     const onUp = () => {
       if (holdTimer) clearTimeout(holdTimer);
-      // Quick click (released before hold fired) — open chat
-      if (isHolding && !holdFired) {
+      // Quick click only — if held long enough to start progress ring, don't open chat
+      const holdDuration = performance.now() - holdStartTime;
+      if (isHolding && !holdFired && holdDuration < 150) {
         clickScaleVel = -0.8;
         setTimeout(() => {
           if (onCubeClickRef.current) onCubeClickRef.current();
@@ -1068,6 +1140,10 @@ export default function Scene({
         c.gradColor3,
         c.gradColor4,
       ];
+      const holdProgress =
+        isHolding && !holdFired
+          ? Math.max(0, Math.min(1, (performance.now() - holdStartTime) / 600))
+          : 0;
       drawCubeFace(
         dizzySmooth,
         el,
@@ -1076,7 +1152,8 @@ export default function Scene({
         chatMorph,
         themeColors,
         scZoom,
-        sleepSmooth
+        sleepSmooth,
+        holdProgress
       );
       smileyTex.needsUpdate = true;
 
@@ -1088,7 +1165,7 @@ export default function Scene({
       }
       // Showcase transition: cube gently zooms toward camera and enlarges
       if (showcaseTransRef.current || showcaseOpenRef.current) {
-        scZoom = Math.min(1, scZoom + dt * 1.0); // ~1s to fully zoom
+        scZoom = Math.min(1, scZoom + dt * 0.5); // ~2s to fully zoom
       } else {
         scZoom = Math.max(0, scZoom - dt * 1.5);
       }

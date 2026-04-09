@@ -226,17 +226,20 @@ function ThemeCard({ theme: t, isActive, onClick }) {
     }
     ctx.globalCompositeOperation = "source-over";
 
-    // Gradual reveal: animate revealRef toward 1 when active, 0 when not
+    // Gradual reveal: only when active (clicked). Hover just shows brush strokes.
     if (isActiveRef.current) {
-      revealRef.current = Math.min(1, revealRef.current + 0.08);
-    } else if (!prevActiveRef.current) {
-      // Stay at 0 if never been active in this cycle
+      revealRef.current = Math.min(1, revealRef.current + 0.12);
+    } else {
+      revealRef.current = Math.max(0, revealRef.current - 0.04);
     }
     prevActiveRef.current = isActiveRef.current;
 
-    // Fade in the canvas as it reveals
+    // Canvas visible when hovering (brush strokes) or revealing/decaying (active)
     if (mainRef.current) {
-      mainRef.current.style.opacity = Math.min(1, revealRef.current * 2);
+      const revealOp = Math.min(1, revealRef.current * 2.5);
+      mainRef.current.style.opacity = hoveringRef.current
+        ? "1"
+        : String(revealOp);
     }
 
     const reveal = revealRef.current;
@@ -328,7 +331,7 @@ function ThemeCard({ theme: t, isActive, onClick }) {
     if (
       hoveringRef.current ||
       isActiveRef.current ||
-      (revealRef.current > 0 && revealRef.current < 1)
+      revealRef.current > 0.001
     ) {
       rafRef.current = requestAnimationFrame(tick);
     } else {
@@ -389,8 +392,11 @@ function ThemeCard({ theme: t, isActive, onClick }) {
 
   useEffect(() => {
     if (!isActive) {
-      revealRef.current = 0;
-      prevActiveRef.current = false;
+      // Keep the loop running so revealRef can decay smoothly
+      if (revealRef.current > 0) {
+        if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        rafRef.current = requestAnimationFrame(tick);
+      }
       justMountedRef.current = false;
       return;
     }
