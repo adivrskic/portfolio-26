@@ -220,6 +220,25 @@ export default function Scene({
     let glitchOffset = 0;
     let glitchSlice = -1;
 
+    // Gold theme sparkles
+    const SPARKLE_COUNT = 24;
+    const sparkles = Array.from({ length: SPARKLE_COUNT }, () => ({
+      x: (Math.random() - 0.5) * 200,
+      y: (Math.random() - 0.5) * 200,
+      size: 0.8 + Math.random() * 2.2,
+      phase: Math.random() * Math.PI * 2,
+      speed: 0.8 + Math.random() * 2,
+      driftX: (Math.random() - 0.5) * 0.3,
+      driftY: -0.1 - Math.random() * 0.3,
+      tone: Math.floor(Math.random() * 4),
+    }));
+    const GOLD_TONES = [
+      [255, 215, 0],
+      [255, 200, 80],
+      [218, 165, 32],
+      [255, 240, 160],
+    ];
+
     function hexRgb(hex) {
       if (!hex || typeof hex !== "string") return { r: 180, g: 200, b: 255 };
       const h = hex.replace("#", "");
@@ -231,7 +250,16 @@ export default function Scene({
     }
 
     // ── Draw smiley face ──
-    function drawFaceLayer(dizzy, time, lookX, lookY, alpha, surprise, sleep) {
+    function drawFaceLayer(
+      dizzy,
+      time,
+      lookX,
+      lookY,
+      alpha,
+      surprise,
+      sleep,
+      colors
+    ) {
       const lx = (lookX || 0) * 12;
       const ly = (lookY || 0) * -8;
       const sp = surprise || 0;
@@ -241,10 +269,16 @@ export default function Scene({
       const eyeL = { x: fx - 30, y: fy - 18 - sp * 4 };
       const eyeR = { x: fx + 30, y: fy - 18 - sp * 4 };
 
+      // Theme colors for face
+      const fc = hexRgb(colors?.[0]); // primary — darkest
+      const fc2 = hexRgb(colors?.[1]); // secondary
+      const faceColor = (a) => `rgba(${fc.r},${fc.g},${fc.b},${a})`;
+      const face2Color = (a) => `rgba(${fc2.r},${fc2.g},${fc2.b},${a})`;
+
       sCtx.save();
       sCtx.globalAlpha = alpha;
 
-      // Glow
+      // Glow — theme tinted
       const glow = sCtx.createRadialGradient(
         smCx + lx * 0.3,
         smCy + ly * 0.3,
@@ -253,26 +287,25 @@ export default function Scene({
         smCy,
         110
       );
-      glow.addColorStop(0, "rgba(255,255,255,0.12)");
-      glow.addColorStop(0.5, "rgba(200,220,255,0.04)");
-      glow.addColorStop(1, "rgba(200,220,255,0)");
+      glow.addColorStop(0, faceColor(0.18));
+      glow.addColorStop(0.5, face2Color(0.06));
+      glow.addColorStop(1, faceColor(0));
       sCtx.fillStyle = glow;
       sCtx.fillRect(0, 0, 256, 256);
 
       // ── Floating zzz when sleepy ──
       if (sl > 0.3) {
-        sCtx.font = "bold 14px Inter, sans-serif";
-        sCtx.fillStyle = `rgba(255,255,255,${sl * 0.5})`;
         const zBase = time * 0.6;
         for (let zi = 0; zi < 3; zi++) {
           const zOff = (zBase + zi * 1.2) % 3.6;
           const zx = fx + 38 + zi * 8;
           const zy = fy - 20 - zOff * 18;
-          const za = Math.max(0, 1 - zOff / 3.6) * sl * 0.45;
+          const za = Math.max(0, 1 - zOff / 3.6) * sl * 0.55;
           const zScale = 10 + zi * 3;
           sCtx.save();
           sCtx.globalAlpha = za;
           sCtx.font = `bold ${zScale}px Inter, sans-serif`;
+          sCtx.fillStyle = face2Color(1);
           sCtx.fillText("z", zx, zy);
           sCtx.restore();
         }
@@ -405,21 +438,11 @@ export default function Scene({
       if (glitchAmt > 0.1) {
         const split = 2 + glitchAmt * 5;
         sCtx.globalCompositeOperation = "lighter";
-        drawFace(
-          -split,
-          0,
-          `rgba(255,80,80,${glitchAmt * 0.4})`,
-          glitchAmt * 0.5
-        );
-        drawFace(
-          split,
-          0,
-          `rgba(80,80,255,${glitchAmt * 0.4})`,
-          glitchAmt * 0.5
-        );
+        drawFace(-split, 0, face2Color(glitchAmt * 0.5), glitchAmt * 0.5);
+        drawFace(split, 0, faceColor(glitchAmt * 0.5), glitchAmt * 0.5);
         sCtx.globalCompositeOperation = "source-over";
       }
-      drawFace(0, 0, "rgba(255,255,255,0.85)", 0.7 + dizzy * 0.15);
+      drawFace(0, 0, faceColor(0.9), 0.75 + dizzy * 0.15);
 
       if (glitchSlice > 0 && Math.abs(glitchOffset) > 2) {
         const sliceH = 8 + Math.random() * 16;
@@ -430,9 +453,50 @@ export default function Scene({
       sCtx.fillStyle = "rgba(0,0,0,0.04)";
       for (let y = 0; y < 256; y += 4) sCtx.fillRect(0, y, 256, 1);
       if (Math.random() < dizzy * 0.08) {
-        sCtx.fillStyle = `rgba(255,255,255,${0.03 + Math.random() * 0.06})`;
+        sCtx.fillStyle = faceColor(0.03 + Math.random() * 0.06);
         sCtx.fillRect(0, 0, 256, 256);
       }
+
+      // ── Gold sparkles ──
+      const isGold = (colors?.[0] || "").toLowerCase() === "#b8860b";
+      if (isGold) {
+        for (let si = 0; si < SPARKLE_COUNT; si++) {
+          const sp = sparkles[si];
+          // Twinkle: sine-based fade with unique phase
+          const twinkle = Math.sin(time * sp.speed + sp.phase) * 0.5 + 0.5;
+          const sparkAlpha = twinkle * twinkle * 0.8; // pow2 for sharper on/off
+          if (sparkAlpha < 0.05) continue;
+
+          // Drift position over time (wrap around)
+          const sx = smCx + ((sp.x + sp.driftX * time * 30) % 180) - 90;
+          const sy = smCy + ((sp.y + sp.driftY * time * 30 + 200) % 200) - 100;
+
+          const tone = GOLD_TONES[sp.tone];
+          sCtx.save();
+          sCtx.globalAlpha = sparkAlpha;
+          sCtx.fillStyle = `rgb(${tone[0]},${tone[1]},${tone[2]})`;
+          sCtx.shadowColor = `rgba(${tone[0]},${tone[1]},${tone[2]},0.6)`;
+          sCtx.shadowBlur = 4 + twinkle * 4;
+
+          // Draw 4-point star
+          const sz = sp.size * (0.6 + twinkle * 0.4);
+          const rot = time * 0.5 + sp.phase;
+          sCtx.translate(sx, sy);
+          sCtx.rotate(rot);
+          sCtx.beginPath();
+          for (let p = 0; p < 4; p++) {
+            const a = (p / 4) * Math.PI * 2;
+            const a2 = a + Math.PI / 4;
+            sCtx.lineTo(Math.cos(a) * sz * 2.5, Math.sin(a) * sz * 2.5);
+            sCtx.lineTo(Math.cos(a2) * sz * 0.6, Math.sin(a2) * sz * 0.6);
+          }
+          sCtx.closePath();
+          sCtx.fill();
+          sCtx.shadowBlur = 0;
+          sCtx.restore();
+        }
+      }
+
       sCtx.restore();
     }
 
@@ -517,7 +581,16 @@ export default function Scene({
       const faceAlpha = Math.max(0, 1 - morph * 2.5);
       const waveAlpha = Math.max(0, (morph - 0.5) * 2);
       if (faceAlpha > 0.01)
-        drawFaceLayer(dizzy, time, lookX, lookY, faceAlpha, surprise, sleep);
+        drawFaceLayer(
+          dizzy,
+          time,
+          lookX,
+          lookY,
+          faceAlpha,
+          surprise,
+          sleep,
+          colors
+        );
       if (waveAlpha > 0.01) drawWaveLayer(time, waveAlpha, colors);
     }
 

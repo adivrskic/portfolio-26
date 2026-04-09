@@ -871,18 +871,18 @@ export default function MenuOverlay({
                   <div data-stg style={{ marginBottom: 20 }}>
                     <h2
                       style={{
-                        fontSize: 28,
+                        fontSize: "clamp(32px, 4vw, 52px)",
                         fontWeight: 200,
-                        color: T + "0.92)",
+                        color: T + "0.88)",
                         fontFamily: F,
-                        letterSpacing: "0.04em",
+                        letterSpacing: "-0.01em",
                         margin: 0,
-                        lineHeight: 1.4,
-                        maxWidth: 520,
+                        lineHeight: 1.2,
                       }}
                     >
-                      Building full-stack applications and immersive experiences
-                      powered by AI.
+                      I build things
+                      <br />
+                      that feel alive.
                     </h2>
                   </div>
                   <div data-stg style={{ marginBottom: 14 }}>

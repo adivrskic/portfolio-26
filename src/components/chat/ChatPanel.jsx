@@ -236,7 +236,7 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
   const [messages, setMessages] = useState([
     {
       role: "assistant",
-      text: `Hey — I'm ${seasonName}, Adi's AI assistant. Ask me anything about his work, projects, or availability.`,
+      text: `Hey — I'm Qb, Adi's AI assistant. Ask me anything about his work, projects, or availability.`,
     },
   ]);
   const [input, setInput] = useState("");
@@ -498,7 +498,7 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
                   }}
                 >
                   <Ic size={16} strokeWidth={1.2} color="rgba(18,18,40,0.25)" />
-                  {s.label}
+                  Qb
                 </p>
               );
             })()}

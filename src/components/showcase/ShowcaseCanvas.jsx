@@ -204,21 +204,19 @@ function ImageGrid({ images, side, vw, vh }) {
 
 // ── Project section ──
 // ── Fade group — fades children based on camera proximity ──
-function FadeGroup({ sectionY, children }) {
+function FadeGroup({ sectionY, children, parallaxStrength = 0.08 }) {
   const groupRef = useRef();
   const opRef = useRef(0);
 
   useFrame(({ camera }) => {
     if (!groupRef.current) return;
-    // Distance from camera center to section center
     const dist = Math.abs(camera.position.y - sectionY);
-    // Fade in when within ~6 units, fully visible within ~3
-    const target = clamp(1 - (dist - 3) / 4, 0, 1);
-    opRef.current += (target - opRef.current) * 0.035;
-    // Also add a subtle upward drift as it fades in
-    const drift = (1 - opRef.current) * 1.2;
+    const target = clamp(1 - (dist - 2) / 5, 0, 1);
+    opRef.current += (target - opRef.current) * 0.05;
+    // Parallax: content drifts slightly slower than camera
+    const camDelta = camera.position.y - sectionY;
+    const drift = camDelta * parallaxStrength + (1 - opRef.current) * 0.8;
     groupRef.current.position.y = drift;
-    // Apply opacity to all text materials in the group
     groupRef.current.traverse((child) => {
       if (child.material && child.material.opacity !== undefined) {
         child.material.opacity = opRef.current;
@@ -238,7 +236,7 @@ function ProjectSection({ project, index, s, vw, vh }) {
   const textX = textSide * vw * 0.02;
   const anc = textSide > 0 ? "left" : "right";
   const tAlign = textSide > 0 ? "left" : "right";
-  const textMaxW = vw * 0.44;
+  const textMaxW = vw * 0.38;
 
   return (
     <group position={[0, sectionY, 0]}>
@@ -246,18 +244,18 @@ function ProjectSection({ project, index, s, vw, vh }) {
         <ImageGrid images={project.images} side={imageSide} vw={vw} vh={vh} />
 
         <Text
-          position={[textX, vh * 0.35, 0.5]}
-          fontSize={0.2 * s}
-          letterSpacing={0.15}
+          position={[textX, vh * 0.32, 0.5]}
+          fontSize={0.14 * s}
+          letterSpacing={0.2}
           anchorX={anc}
-          color="#cccccc"
+          color="#bbbbbb"
         >
           {project.number}
         </Text>
         <Text
-          position={[textX, vh * 0.28, 0.5]}
-          fontSize={0.15 * s}
-          letterSpacing={0.2}
+          position={[textX, vh * 0.26, 0.5]}
+          fontSize={0.1 * s}
+          letterSpacing={0.25}
           anchorX={anc}
           textAlign={tAlign}
           color="#aaaaaa"
@@ -265,28 +263,28 @@ function ProjectSection({ project, index, s, vw, vh }) {
           {project.tag}
         </Text>
         <Text
-          position={[textX, vh * 0.08, 0.5]}
-          fontSize={1.6 * s}
-          lineHeight={1.05}
-          letterSpacing={-0.04}
+          position={[textX, vh * 0.1, 0.5]}
+          fontSize={1.1 * s}
+          lineHeight={1.1}
+          letterSpacing={-0.03}
           anchorX={anc}
           anchorY="middle"
           textAlign={tAlign}
           maxWidth={textMaxW}
-          color="black"
+          color="#1a1a2e"
         >
           {project.title}
         </Text>
         <Text
-          position={[textX, -vh * 0.12, 0.5]}
-          fontSize={0.34 * s}
+          position={[textX, -vh * 0.08, 0.5]}
+          fontSize={0.24 * s}
           lineHeight={1.8}
-          letterSpacing={-0.01}
+          letterSpacing={0}
           anchorX={anc}
           anchorY="top"
           textAlign={tAlign}
           maxWidth={textMaxW}
-          color="#777777"
+          color="#888888"
         >
           {project.text}
         </Text>
@@ -295,7 +293,7 @@ function ProjectSection({ project, index, s, vw, vh }) {
   );
 }
 
-// ── Hero ──
+// ── Hero ──// ── Hero ──
 function Hero({ s, vw }) {
   const groupRef = useRef();
   const opRef = useRef(0);
@@ -338,156 +336,197 @@ function Hero({ s, vw }) {
 
 // ── Glass cube — arcs between image grids, settles at end ──
 // Transition effects: refraction blur, scale breathing, rotation burst
+// ── Glass cube — fades on scroll, reappears large at sections, cursor push ──
+// ── Glass cube — true fade via scale, repositions at each section ──
 function ShowcaseCube() {
   const cubeRef = useRef();
   const glowRef = useRef();
   const shadowRef = useRef();
-  const { viewport, size } = useThree();
-  const lerp = useRef(0);
+  const { viewport, size, pointer } = useThree();
+  const scrollLerp = useRef(0);
   const glowColor = useRef(new THREE.Color("#ffffff"));
   const scaleSmooth = useRef(1);
-  // Rotation burst state
+  const posX = useRef(0);
+  const posY = useRef(0);
+  const pushX = useRef(0);
+  const pushY = useRef(0);
   const spinVelX = useRef(0);
   const spinVelY = useRef(0);
   const prevIdx = useRef(-1);
 
   useFrame(({ clock }) => {
     if (!cubeRef.current) return;
+    const dt = clock.getDelta ? Math.min(clock.getDelta(), 0.033) : 0.016;
     const maxScroll = size.height * (TOTAL_H / viewport.height);
     const raw = (state.top / Math.max(1, maxScroll)) * TOTAL_H;
-    lerp.current = THREE.MathUtils.lerp(lerp.current, raw, 0.1);
-    const scroll = lerp.current;
+    scrollLerp.current = THREE.MathUtils.lerp(scrollLerp.current, raw, 0.1);
+    const scroll = scrollLerp.current;
 
-    const t = (1 + Math.sin(clock.getElapsedTime() * 1.0)) / 2;
     const vw = viewport.width;
+    const vh = viewport.height;
 
-    const inHero = scroll < HERO_H * 0.6;
+    // ── Zone detection ──
+    const inHero = scroll < HERO_H * 0.3;
+    const heroExit = scroll >= HERO_H * 0.3 && scroll < HERO_H;
     const projScroll = Math.max(0, scroll - HERO_H * 0.5);
     const rawIdx = projScroll / SECTION_H;
     const idx = Math.min(N - 1, Math.floor(rawIdx));
     const sectionT = clamp(rawIdx - idx, 0, 1);
     const inSettle = scroll > SETTLE_START;
     const settleT = clamp((scroll - SETTLE_START) / 8, 0, 1);
+    const inProject = !inHero && !heroExit && !inSettle;
 
+    // Image grid positions — exactly matching ImageGrid component
+    // textSide = idx % 2 === 0 ? 1 : -1; imageSide = -textSide
     const imageSide = idx % 2 === 0 ? -1 : 1;
-    const prevImageSide = idx === 0 ? 0 : (idx - 1) % 2 === 0 ? -1 : 1;
-    const imageX = imageSide * vw * 0.26;
-    const prevImageX = prevImageSide * vw * 0.26;
+    const imageGridX = imageSide * vw * 0.26;
+    // Cube sits on outer edge of image grid, half off-screen
+    const cubeAtSectionX = imageSide * (vw * 0.48);
+    const sectionCenterY = -(HERO_H + idx * SECTION_H);
 
-    const transRaw = clamp(sectionT / 0.45, 0, 1);
-    const transT = ease(transRaw);
-    const arcDip = Math.sin(transRaw * Math.PI) * -0.8;
-    // How "mid-transition" we are (peaks at 0.5 of the arc)
+    // Section transition progress
+    const transRaw = clamp(sectionT / 0.4, 0, 1);
     const midArc = Math.sin(transRaw * Math.PI);
+    // How settled we are in the current section (0 = just arrived, 1 = fully settled)
+    const settled = clamp((sectionT - 0.4) / 0.3, 0, 1);
+    // How close to leaving (approaching next section)
+    const leaving = clamp((sectionT - 0.8) / 0.2, 0, 1);
 
-    // ── Rotation burst — spin impulse when crossing to a new section ──
-    if (
-      idx !== prevIdx.current &&
-      prevIdx.current >= 0 &&
-      !inHero &&
-      !inSettle
-    ) {
+    // Rotation burst on section change
+    if (idx !== prevIdx.current && prevIdx.current >= 0 && inProject) {
       const dir = idx > prevIdx.current ? 1 : -1;
       spinVelY.current += dir * 0.15;
       spinVelX.current += dir * 0.06;
     }
     prevIdx.current = idx;
 
-    let targetX, targetY, targetScale;
+    // ── Target scale: 0 = fully hidden, >0 = visible ──
+    let targetScale;
+    let targetX, targetY;
+    const SECTION_CUBE_SIZE = 2.5;
+
     if (inHero) {
+      // Hero: visible, centered
+      targetScale = 1;
       targetX = 0;
       targetY = -scroll;
-      targetScale = 1;
-    } else if (inSettle) {
+    } else if (heroExit) {
+      // Leaving hero: shrink to 0
+      const exitT = clamp((scroll - HERO_H * 0.3) / (HERO_H * 0.7), 0, 1);
+      targetScale = 1 - exitT;
       targetX = 0;
-      targetY = -(SETTLE_START + settleT * 1);
-      // Expand outward and fade — like the main scene cube zoom
-      targetScale = 1 + settleT * 4;
+      targetY = -scroll;
+    } else if (inSettle) {
+      // Settle zone: expand and fade
+      targetScale = (1 + settleT * 4) * (1 - settleT);
+      targetX = 0;
+      targetY = -(SETTLE_START + settleT);
     } else {
-      targetX = prevImageX + (imageX - prevImageX) * transT;
-      const sectionCenterY = -(HERO_H + idx * SECTION_H);
+      // Project sections:
+      // During transition (sectionT 0→0.4): scale 0 → SECTION_CUBE_SIZE (grow in)
+      // Settled (0.4→0.8): full size, at rest
+      // Leaving (0.8→1.0): shrink back to 0
       if (transRaw < 1) {
-        targetY = sectionCenterY + arcDip;
+        // Growing in during transition
+        const growT = ease(transRaw);
+        targetScale = SECTION_CUBE_SIZE * growT;
+      } else if (leaving > 0) {
+        // Shrinking out before next section
+        targetScale = SECTION_CUBE_SIZE * (1 - ease(leaving));
       } else {
-        const holdDrift = clamp((sectionT - 0.45) / 0.55, 0, 1);
-        const nextY = -(HERO_H + Math.min(idx + 1, N - 1) * SECTION_H);
-        targetY = THREE.MathUtils.lerp(sectionCenterY, nextY, holdDrift * 0.3);
+        // At rest
+        targetScale = SECTION_CUBE_SIZE;
       }
-      // ── Scale breathing — shrink mid-arc, grow back on landing ──
-      targetScale = 1 - midArc * 0.12;
+      targetX = cubeAtSectionX;
+      targetY = sectionCenterY;
     }
 
-    cubeRef.current.position.x = THREE.MathUtils.lerp(
-      cubeRef.current.position.x,
-      targetX,
-      0.025
-    );
-    cubeRef.current.position.y = THREE.MathUtils.lerp(
-      cubeRef.current.position.y,
-      targetY,
-      0.025
-    );
-    cubeRef.current.position.z = 2;
+    // ── Cursor push — only cube, push away from images ──
+    const mouseWX = (pointer.x * vw) / 2;
+    const mouseWY = (pointer.y * vh) / 2;
+    // Mouse in world Y needs camera offset
+    const camY = -scrollLerp.current;
+    const mouseAbsY = mouseWY + camY;
+    const cubeAbsX = posX.current;
+    const cubeAbsY = posY.current;
+    const dx = cubeAbsX - mouseWX;
+    const dy = cubeAbsY - mouseAbsY;
+    const distToCube = Math.sqrt(dx * dx + dy * dy);
+    const pushRadius = SECTION_CUBE_SIZE * 4;
 
+    if (
+      distToCube < pushRadius &&
+      distToCube > 0.1 &&
+      inProject &&
+      scaleSmooth.current > 0.5
+    ) {
+      const pushStr = Math.pow(1 - distToCube / pushRadius, 2) * 3;
+      const nx = dx / distToCube;
+      const ny = dy / distToCube;
+      pushX.current += (nx * pushStr - pushX.current) * 0.08;
+      pushY.current += (ny * pushStr - pushY.current) * 0.08;
+    } else {
+      pushX.current *= 0.9;
+      pushY.current *= 0.9;
+    }
+    if (Math.abs(pushX.current) < 0.001) pushX.current = 0;
+    if (Math.abs(pushY.current) < 0.001) pushY.current = 0;
+
+    // ── Apply position — fast lerp so it snaps to new sections quickly ──
+    posX.current = THREE.MathUtils.lerp(posX.current, targetX, 0.06);
+    posY.current = THREE.MathUtils.lerp(posY.current, targetY, 0.06);
+    cubeRef.current.position.x = posX.current + pushX.current;
+    cubeRef.current.position.y = posY.current + pushY.current;
+    cubeRef.current.position.z = 1;
+
+    // ── Scale — this IS the fade. 0 = invisible, >0 = visible ──
     scaleSmooth.current = THREE.MathUtils.lerp(
       scaleSmooth.current,
       targetScale,
-      0.04
+      0.07
     );
-    cubeRef.current.scale.setScalar(scaleSmooth.current);
+    if (scaleSmooth.current < 0.01) scaleSmooth.current = 0;
+    cubeRef.current.scale.setScalar(Math.max(0.001, scaleSmooth.current));
+    cubeRef.current.visible = scaleSmooth.current > 0.01;
 
-    // ── Rotation — base idle + burst decay ──
-    const rotMult = 1 - settleT * 0.9;
-    spinVelX.current *= 0.96; // decay
+    // ── Rotation ──
+    spinVelX.current *= 0.96;
     spinVelY.current *= 0.96;
-    cubeRef.current.rotation.x += (0.001 + spinVelX.current) * rotMult;
-    cubeRef.current.rotation.y += (0.002 + spinVelY.current) * rotMult;
-    if (inSettle) {
-      cubeRef.current.rotation.x *= 0.997;
-      cubeRef.current.rotation.z *= 0.997;
-    }
+    cubeRef.current.rotation.x += 0.001 + spinVelX.current;
+    cubeRef.current.rotation.y += 0.002 + spinVelY.current;
 
-    // ── Refraction blur — ramp material during transitions + settle fade ──
+    // ── Material — refraction effects during transitions ──
     const mat =
       cubeRef.current?.children?.[0]?.material || cubeRef.current?.material;
     if (mat) {
-      // roughness: base 0.02, peaks mid-arc, ramps up during settle
-      mat.roughness = 0.02 + midArc * 0.1 + settleT * 0.3;
+      mat.roughness = 0.02 + midArc * 0.08;
       if (mat.chromaticAberration !== undefined) {
-        mat.chromaticAberration = 0.05 + midArc * 0.2 + settleT * 0.4;
+        mat.chromaticAberration = 0.05 + midArc * 0.15;
       }
-      mat.ior = 1.5 + midArc * 0.15;
-      // Fade out during settle
-      mat.opacity = 1 - settleT;
-      mat.transparent = true;
+      mat.ior = 1.5 + midArc * 0.1;
     }
 
-    // Hide cube entirely when fully settled
-    if (settleT > 0.98) {
-      cubeRef.current.visible = false;
-    } else {
-      cubeRef.current.visible = true;
-    }
-
+    // ── Glow ──
     const accent = new THREE.Color(
-      !inHero && !inSettle ? PROJECTS[idx].accent : "#ffffff"
+      inProject ? PROJECTS[idx].accent : "#ffffff"
     );
     glowColor.current.lerp(accent, 0.03);
     if (glowRef.current) {
       glowRef.current.color.copy(glowColor.current);
       glowRef.current.intensity =
-        (!inHero ? 3 + transT * 2 : 0.5) * (1 - settleT);
+        (inProject ? 3 : 0.5) * Math.min(1, scaleSmooth.current);
       glowRef.current.position.copy(cubeRef.current.position);
       glowRef.current.position.z += 1;
     }
-
     if (shadowRef.current) {
+      shadowRef.current.visible = scaleSmooth.current > 0.1;
       shadowRef.current.position.x = cubeRef.current.position.x;
       shadowRef.current.position.y =
-        cubeRef.current.position.y - 2.8 * scaleSmooth.current;
-      const ss = (3.5 + t * 0.3) * scaleSmooth.current;
+        cubeRef.current.position.y - 2.5 * scaleSmooth.current;
+      const ss = 3 * scaleSmooth.current;
       shadowRef.current.scale.set(ss * 1.2, ss, ss);
-      shadowRef.current.material.opacity = 0.12 * (1 - settleT);
+      shadowRef.current.material.opacity =
+        0.08 * Math.min(1, scaleSmooth.current);
     }
   });
 
@@ -507,15 +546,15 @@ function ShowcaseCube() {
         resolution={512}
         enableIdleSpin={false}
         showEdges={true}
-        edgeOpacity={0.06}
+        edgeOpacity={0.04}
       />
       <pointLight ref={glowRef} intensity={0.5} distance={18} />
       <Shadow
         ref={shadowRef}
-        opacity={0.12}
+        opacity={0.08}
         rotation-x={-Math.PI / 2}
         position={[0, -3, 0]}
-        scale={[3.5, 3.5, 3.5]}
+        scale={[3, 3, 3]}
       />
     </>
   );
