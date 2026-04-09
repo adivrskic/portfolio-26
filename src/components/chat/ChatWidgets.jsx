@@ -4,18 +4,46 @@ export function TypingIndicator() {
   return (
     <div
       style={{
-        padding: "8px 0",
-        fontFamily: FONT_FAMILY,
-        fontSize: 20,
-        fontWeight: 200,
-        color: "rgba(18,18,40,0.15)",
-        letterSpacing: "0.08em",
-        animation: "ambFloat1 5s ease-in-out infinite",
+        padding: "10px 0",
+        display: "flex",
+        alignItems: "center",
+        animation: "typingPulse 2s ease-in-out infinite",
       }}
     >
-      <span style={{ animation: "tdot 1.4s infinite" }}>·</span>
-      <span style={{ animation: "tdot 1.4s 0.2s infinite" }}> ·</span>
-      <span style={{ animation: "tdot 1.4s 0.4s infinite" }}> ·</span>
+      <svg width="36" height="30" viewBox="0 0 36 30" fill="none">
+        <path
+          d="M5 3h26a3 3 0 013 3v14a3 3 0 01-3 3H12l-7 5.5V23H5a3 3 0 01-3-3V6a3 3 0 013-3z"
+          fill="rgba(18,18,40,0.04)"
+          stroke="rgba(18,18,40,0.12)"
+          strokeWidth="0.8"
+        />
+        <circle cx="12" cy="13" r="1.5" fill="rgba(18,18,40,0.25)">
+          <animate
+            attributeName="opacity"
+            values="0.1;0.4;0.1"
+            dur="1.4s"
+            repeatCount="indefinite"
+          />
+        </circle>
+        <circle cx="18" cy="13" r="1.5" fill="rgba(18,18,40,0.25)">
+          <animate
+            attributeName="opacity"
+            values="0.1;0.4;0.1"
+            dur="1.4s"
+            begin="0.2s"
+            repeatCount="indefinite"
+          />
+        </circle>
+        <circle cx="24" cy="13" r="1.5" fill="rgba(18,18,40,0.25)">
+          <animate
+            attributeName="opacity"
+            values="0.1;0.4;0.1"
+            dur="1.4s"
+            begin="0.4s"
+            repeatCount="indefinite"
+          />
+        </circle>
+      </svg>
     </div>
   );
 }

@@ -52,7 +52,10 @@ export default function Scene({
   gradientCanvas,
   menuOpen,
   chatMode,
+  showcaseTransition,
+  showcaseOpen,
   activeSeason,
+  onCubeClick,
   onCubeHold,
   onCubeProximity,
   onCardClick,
@@ -65,8 +68,14 @@ export default function Scene({
   menuOpenRef.current = menuOpen || false;
   const chatModeRef = useRef(false);
   chatModeRef.current = chatMode || false;
+  const showcaseTransRef = useRef(false);
+  showcaseTransRef.current = showcaseTransition || false;
+  const showcaseOpenRef = useRef(false);
+  showcaseOpenRef.current = showcaseOpen || false;
   const activeSeasonRef = useRef(activeSeason || getCurrentSeason());
   activeSeasonRef.current = activeSeason || getCurrentSeason();
+  const onCubeClickRef = useRef(onCubeClick);
+  onCubeClickRef.current = onCubeClick;
   const onCubeHoldRef = useRef(onCubeHold);
   onCubeHoldRef.current = onCubeHold;
   const onCubeProximityRef = useRef(onCubeProximity);
@@ -289,6 +298,7 @@ export default function Scene({
     let sT = 0,
       sC = 0;
     const onWheel = (e) => {
+      if (showcaseOpenRef.current || showcaseTransRef.current) return;
       sT = Math.max(
         0,
         Math.min(
@@ -303,6 +313,7 @@ export default function Scene({
       if (e.touches.length === 1) tY = e.touches[0].clientY;
     };
     const onTMS = (e) => {
+      if (showcaseOpenRef.current || showcaseTransRef.current) return;
       if (e.touches.length !== 1) return;
       const dy = tY - e.touches[0].clientY;
       tY = e.touches[0].clientY;
@@ -341,7 +352,8 @@ export default function Scene({
       bounceDecay = 0;
     let holdTimer = null,
       isHolding = false,
-      holdStartTime = 0;
+      holdStartTime = 0,
+      holdFired = false;
     const testCubeHit = (e) => {
       const mx = (e.clientX / W()) * 2 - 1,
         my = -(e.clientY / H()) * 2 + 1;
@@ -351,24 +363,30 @@ export default function Scene({
     const onDown = (e) => {
       if (!testCubeHit(e)) return;
       isHolding = true;
+      holdFired = false;
       holdStartTime = performance.now();
       holdTimer = setTimeout(() => {
         if (isHolding) {
-          // Smooth click - gentle squeeze that blends into chat transition
+          // Hold — trigger showcase
+          holdFired = true;
           clickScaleVel = -0.8;
           isHolding = false;
-          // Reset scroll so progress bar rewinds to 0
-          sT = 0;
-          // Delay chat open so movement feels connected
-          setTimeout(() => {
-            if (onCubeHoldRef.current) onCubeHoldRef.current();
-          }, 300);
+          if (onCubeHoldRef.current) onCubeHoldRef.current();
         }
       }, 600);
     };
     const onUp = () => {
       if (holdTimer) clearTimeout(holdTimer);
+      // Quick click (released before hold fired) — open chat
+      if (isHolding && !holdFired) {
+        clickScaleVel = -0.8;
+        sT = 0;
+        setTimeout(() => {
+          if (onCubeClickRef.current) onCubeClickRef.current();
+        }, 300);
+      }
       isHolding = false;
+      holdFired = false;
       holdTimer = null;
     };
     window.addEventListener("mousedown", onDown);
@@ -406,6 +424,8 @@ export default function Scene({
       wasInChat = false;
     let clickScale = 1,
       clickScaleVel = 0;
+    // Showcase transition — cube zooms toward camera
+    let scZoom = 0; // 0 = normal, 1 = fully zoomed
 
     function loop() {
       raf = requestAnimationFrame(loop);
@@ -452,6 +472,8 @@ export default function Scene({
       const birthZDist = c.birthFlyInDist ?? 7;
       const birthZCurve = c.birthFlyInCurve ?? 1.8;
       const birthZ = birthZDist * Math.pow(1 - birth, birthZCurve);
+      // Parabolic arc — peaks mid-flight, zero at start & end
+      const birthArc = Math.sin(birth * Math.PI) * (c.birthArcHeight ?? 2.0);
       const birthScaleStart = c.birthScaleStart ?? 1.0;
       const birthScaleCurve = birthScaleStart + (1 - birthScaleStart) * birth;
       const birthOpacity = Math.min(birth * (c.birthFadeSpeed || 3), 1);
@@ -633,8 +655,12 @@ export default function Scene({
       const targetY = inChat ? 0 : 0;
       const targetZ = inChat ? 4 : 0;
       const targetS = inChat ? 1.6 : 1;
-      const stiffness = inChat ? 2.5 : 6.0;
-      const damping = inChat ? 3.0 : 4.5;
+      const stiffness = inChat
+        ? c.chatStiffness || 2.5
+        : c.chatReturnStiffness || 6.0;
+      const damping = inChat
+        ? c.chatDamping || 3.0
+        : c.chatReturnDamping || 4.5;
       const dxM = targetX - menuPos.x,
         dyM = targetY - menuPos.y;
       menuVel.x += (dxM * stiffness - menuVel.x * damping) * dt;
@@ -649,8 +675,8 @@ export default function Scene({
       chatZVel += (dzM * stiffness - chatZVel * damping) * dt;
       chatZ += chatZVel * dt;
       // Parabolic arc: push away + leftward, then curve back
-      const arcStiff = 2.8;
-      const arcDamp = 2.2;
+      const arcStiff = c.chatArcStiffness || 2.8;
+      const arcDamp = c.chatArcDamping || 2.2;
       chatArcVel += (0 - chatArc) * arcStiff * dt - chatArcVel * arcDamp * dt;
       chatArc += chatArcVel * dt;
       chatArcXVel +=
@@ -666,21 +692,21 @@ export default function Scene({
       }
       // Chat spin — spin right on enter
       if (inChat && !wasInChat) {
-        chatSpinBurst = 4;
+        chatSpinBurst = c.chatSpinKick || 2.5;
         // Velocity-only kicks — no position jumps, arc builds smoothly
-        chatArcVel = -8;
-        chatArcXVel = -5;
-        angVel.y += 2.5; // direct spin impulse
+        chatArcVel = c.chatArcKickZ || -8;
+        chatArcXVel = c.chatArcKickX || -5;
+        angVel.y += c.chatSpinKick || 2.5; // direct spin impulse
         wasInChat = true;
       }
       if (!inChat && wasInChat) {
-        chatSpinBurst = -4;
-        chatArcVel = 8;
-        chatArcXVel = 5;
-        angVel.y -= 2.5;
+        chatSpinBurst = -(c.chatSpinKick || 2.5);
+        chatArcVel = -(c.chatArcKickZ || -8);
+        chatArcXVel = -(c.chatArcKickX || -5);
+        angVel.y -= c.chatSpinKick || 2.5;
         wasInChat = false;
       }
-      chatSpinBurst *= Math.max(0, 1 - 1.8 * dt);
+      chatSpinBurst *= Math.max(0, 1 - (c.chatSpinDecay || 1.8) * dt);
       rotAngle += chatSpinBurst * dt;
       angVel.y += chatSpinBurst * 0.5 * dt;
       // Mouse → camera-space torque on angular velocity (always consistent)
@@ -723,16 +749,31 @@ export default function Scene({
         cubeQuat.premultiply(dq);
         cubeQuat.normalize();
       }
-      sphere.position.set(
-        menuPos.x + chatArcX + birthX,
-        menuPos.y + birthY + birthYOffset,
-        birthZ - bounceZ + chatZ + chatArc
-      );
-      glassCube.position.set(
-        menuPos.x + chatArcX + birthX,
-        menuPos.y + birthY + birthYOffset,
-        birthZ - bounceZ + chatZ + chatArc
-      );
+      // Showcase transition: cube gently zooms toward camera and enlarges
+      if (showcaseTransRef.current) {
+        scZoom = Math.min(1, scZoom + dt * 0.55); // slow elegant ramp
+      } else {
+        scZoom = Math.max(0, scZoom - dt * 1.5);
+      }
+      // Ease the raw scZoom for smooth acceleration/deceleration
+      const zoomEased =
+        scZoom < 0.5
+          ? 2 * scZoom * scZoom
+          : 1 - Math.pow(-2 * scZoom + 2, 2) / 2;
+      const zoomZ = zoomEased * 12;
+      const zoomScale = 1 + zoomEased * 1.2;
+
+      const baseX = menuPos.x + chatArcX + birthX;
+      const baseY = menuPos.y + birthY + birthYOffset + birthArc;
+      const baseZ = birthZ - bounceZ + chatZ + chatArc;
+
+      // Gently center as it zooms
+      const px = baseX * (1 - zoomEased);
+      const py = baseY * (1 - zoomEased * 0.4);
+      const pz = baseZ + zoomZ;
+
+      sphere.position.set(px, py, pz);
+      glassCube.position.set(px, py, pz);
 
       // ── Scroll-driven transition (reversible) ──
       const shatterTriggered = scrollProg >= shatterStart;
@@ -851,7 +892,9 @@ export default function Scene({
         const gSize = c.glassCubeSize || 3.6;
         glassCube.scale
           .set(gSize, gSize, gSize)
-          .multiplyScalar(bR * menuScale * clickScale * birthScaleCurve);
+          .multiplyScalar(
+            bR * menuScale * clickScale * birthScaleCurve * zoomScale
+          );
         glassUniforms.uRefract.value = c.glassRefraction || 0.15;
         glassUniforms.uBlur.value = c.glassBlur || 2.9;
         glassUniforms.uEdgeAlpha.value = c.glassEdgeAlpha || 1;
@@ -860,14 +903,16 @@ export default function Scene({
         glassUniforms.uSpecPower.value = c.glassSpecPower || 120;
         glassUniforms.uIridescence.value = c.glassIridescence || 0;
         glassUniforms.uOpacity.value =
-          (c.glassOpacity != null ? c.glassOpacity : 0.92) * birthOpacity;
+          (c.glassOpacity != null ? c.glassOpacity : 0.92) *
+          birthOpacity *
+          (1 - zoomEased * 0.85);
         glassUniforms.uTint.value.set(
           c.glassTintR || 0.9,
           c.glassTintG || 0.92,
           c.glassTintB || 1
         );
         glassUniforms.uRes.value.set(W(), H());
-        glassEdgeMat.opacity = c.glassEdgeOpacity;
+        glassEdgeMat.opacity = (c.glassEdgeOpacity ?? 0.12) * (1 - zoomEased);
         const halfSide = (c.glassCubeSize || 3.6) * 0.5;
         fU.uBounds.value = halfSide - 0.15;
       }

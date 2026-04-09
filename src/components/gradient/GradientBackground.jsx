@@ -76,25 +76,39 @@ export default function GradientBackground({
     };
     window.addEventListener("mousemove", onMove);
 
-    // Bristles
+    // Bristles — normalized, scaled by config each frame
     const BRISTLES = 18,
       bristles = [];
     for (let i = 0; i < BRISTLES; i++) {
       bristles.push({
-        angle: (i / BRISTLES) * Math.PI * 2 + (Math.random() - 0.5) * 0.8,
-        dist: 0.15 + Math.random() * 0.45,
-        size: 0.25 + Math.random() * 0.45,
-        opacity: 0.4 + Math.random() * 0.6,
+        angleFrac: i / BRISTLES,
+        angleJitter: Math.random() - 0.5,
+        distFrac: Math.random(),
+        sizeFrac: Math.random(),
+        opacityFrac: Math.random(),
       });
     }
 
-    function drawBrushStamp(x, y, size, opacity) {
+    function drawBrushStamp(x, y, size, opacity, cc) {
+      const aSpread = cc.bristleAngleSpread ?? 0.8;
+      const dMin = cc.bristleDistMin ?? 0.15;
+      const dMax = cc.bristleDistMax ?? 0.6;
+      const sMin = cc.bristleSizeMin ?? 0.25;
+      const sMax = cc.bristleSizeMax ?? 0.7;
+      const oMin = cc.bristleOpacityMin ?? 0.4;
+      const oMax = cc.bristleOpacityMax ?? 1.0;
+      const coreSize = cc.brushCoreSize ?? 0.5;
+      const coreOp = cc.brushCoreOpacity ?? 0.6;
+      const coreFall = cc.brushCoreFalloff ?? 0.15;
       for (const b of bristles) {
-        const bx = x + Math.cos(b.angle) * b.dist * size;
-        const by = y + Math.sin(b.angle) * b.dist * size;
-        const bSize = b.size * size;
+        const angle = b.angleFrac * Math.PI * 2 + b.angleJitter * aSpread;
+        const dist = dMin + b.distFrac * (dMax - dMin);
+        const bSize = (sMin + b.sizeFrac * (sMax - sMin)) * size;
+        const bOp = oMin + b.opacityFrac * (oMax - oMin);
+        const bx = x + Math.cos(angle) * dist * size;
+        const by = y + Math.sin(angle) * dist * size;
         const grad = mCtx.createRadialGradient(bx, by, 0, bx, by, bSize);
-        const a = opacity * b.opacity;
+        const a = opacity * bOp;
         grad.addColorStop(0, `rgba(255,255,255,${a})`);
         grad.addColorStop(0.5, `rgba(255,255,255,${a * 0.5})`);
         grad.addColorStop(1, "rgba(255,255,255,0)");
@@ -103,13 +117,13 @@ export default function GradientBackground({
         mCtx.arc(bx, by, bSize, 0, Math.PI * 2);
         mCtx.fill();
       }
-      const cg = mCtx.createRadialGradient(x, y, 0, x, y, size * 0.5);
-      cg.addColorStop(0, `rgba(255,255,255,${opacity * 0.6})`);
-      cg.addColorStop(0.7, `rgba(255,255,255,${opacity * 0.15})`);
+      const cg = mCtx.createRadialGradient(x, y, 0, x, y, size * coreSize);
+      cg.addColorStop(0, `rgba(255,255,255,${opacity * coreOp})`);
+      cg.addColorStop(0.7, `rgba(255,255,255,${opacity * coreFall})`);
       cg.addColorStop(1, "rgba(255,255,255,0)");
       mCtx.fillStyle = cg;
       mCtx.beginPath();
-      mCtx.arc(x, y, size * 0.5, 0, Math.PI * 2);
+      mCtx.arc(x, y, size * coreSize, 0, Math.PI * 2);
       mCtx.fill();
     }
 
@@ -120,21 +134,25 @@ export default function GradientBackground({
       configRef.current.gradColor3 || "#3d9e5c",
       configRef.current.gradColor4 || "#d4f0c6",
     ].map(hexToHsl);
-    const BLOB_COUNT = 15,
+    const BLOB_COUNT = configRef.current.blobCount || 15,
       blobs = [];
     for (let i = 0; i < BLOB_COUNT; i++) {
       const tc = themeColors[i % themeColors.length];
+      const bSMin = configRef.current.blobSizeMin || 0.25;
+      const bSMax = configRef.current.blobSizeMax || 0.65;
+      const bAMin = configRef.current.blobAlphaMin || 0.3;
+      const bAMax = configRef.current.blobAlphaMax || 0.85;
       blobs.push({
         x: rand(-0.1, 1.1),
         y: rand(-0.1, 1.1),
-        r: rand(0.25, 0.65),
+        r: rand(bSMin, bSMax),
         baseHue: tc[0],
         hueVar: rand(-6, 6),
         hueOscSpeed: rand(0.02, 0.08),
         hueOscAmp: rand(3, 8),
         sat: Math.min(100, tc[1] + rand(-8, 8)),
         lit: Math.min(80, Math.max(25, tc[2] + rand(-8, 8))),
-        alpha: rand(0.3, 0.85),
+        alpha: rand(bAMin, bAMax),
         spdX: rand(0.15, 0.55),
         spdY: rand(0.15, 0.55),
         phX: rand(0, Math.PI * 2),
@@ -176,8 +194,8 @@ export default function GradientBackground({
       raf = requestAnimationFrame(tick);
       const cc = configRef.current;
 
-      smooth.x += (mouse.x - smooth.x) * 0.12;
-      smooth.y += (mouse.y - smooth.y) * 0.12;
+      smooth.x += (mouse.x - smooth.x) * (cc.brushSmoothing || 0.12);
+      smooth.y += (mouse.y - smooth.y) * (cc.brushSmoothing || 0.12);
 
       // Compute cursor movement ONCE for both brush and glitter
       const cursorDx = smooth.x - prevX,
@@ -192,7 +210,7 @@ export default function GradientBackground({
       tCtx.drawImage(mask, 0, 0, mask.width, mask.height, 0, 0, W, H);
       tCtx.globalAlpha = 1;
       mCtx.clearRect(0, 0, W, H);
-      const expand = 1.002;
+      const expand = cc.brushMaskExpand || 1.002;
       mCtx.drawImage(
         tmp,
         0,
@@ -211,15 +229,17 @@ export default function GradientBackground({
           dy = smooth.y - prevY;
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist > 1.5) {
-          const steps = Math.max(1, Math.ceil(dist / 4));
-          const bSize = cc.revealRadius * 0.4;
+          const spacing = cc.brushSpacing || 4;
+          const steps = Math.max(1, Math.ceil(dist / spacing));
+          const bSize = cc.revealRadius * (cc.brushSizeMult || 0.4);
           for (let s = 0; s < steps; s++) {
             const t = s / steps;
             drawBrushStamp(
               prevX + dx * t,
               prevY + dy * t,
               bSize,
-              cc.revealIntensity * 0.1
+              cc.revealIntensity * (cc.brushOpacityMult || 0.1),
+              cc
             );
           }
         }

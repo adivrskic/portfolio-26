@@ -12,17 +12,17 @@ export default function UserPill({ text }) {
     >
       <div
         style={{
-          padding: "8px 18px",
+          padding: "10px 20px",
           borderRadius: 20,
           maxWidth: "75%",
           background: "rgba(255,255,255,0.45)",
           border: "0.5px solid rgba(18,18,40,0.04)",
           backdropFilter: "blur(10px)",
           fontFamily: FONT_FAMILY,
-          fontSize: 12,
-          fontWeight: 300,
-          color: "rgba(18,18,40,0.4)",
-          lineHeight: 1.5,
+          fontSize: 18,
+          fontWeight: 200,
+          color: "rgba(18,18,40,0.5)",
+          lineHeight: 1.45,
         }}
       >
         {text}

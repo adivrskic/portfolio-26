@@ -789,6 +789,12 @@ export default function MenuOverlay({
             >
               Adi
             </p>
+            <p
+              className="menu-name"
+              style={{ color: T + "0.65)", fontFamily: F, marginTop: 4 }}
+            >
+              Vrskic
+            </p>
           </div>
 
           <div className="menu-nav">
@@ -831,19 +837,10 @@ export default function MenuOverlay({
             WebkitBackdropFilter: `blur(${blur}px) saturate(1.15)`,
           }}
         >
-          <div ref={nameRightRef} className="menu-name-right">
-            <p
-              className="menu-name"
-              style={{ color: T + "0.65)", fontFamily: F }}
-            >
-              Vrskic
-            </p>
-          </div>
-
           <div
             style={{
               flex: 1,
-              padding: "20px 48px 80px",
+              padding: "70px 48px 80px",
               boxSizing: "border-box",
               display: "flex",
               flexDirection: "column",
@@ -1308,19 +1305,7 @@ export default function MenuOverlay({
                 (() => {
                   return (
                     <>
-                      <div data-stg style={{ marginBottom: 16 }}>
-                        <p
-                          style={{
-                            fontSize: 15,
-                            color: T + "0.65)",
-                            fontFamily: F,
-                            fontWeight: 300,
-                            margin: 0,
-                          }}
-                        >
-                          Hover to preview. Click to apply.
-                        </p>
-                      </div>
+                      <div data-stg style={{ marginBottom: 16 }}></div>
                       <div
                         data-stg
                         style={{
@@ -1330,6 +1315,7 @@ export default function MenuOverlay({
                           minHeight: 0,
                           position: "relative",
                           overflow: "visible",
+                          padding: "70px 0",
                         }}
                       >
                         {themes.map((t) => (

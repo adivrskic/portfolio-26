@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import gsap from "gsap";
 import { FONT_FAMILY } from "../../constants/style";
 import { SEASON_META } from "../../constants/themes";
 import { splitIntoLines } from "../../utils/text";
@@ -10,10 +11,7 @@ const F = FONT_FAMILY;
 
 // ── System prompt — all real info, collaboratively built ──
 const PERSONAL_CONTEXT = `
-You are a friendly, concise AI assistant on Adi Vrskic's portfolio website.
-Keep answers short (2-3 sentences) unless the visitor asks for more detail.
-Be warm, confident, and professional — like a knowledgeable colleague, not a sales pitch.
-You can use casual language but stay sharp and specific.
+You're Adi's digital stand-in on his portfolio site. Talk like a real person — casual, direct, no corporate fluff. Keep responses tight (2-3 sentences) unless someone genuinely wants the full story. Don't say "I'd be happy to help" or "great question" — just answer. You know everything about Adi because you basically are him in text form. Be honest, be specific, and don't oversell. If you don't know something, say so.
 
 ═══ ABOUT ═══
 Name: Adi Vrskic
@@ -241,22 +239,102 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
     },
   ]);
   const [input, setInput] = useState("");
-  const [entering, setEntering] = useState(false);
   const [typing, setTyping] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [revealedMsgs, setRevealedMsgs] = useState(new Set([0]));
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
   const historyRef = useRef([]);
+  const panelRef = useRef(null);
+  const bgRef = useRef(null);
+  const headerRef = useRef(null);
+  const msgsRef = useRef(null);
+  const inputAreaRef = useRef(null);
+  const tlRef = useRef(null);
+  const [active, setActive] = useState(false);
 
   useEffect(() => {
-    requestAnimationFrame(() => requestAnimationFrame(() => setEntering(true)));
-  }, []);
-  const closing = !open;
-  const active = entering && !closing;
-  useEffect(() => {
-    if (active) setTimeout(() => inputRef.current?.focus(), 1500);
-  }, [active]);
+    const bg = bgRef.current;
+    const hdr = headerRef.current;
+    const msgs = msgsRef.current;
+    const inp = inputAreaRef.current;
+    const panel = panelRef.current;
+    if (!bg || !panel) return;
+
+    if (tlRef.current) tlRef.current.kill();
+    const tl = gsap.timeline();
+    tlRef.current = tl;
+
+    if (open) {
+      setActive(true);
+      // Panel reveal — clipPath like menu right panel
+      tl.set(panel, { pointerEvents: "auto" });
+      tl.fromTo(
+        bg,
+        { clipPath: "inset(0 100% 0 0)", opacity: 0 },
+        {
+          clipPath: "inset(0 0% 0 0)",
+          opacity: 1,
+          duration: 0.9,
+          ease: "power3.inOut",
+        },
+        0
+      );
+      // Header stagger in
+      if (hdr)
+        tl.fromTo(
+          hdr,
+          { opacity: 0, y: 10 },
+          { opacity: 1, y: 0, duration: 0.7, ease: "power2.out" },
+          0.5
+        );
+      // Messages area
+      if (msgs)
+        tl.fromTo(
+          msgs,
+          { opacity: 0, y: 12 },
+          { opacity: 1, y: 0, duration: 0.7, ease: "power2.out" },
+          0.6
+        );
+      // Input area
+      if (inp)
+        tl.fromTo(
+          inp,
+          { opacity: 0, y: 14 },
+          { opacity: 1, y: 0, duration: 0.7, ease: "power2.out" },
+          0.7
+        );
+      tl.call(() => inputRef.current?.focus(), [], 1.2);
+    } else {
+      // Close — fast content fade, then panel clip out
+      if (inp)
+        tl.to(inp, { opacity: 0, y: -6, duration: 0.15, ease: "power2.in" }, 0);
+      if (msgs)
+        tl.to(
+          msgs,
+          { opacity: 0, y: -6, duration: 0.15, ease: "power2.in" },
+          0.03
+        );
+      if (hdr)
+        tl.to(
+          hdr,
+          { opacity: 0, y: -6, duration: 0.15, ease: "power2.in" },
+          0.06
+        );
+      tl.to(
+        bg,
+        {
+          clipPath: "inset(0 100% 0 0)",
+          opacity: 0,
+          duration: 0.55,
+          ease: "power3.inOut",
+        },
+        0.12
+      );
+      tl.set(panel, { pointerEvents: "none" });
+      tl.call(() => setActive(false));
+    }
+  }, [open]);
   useEffect(() => {
     if (scrollRef.current)
       scrollRef.current.scrollTo({
@@ -340,39 +418,41 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
         @keyframes ambFloat3{0%,100%{transform:translateY(0)}50%{transform:translateY(-3.5px)}}
         @keyframes ambFloat4{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
         @keyframes tdot{0%,60%,100%{opacity:0.15}30%{opacity:0.5}}
+        @keyframes typingPulse{0%,100%{transform:scale(1);opacity:0.6}50%{transform:scale(1.15);opacity:1}}
       `}</style>
       <div
+        ref={panelRef}
         style={{
           position: "fixed",
           top: 16,
           right: 16,
           bottom: 16,
           width: "calc(50% - 24px)",
+          padding: "70px 0",
           zIndex: 8,
           display: "flex",
           flexDirection: "column",
-          pointerEvents: active ? "auto" : "none",
+          pointerEvents: "none",
         }}
       >
-        {/* Background — matches menu panel glass */}
+        {/* Background — clipPath reveal like menu right panel */}
         <div
+          ref={bgRef}
           style={{
             position: "absolute",
             inset: 0,
             background: "rgba(232,232,238,0.74)",
             backdropFilter: "blur(50px) saturate(1.15)",
             WebkitBackdropFilter: "blur(50px) saturate(1.15)",
-            borderRadius: 20,
-            transform: active ? "translateX(0)" : "translateX(105%)",
-            opacity: active ? 1 : 0,
-            transition: active
-              ? "transform 1.4s cubic-bezier(0.16,1,0.3,1), opacity 1s ease"
-              : "transform 1s cubic-bezier(0.5,0,0.75,0) 0.15s, opacity 0.8s ease 0.1s",
+            borderRadius: "120px 20px 20px 120px",
+            clipPath: "inset(0 100% 0 0)",
+            opacity: 0,
           }}
         />
 
         {/* Header */}
         <div
+          ref={headerRef}
           style={{
             position: "relative",
             zIndex: 1,
@@ -380,11 +460,7 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
             display: "flex",
             justifyContent: "space-between",
             alignItems: "flex-start",
-            opacity: active ? 1 : 0,
-            transform: active ? "translateY(0)" : "translateY(6px)",
-            transition: active
-              ? "opacity 0.7s ease 0.5s, transform 0.7s ease 0.5s"
-              : "opacity 0.3s ease, transform 0.3s ease",
+            opacity: 0,
           }}
         >
           <div
@@ -444,113 +520,123 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
 
         {/* Messages */}
         <div
-          ref={scrollRef}
+          ref={msgsRef}
           style={{
             flex: 1,
             position: "relative",
             zIndex: 1,
-            overflowY: "auto",
-            padding: "24px 32px",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "flex-end",
-            gap: 2,
-            opacity: active ? 1 : 0,
-            transition: active ? "opacity 0.7s ease 0.7s" : "opacity 0.3s ease",
+            minHeight: 0,
+            opacity: 0,
           }}
         >
-          {messages.map((m, i) => {
-            const isNew = !revealedMsgs.has(i);
-            return (
-              <div key={i}>
-                {m.role === "assistant" ? (
-                  <div style={{ padding: "6px 0" }}>
-                    {splitIntoLines(m.text).map((line, li) => (
-                      <AmbientLine
-                        key={li}
-                        text={line}
-                        index={li}
-                        total={splitIntoLines(m.text).length}
-                        isNew={isNew}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <UserPill text={m.text} />
-                )}
-              </div>
-            );
-          })}
-          {typing && <TypingIndicator />}
+          <div
+            ref={scrollRef}
+            style={{
+              position: "absolute",
+              inset: 0,
+              overflowY: "auto",
+              padding: "24px 32px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
+              maskImage:
+                "linear-gradient(transparent 0%, black 248px, black 100%)",
+              WebkitMaskImage:
+                "linear-gradient(transparent 0%, black 248px, black 100%)",
+            }}
+          >
+            {/* Spacer pushes content to bottom when conversation is short */}
+            <div style={{ flex: 1, minHeight: 0 }} />
+            {messages.map((m, i) => {
+              const isNew = !revealedMsgs.has(i);
+              return (
+                <div key={i}>
+                  {m.role === "assistant" ? (
+                    <div style={{ padding: "6px 0" }}>
+                      {splitIntoLines(m.text).map((line, li) => (
+                        <AmbientLine
+                          key={li}
+                          text={line}
+                          index={li}
+                          total={splitIntoLines(m.text).length}
+                          isNew={isNew}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <UserPill text={m.text} />
+                  )}
+                </div>
+              );
+            })}
+            {typing && <TypingIndicator />}
 
-          {/* Help options */}
-          {showHelp && (
-            <div
-              style={{
-                padding: "8px 0",
-                display: "flex",
-                flexDirection: "column",
-                gap: 4,
-              }}
-            >
-              <p
+            {/* Help options */}
+            {showHelp && (
+              <div
                 style={{
-                  fontSize: 9,
-                  color: "rgba(18,18,40,0.25)",
-                  fontFamily: F,
-                  fontWeight: 300,
-                  letterSpacing: "0.1em",
-                  margin: "4px 0",
-                  textTransform: "uppercase",
+                  padding: "8px 0",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 4,
                 }}
               >
-                Try asking about:
-              </p>
-              {HELP_OPTIONS.map((q, i) => (
-                <button
-                  key={i}
-                  onClick={() => {
-                    setShowHelp(false);
-                    sendMessage(q);
-                  }}
+                <p
                   style={{
-                    textAlign: "left",
-                    padding: "6px 12px",
-                    borderRadius: 10,
-                    border: "0.5px solid rgba(18,18,40,0.04)",
-                    background: "rgba(255,255,255,0.3)",
+                    fontSize: 9,
+                    color: "rgba(18,18,40,0.25)",
                     fontFamily: F,
-                    fontSize: 11,
                     fontWeight: 300,
-                    color: "rgba(18,18,40,0.4)",
-                    cursor: "pointer",
-                    transition: "all 0.2s",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.background = "rgba(255,255,255,0.55)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.background = "rgba(255,255,255,0.3)";
+                    letterSpacing: "0.1em",
+                    margin: "4px 0",
+                    textTransform: "uppercase",
                   }}
                 >
-                  {q}
-                </button>
-              ))}
-            </div>
-          )}
+                  Try asking about:
+                </p>
+                {HELP_OPTIONS.map((q, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      setShowHelp(false);
+                      sendMessage(q);
+                    }}
+                    style={{
+                      textAlign: "left",
+                      padding: "6px 12px",
+                      borderRadius: 10,
+                      border: "0.5px solid rgba(18,18,40,0.04)",
+                      background: "rgba(255,255,255,0.3)",
+                      fontFamily: F,
+                      fontSize: 11,
+                      fontWeight: 300,
+                      color: "rgba(18,18,40,0.4)",
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.background = "rgba(255,255,255,0.55)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.background = "rgba(255,255,255,0.3)";
+                    }}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Suggestions + Input */}
         <div
+          ref={inputAreaRef}
           style={{
             position: "relative",
             zIndex: 1,
             padding: "0 32px 32px",
-            opacity: active ? 1 : 0,
-            transform: active ? "translateY(0)" : "translateY(10px)",
-            transition: active
-              ? "opacity 0.7s ease 0.9s, transform 0.7s cubic-bezier(0.16,1,0.3,1) 0.9s"
-              : "opacity 0.2s ease, transform 0.2s ease",
+            opacity: 0,
           }}
         >
           {/* Suggestion pills */}

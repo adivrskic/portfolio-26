@@ -259,7 +259,7 @@ export default function Reticle({
           transform: "translateX(-100%)",
         }}
       >
-        {verb} & hold to explore
+        {verb} and hold to explore
       </div>
     </>
   );

@@ -205,7 +205,7 @@ export default function DebugPanel({
               value={c.birthFlyInDist ?? 7}
               onChange={up("birthFlyInDist")}
               min={0}
-              max={20}
+              max={100}
               step={0.5}
             />
             <Sl
@@ -213,7 +213,7 @@ export default function DebugPanel({
               value={c.birthFlyInCurve ?? 1.8}
               onChange={up("birthFlyInCurve")}
               min={0.3}
-              max={5}
+              max={10}
               step={0.1}
             />
             <Sl
@@ -221,23 +221,31 @@ export default function DebugPanel({
               value={c.birthFloatDist ?? 7}
               onChange={up("birthFloatDist")}
               min={0}
-              max={10}
+              max={100}
+              step={0.1}
+            />
+            <Sl
+              label="Arc height"
+              value={c.birthArcHeight ?? 2.0}
+              onChange={up("birthArcHeight")}
+              min={-20}
+              max={20}
               step={0.1}
             />
             <Sl
               label="X start offset"
               value={c.birthStartX ?? 0}
               onChange={up("birthStartX")}
-              min={-10}
-              max={10}
+              min={-20}
+              max={20}
               step={0.1}
             />
             <Sl
               label="Y start offset"
               value={c.birthStartY ?? 0}
               onChange={up("birthStartY")}
-              min={-10}
-              max={10}
+              min={-20}
+              max={20}
               step={0.1}
             />
             <Sl
@@ -264,7 +272,7 @@ export default function DebugPanel({
               value={c.birthScaleStart ?? 1.0}
               onChange={up("birthScaleStart")}
               min={0.1}
-              max={3}
+              max={10}
               step={0.05}
             />
           </Section>
@@ -419,6 +427,290 @@ export default function DebugPanel({
               onChange={up("birthSpinBurstZ")}
               min={-8}
               max={8}
+              step={0.1}
+            />
+          </Section>
+
+          <Section title="BRUSH STROKE">
+            <Sl
+              label="Fade speed"
+              value={c.brushFade ?? 0.021}
+              onChange={up("brushFade")}
+              min={0.001}
+              max={0.08}
+              step={0.001}
+            />
+            <Sl
+              label="Reveal radius"
+              value={c.revealRadius ?? 420}
+              onChange={up("revealRadius")}
+              min={50}
+              max={800}
+              step={10}
+            />
+            <Sl
+              label="Reveal intensity"
+              value={c.revealIntensity ?? 1}
+              onChange={up("revealIntensity")}
+              min={0.1}
+              max={3}
+              step={0.05}
+            />
+            <Sl
+              label="Size multiplier"
+              value={c.brushSizeMult ?? 0.4}
+              onChange={up("brushSizeMult")}
+              min={0.05}
+              max={1.0}
+              step={0.01}
+            />
+            <Sl
+              label="Opacity multiplier"
+              value={c.brushOpacityMult ?? 0.1}
+              onChange={up("brushOpacityMult")}
+              min={0.01}
+              max={0.5}
+              step={0.01}
+            />
+            <Sl
+              label="Spacing"
+              value={c.brushSpacing ?? 4}
+              onChange={up("brushSpacing")}
+              min={1}
+              max={16}
+              step={0.5}
+            />
+            <Sl
+              label="Smoothing"
+              value={c.brushSmoothing ?? 0.12}
+              onChange={up("brushSmoothing")}
+              min={0.01}
+              max={0.5}
+              step={0.01}
+            />
+            <Sl
+              label="Mask expand"
+              value={c.brushMaskExpand ?? 1.002}
+              onChange={up("brushMaskExpand")}
+              min={1.0}
+              max={1.02}
+              step={0.001}
+            />
+            <Sl
+              label="Core size"
+              value={c.brushCoreSize ?? 0.5}
+              onChange={up("brushCoreSize")}
+              min={0.1}
+              max={1.0}
+              step={0.01}
+            />
+            <Sl
+              label="Core opacity"
+              value={c.brushCoreOpacity ?? 0.6}
+              onChange={up("brushCoreOpacity")}
+              min={0.05}
+              max={1.0}
+              step={0.01}
+            />
+            <Sl
+              label="Core falloff"
+              value={c.brushCoreFalloff ?? 0.15}
+              onChange={up("brushCoreFalloff")}
+              min={0.01}
+              max={0.6}
+              step={0.01}
+            />
+          </Section>
+
+          <Section title="BRISTLES">
+            <Sl
+              label="Angle spread"
+              value={c.bristleAngleSpread ?? 0.8}
+              onChange={up("bristleAngleSpread")}
+              min={0}
+              max={2.0}
+              step={0.05}
+            />
+            <Sl
+              label="Dist min"
+              value={c.bristleDistMin ?? 0.15}
+              onChange={up("bristleDistMin")}
+              min={0}
+              max={0.5}
+              step={0.01}
+            />
+            <Sl
+              label="Dist max"
+              value={c.bristleDistMax ?? 0.6}
+              onChange={up("bristleDistMax")}
+              min={0.2}
+              max={1.5}
+              step={0.01}
+            />
+            <Sl
+              label="Size min"
+              value={c.bristleSizeMin ?? 0.25}
+              onChange={up("bristleSizeMin")}
+              min={0.05}
+              max={0.8}
+              step={0.01}
+            />
+            <Sl
+              label="Size max"
+              value={c.bristleSizeMax ?? 0.7}
+              onChange={up("bristleSizeMax")}
+              min={0.2}
+              max={1.5}
+              step={0.01}
+            />
+            <Sl
+              label="Opacity min"
+              value={c.bristleOpacityMin ?? 0.4}
+              onChange={up("bristleOpacityMin")}
+              min={0}
+              max={1}
+              step={0.01}
+            />
+            <Sl
+              label="Opacity max"
+              value={c.bristleOpacityMax ?? 1.0}
+              onChange={up("bristleOpacityMax")}
+              min={0.2}
+              max={1}
+              step={0.01}
+            />
+          </Section>
+
+          <Section title="GRADIENT BLOBS">
+            <Sl
+              label="Blob count"
+              value={c.blobCount ?? 15}
+              onChange={up("blobCount")}
+              min={3}
+              max={30}
+              step={1}
+            />
+            <Sl
+              label="Blob size min"
+              value={c.blobSizeMin ?? 0.25}
+              onChange={up("blobSizeMin")}
+              min={0.05}
+              max={0.5}
+              step={0.01}
+            />
+            <Sl
+              label="Blob size max"
+              value={c.blobSizeMax ?? 0.65}
+              onChange={up("blobSizeMax")}
+              min={0.3}
+              max={1.2}
+              step={0.01}
+            />
+            <Sl
+              label="Blob alpha min"
+              value={c.blobAlphaMin ?? 0.3}
+              onChange={up("blobAlphaMin")}
+              min={0.05}
+              max={0.8}
+              step={0.01}
+            />
+            <Sl
+              label="Blob alpha max"
+              value={c.blobAlphaMax ?? 0.85}
+              onChange={up("blobAlphaMax")}
+              min={0.3}
+              max={1.0}
+              step={0.01}
+            />
+            <Sl
+              label="Grad speed"
+              value={c.gradSpeed ?? 1.82}
+              onChange={up("gradSpeed")}
+              min={0.1}
+              max={5}
+              step={0.05}
+            />
+          </Section>
+
+          <Section title="CHAT TRANSITION">
+            <Sl
+              label="Stiffness"
+              value={c.chatStiffness ?? 1.8}
+              onChange={up("chatStiffness")}
+              min={0.5}
+              max={6}
+              step={0.1}
+            />
+            <Sl
+              label="Damping"
+              value={c.chatDamping ?? 3.5}
+              onChange={up("chatDamping")}
+              min={1}
+              max={8}
+              step={0.1}
+            />
+            <Sl
+              label="Return stiffness"
+              value={c.chatReturnStiffness ?? 4.0}
+              onChange={up("chatReturnStiffness")}
+              min={1}
+              max={10}
+              step={0.1}
+            />
+            <Sl
+              label="Return damping"
+              value={c.chatReturnDamping ?? 4.0}
+              onChange={up("chatReturnDamping")}
+              min={1}
+              max={10}
+              step={0.1}
+            />
+            <Sl
+              label="Arc stiffness"
+              value={c.chatArcStiffness ?? 2.0}
+              onChange={up("chatArcStiffness")}
+              min={0.5}
+              max={6}
+              step={0.1}
+            />
+            <Sl
+              label="Arc damping"
+              value={c.chatArcDamping ?? 2.8}
+              onChange={up("chatArcDamping")}
+              min={0.5}
+              max={6}
+              step={0.1}
+            />
+            <Sl
+              label="Arc kick Z"
+              value={c.chatArcKickZ ?? -5}
+              onChange={up("chatArcKickZ")}
+              min={-15}
+              max={0}
+              step={0.5}
+            />
+            <Sl
+              label="Arc kick X"
+              value={c.chatArcKickX ?? -3}
+              onChange={up("chatArcKickX")}
+              min={-10}
+              max={0}
+              step={0.5}
+            />
+            <Sl
+              label="Spin kick"
+              value={c.chatSpinKick ?? 1.8}
+              onChange={up("chatSpinKick")}
+              min={0}
+              max={6}
+              step={0.1}
+            />
+            <Sl
+              label="Spin decay"
+              value={c.chatSpinDecay ?? 1.4}
+              onChange={up("chatSpinDecay")}
+              min={0.5}
+              max={4}
               step={0.1}
             />
           </Section>
