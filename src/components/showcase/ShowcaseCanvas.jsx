@@ -16,6 +16,7 @@ import {
   Loader,
 } from "@react-three/drei";
 import GlassCube from "../scene/GlassCube";
+import ContactForm from "../contact/ContactForm";
 import { Flex, Box } from "@react-three/flex";
 
 // Inter font for 3D text — matches the rest of the site
@@ -977,6 +978,7 @@ export default function ShowcaseCanvas({ open, onClose, config }) {
   const closingRef = useRef(false);
   const [vpHeight, setVpHeight] = useState(null);
   const lastWheelRef = useRef(0);
+  const [showContact, setShowContact] = useState(false);
 
   // Preload all assets on mount (not on open)
   useEffect(() => {
@@ -1107,7 +1109,75 @@ export default function ShowcaseCanvas({ open, onClose, config }) {
       <SectionProgress
         totalSections={TOTAL_SECTIONS}
         themeColor={config?.gradColor1}
+        onClose={onClose}
       />
+
+      {/* Settle footer — contact + exit buttons */}
+      <SettleFooter
+        onClose={onClose}
+        onContact={() => setShowContact(true)}
+        totalSections={TOTAL_SECTIONS}
+      />
+
+      {/* Contact panel — frosted glass overlay matching menu/chat style */}
+      {showContact && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 20,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowContact(false);
+          }}
+        >
+          <div
+            style={{
+              position: "relative",
+              background: "rgba(232,232,238,0.74)",
+              backdropFilter: "blur(50px) saturate(1.15)",
+              WebkitBackdropFilter: "blur(50px) saturate(1.15)",
+              borderRadius: 120,
+              padding: "70px 70px",
+              maxWidth: 520,
+              width: "90%",
+              maxHeight: "85vh",
+              overflowY: "auto",
+            }}
+          >
+            <button
+              onClick={() => setShowContact(false)}
+              style={{
+                position: "absolute",
+                top: 32,
+                right: 40,
+                background: "none",
+                border: "none",
+                fontSize: 10,
+                fontFamily: "'Inter',-apple-system,sans-serif",
+                fontWeight: 300,
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                color: "rgba(26,26,46,0.3)",
+                cursor: "pointer",
+                transition: "color 0.3s",
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.color = "rgba(26,26,46,0.6)";
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.color = "rgba(26,26,46,0.3)";
+              }}
+            >
+              Close
+            </button>
+            <ContactForm />
+          </div>
+        </div>
+      )}
 
       <Loader />
     </div>
@@ -1115,7 +1185,89 @@ export default function ShowcaseCanvas({ open, onClose, config }) {
 }
 
 // ── Section progress — vertical line with sliding marker ──
-function SectionProgress({ totalSections, themeColor }) {
+// ── Settle footer — shows at last section ──
+function SettleFooter({ onClose, onContact, totalSections }) {
+  const ref = useRef();
+
+  useEffect(() => {
+    let raf;
+    function tick() {
+      raf = requestAnimationFrame(tick);
+      if (!ref.current) return;
+      const atEnd = state.section >= totalSections - 1;
+      ref.current.style.opacity = atEnd ? "1" : "0";
+      ref.current.style.transform = `translateX(-50%) translateY(${
+        atEnd ? "0" : "8px"
+      })`;
+      ref.current.style.pointerEvents = atEnd ? "auto" : "none";
+    }
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [totalSections]);
+
+  const linkStyle = {
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    fontSize: 10,
+    fontFamily: "'Inter',-apple-system,sans-serif",
+    fontWeight: 300,
+    letterSpacing: "0.2em",
+    textTransform: "uppercase",
+    color: "rgba(26,26,46,0.3)",
+    padding: "6px 0",
+    transition: "color 0.3s",
+    display: "block",
+  };
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        position: "absolute",
+        bottom: 60,
+        left: "50%",
+        transform: "translateX(-50%) translateY(8px)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 4,
+        zIndex: 5,
+        opacity: 0,
+        transition:
+          "opacity 0.6s, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1)",
+        pointerEvents: "none",
+      }}
+    >
+      <button
+        style={linkStyle}
+        onClick={onContact}
+        onMouseEnter={(e) => {
+          e.target.style.color = "rgba(26,26,46,0.7)";
+        }}
+        onMouseLeave={(e) => {
+          e.target.style.color = "rgba(26,26,46,0.3)";
+        }}
+      >
+        Contact
+      </button>
+      <button
+        style={linkStyle}
+        onClick={onClose}
+        onMouseEnter={(e) => {
+          e.target.style.color = "rgba(26,26,46,0.7)";
+        }}
+        onMouseLeave={(e) => {
+          e.target.style.color = "rgba(26,26,46,0.3)";
+        }}
+      >
+        Exit
+      </button>
+    </div>
+  );
+}
+
+function SectionProgress({ totalSections, themeColor, onClose }) {
   const ticksRef = useRef([]);
   const startRef = useRef();
   const endRef = useRef();
@@ -1182,6 +1334,39 @@ function SectionProgress({ totalSections, themeColor }) {
         pointerEvents: "none",
       }}
     >
+      {/* Close button — rotated 90° CCW, above start */}
+      <button
+        onClick={onClose}
+        style={{
+          position: "absolute",
+          right: -28,
+          top: -115,
+          transform: "rotate(-90deg)",
+          transformOrigin: "center center",
+          fontFamily: "'Inter',-apple-system,sans-serif",
+          fontSize: 11,
+          fontWeight: 300,
+          letterSpacing: "0.2em",
+          textTransform: "uppercase",
+          color: "rgba(26,26,46,0.6)",
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          padding: "4px 8px",
+          pointerEvents: "auto",
+          transition: "color 0.3s",
+          whiteSpace: "nowrap",
+        }}
+        onMouseEnter={(e) => {
+          e.target.style.color = "rgba(26,26,46,0.85)";
+        }}
+        onMouseLeave={(e) => {
+          e.target.style.color = "rgba(26,26,46,0.6)";
+        }}
+      >
+        Close
+      </button>
+
       {/* Start label */}
       <div
         ref={startRef}

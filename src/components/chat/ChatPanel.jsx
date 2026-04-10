@@ -356,7 +356,7 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
           style={{
             position: "relative",
             zIndex: 1,
-            padding: "70px 70px 0",
+            padding: window.innerWidth < 768 ? "24px 20px 0" : "70px 70px 0",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "flex-start",
@@ -411,7 +411,7 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
               position: "absolute",
               inset: 0,
               overflowY: "auto",
-              padding: "24px 70px",
+              padding: window.innerWidth < 768 ? "16px 16px" : "24px 70px",
               display: "flex",
               flexDirection: "column",
               gap: 2,
@@ -511,7 +511,7 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
           style={{
             position: "relative",
             zIndex: 1,
-            padding: "0 70px 80px",
+            padding: window.innerWidth < 768 ? "0 16px 24px" : "0 70px 80px",
             opacity: 0,
           }}
         >
@@ -610,9 +610,11 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
           onClick={onClose}
           style={{
             position: "fixed",
-            bottom: 24,
-            left: "50vw",
-            translate: "-50% 0",
+            bottom: window.innerWidth < 768 ? "auto" : 24,
+            top: window.innerWidth < 768 ? 16 : "auto",
+            left: window.innerWidth < 768 ? "auto" : "50vw",
+            right: window.innerWidth < 768 ? 16 : "auto",
+            translate: window.innerWidth < 768 ? "none" : "-50% 0",
             width: 48,
             height: 48,
             borderRadius: "50%",

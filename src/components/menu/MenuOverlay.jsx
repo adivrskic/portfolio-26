@@ -847,7 +847,7 @@ export default function MenuOverlay({
           <div
             style={{
               flex: 1,
-              padding: "70px 70px",
+              padding: window.innerWidth < 768 ? "16px 20px" : "70px 70px",
               boxSizing: "border-box",
               display: "flex",
               flexDirection: "column",
@@ -960,7 +960,10 @@ export default function MenuOverlay({
                     <div
                       data-stg
                       style={{
-                        padding: "28px 28px 24px",
+                        padding:
+                          window.innerWidth < 768
+                            ? "16px 14px 12px"
+                            : "28px 28px 24px",
                         borderRadius: 14,
                         border: "0.5px solid " + T + "0.08)",
                         marginBottom: 12,
@@ -1038,8 +1041,9 @@ export default function MenuOverlay({
                   <div
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "1fr 1fr 1fr",
-                      gap: 10,
+                      gridTemplateColumns:
+                        window.innerWidth < 768 ? "1fr" : "1fr 1fr 1fr",
+                      gap: window.innerWidth < 768 ? 8 : 10,
                       flex: 1,
                     }}
                   >
@@ -1316,11 +1320,14 @@ export default function MenuOverlay({
                         data-stg
                         style={{
                           flex: 1,
-                          display: "flex",
-                          gap: 10,
+                          display: window.innerWidth < 768 ? "grid" : "flex",
+                          gridTemplateColumns:
+                            window.innerWidth < 768 ? "1fr" : undefined,
+                          gap: window.innerWidth < 768 ? 8 : 10,
                           minHeight: 0,
                           position: "relative",
-                          overflow: "visible",
+                          overflow:
+                            window.innerWidth < 768 ? "auto" : "visible",
                         }}
                       >
                         {themes.map((t) => (

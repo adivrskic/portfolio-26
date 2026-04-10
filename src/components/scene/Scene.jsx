@@ -676,7 +676,7 @@ export default function Scene({
       depthWrite: false,
     });
     const smiley = new THREE.Sprite(smileyMat);
-    smiley.scale.set(0.55, 0.55, 1);
+    smiley.scale.set(0.75, 0.75, 1);
     smiley.position.set(0, 0, 0.05);
     smiley.renderOrder = 12;
     glassCube.add(smiley);

@@ -53,45 +53,50 @@
     border-radius: 120px;
   }
 
-  /* ── MOBILE: stack panels, left becomes horizontal nav bar ── */
+  /* ── MOBILE: nav bar on top, content panel fills rest ── */
   @media (max-width: 768px) {
     .menu-wrapper {
       flex-direction: column;
       padding: 8px;
-      gap: 8px;
+      gap: 6px;
     }
     .menu-panel--left {
       flex: 0 0 auto;
-      border-radius: 16px;
+      border-radius: 20px;
       max-height: none;
     }
     .menu-panel--right {
       flex: 1;
-      border-radius: 16px;
+      border-radius: 20px;
       min-height: 0;
     }
     .menu-name-left {
       display: none !important;
     }
     .menu-nav {
-      flex-direction: row;
-      padding: 12px 16px;
-      gap: 0;
-      justify-content: center;
+      flex-direction: row !important;
+      padding: 10px 12px !important;
+      gap: 0 !important;
+      justify-content: space-between !important;
+      align-items: center !important;
     }
     .menu-nav-item {
-      text-align: center;
-      padding: 8px 12px;
+      text-align: center !important;
+      padding: 6px 8px !important;
+      flex: 1;
     }
     .menu-nav-label {
-      font-size: 12px !important;
-      letter-spacing: 0.1em !important;
+      font-size: 10px !important;
+      letter-spacing: 0.08em !important;
+      margin-right: 0 !important;
+      color: rgba(26,26,46,0.7) !important;
     }
     .menu-name-right {
-      padding: 20px 20px 0;
+      padding: 12px 16px 0 !important;
     }
     .menu-right-inner {
-      padding: 16px 20px 60px;
+      padding: 12px 16px 60px !important;
+      overflow-y: auto;
     }
     .menu-heading {
       font-size: 22px;
