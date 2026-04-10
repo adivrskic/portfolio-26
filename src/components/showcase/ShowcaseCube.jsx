@@ -8,12 +8,14 @@ import { L, state, N, HERO_H, SECTION_H, SETTLE_START } from "./ShowcaseLayout";
 
 export default function ShowcaseCube() {
   const cubeRef = useRef();
+  const cube2Ref = useRef();
   const glowRef = useRef();
   const shadowRef = useRef();
   const { viewport } = useThree();
 
   const glowColor = useRef(new Color("#ffffff"));
   const scaleRef = useRef(1);
+  const scale2Ref = useRef(0.5);
   const posX = useRef(0);
   const posY = useRef(0);
   const spinVelX = useRef(0);
@@ -133,10 +135,45 @@ export default function ShowcaseCube() {
       shadowRef.current.scale.set(ss * 1.2, ss, ss);
       shadowRef.current.material.opacity = 0.06 * Math.min(1, scaleRef.current);
     }
+
+    // ── Second cube — hero only, opposite direction, behind text ──
+    if (cube2Ref.current) {
+      const t = clock.elapsedTime;
+      const heroOp = atHero ? 1 : 0;
+      scale2Ref.current += (heroOp * 0.4 - scale2Ref.current) * 0.04;
+      cube2Ref.current.scale.setScalar(Math.max(0.001, scale2Ref.current));
+      cube2Ref.current.visible = scale2Ref.current > 0.01;
+      // Opposite drift
+      const drift2X = -Math.sin(t * 0.3) * vw * 0.22;
+      cube2Ref.current.position.x = drift2X;
+      cube2Ref.current.position.y = atHero ? -state.top : posY.current;
+      cube2Ref.current.position.z = -2;
+      // Slower, opposite rotation
+      cube2Ref.current.rotation.x -= 0.008;
+      cube2Ref.current.rotation.y -= 0.01;
+    }
   });
 
   return (
     <>
+      {/* Second cube — behind text, opposite drift, hero only */}
+      <GlassCube
+        ref={cube2Ref}
+        size={4.0}
+        cornerRadius={0.55}
+        thickness={2}
+        backsideThickness={4}
+        roughness={0.03}
+        ior={1.5}
+        chromaticAberration={0.03}
+        transmission={1}
+        samples={3}
+        resolution={128}
+        enableIdleSpin={false}
+        showEdges={true}
+        edgeOpacity={0.03}
+      />
+      {/* Main cube — in front */}
       <GlassCube
         ref={cubeRef}
         size={4.0}
@@ -152,6 +189,12 @@ export default function ShowcaseCube() {
         enableIdleSpin={false}
         showEdges={true}
         edgeOpacity={0.04}
+        onPointerOver={() => {
+          state.focusZ = L.cube.z;
+        }}
+        onPointerOut={() => {
+          state.focusZ = 0;
+        }}
       />
       <pointLight ref={glowRef} intensity={0.5} distance={18} />
       <Shadow

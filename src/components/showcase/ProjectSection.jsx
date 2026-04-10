@@ -97,11 +97,14 @@ function GlassCard({ sectionY, w, h }) {
     const dist = Math.abs(camera.position.y - sectionY);
     const t = dist < 5 ? clamp(1 - (dist - 1) / 4, 0, 1) : 0;
     if (matRef.current)
-      matRef.current.opacity += (t * 0.28 - matRef.current.opacity) * 0.04;
+      matRef.current.opacity +=
+        (t * L.card.bgOpacity - matRef.current.opacity) * L.card.bgFadeSpeed;
     if (borderRef.current) {
       borderRef.current.traverse((c) => {
         if (c.material)
-          c.material.opacity += (t * 0.15 - c.material.opacity) * 0.04;
+          c.material.opacity +=
+            (t * L.card.borderOpacity - c.material.opacity) *
+            L.card.bgFadeSpeed;
       });
     }
   });

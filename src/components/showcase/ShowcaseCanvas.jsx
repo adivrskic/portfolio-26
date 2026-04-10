@@ -1,7 +1,13 @@
 import { Suspense, useRef, useState, useEffect, useCallback } from "react";
-import { TextureLoader } from "three";
+import { TextureLoader, Vector3, MathUtils as ThrMath } from "three";
 import { Canvas, useThree, useFrame, useLoader } from "@react-three/fiber";
 import { Environment, Lightformer, Loader } from "@react-three/drei";
+import {
+  EffectComposer,
+  DepthOfField,
+  N8AO,
+  ToneMapping,
+} from "@react-three/postprocessing";
 import ContactForm from "../contact/ContactForm";
 import ShowcaseDebug from "../debug/ShowcaseDebug";
 
@@ -38,6 +44,62 @@ SHOWCASE_PROJECTS.forEach((p) => {
     useLoader.preload(TextureLoader, url);
   });
 });
+
+// ── Dynamic depth of field — shifts focus to hovered cube ──
+// state.focusZ: 0 = no hover (default), positive = front cube, negative = back cube
+state.focusZ = 0;
+
+function DynamicDof() {
+  const dofRef = useRef();
+  const smoothZ = useRef(0);
+  const smoothBokeh = useRef(L.post.dofBokehScale);
+  const smoothRange = useRef(L.post.dofFocusRange);
+
+  useFrame(({ camera }) => {
+    if (!dofRef.current) return;
+
+    const fz = state.focusZ;
+    const onFront = fz > 0; // hovering front cube
+    const onBack = fz < 0; // hovering back cube
+    const idle = fz === 0;
+
+    // Front hover: focus on front, wide range, low bokeh → everything sharp
+    // Back hover: focus on back, narrow range, high bokeh → front goes blurry
+    // Idle: middle ground
+    let targetZ, targetBokeh, targetRange;
+
+    if (onFront) {
+      targetZ = fz;
+      targetBokeh = L.post.dofBokehScale * 0.3; // minimal blur
+      targetRange = L.post.dofFocusRange * 3; // wide focus = sharp everywhere
+    } else if (onBack) {
+      targetZ = fz;
+      targetBokeh = L.post.dofBokehScale * 3; // heavy blur on out-of-focus
+      targetRange = L.post.dofFocusRange * 0.3; // narrow focus = dramatic falloff
+    } else {
+      targetZ = 0;
+      targetBokeh = L.post.dofBokehScale;
+      targetRange = L.post.dofFocusRange;
+    }
+
+    smoothZ.current = ThrMath.lerp(smoothZ.current, targetZ, 0.05);
+    smoothBokeh.current = ThrMath.lerp(smoothBokeh.current, targetBokeh, 0.05);
+    smoothRange.current = ThrMath.lerp(smoothRange.current, targetRange, 0.05);
+
+    dofRef.current.target.set(0, camera.position.y, smoothZ.current);
+    dofRef.current.bokehScale = smoothBokeh.current;
+    dofRef.current.focusRange = smoothRange.current;
+  });
+
+  return (
+    <DepthOfField
+      ref={dofRef}
+      target={[0, 0, 0]}
+      focusRange={L.post.dofFocusRange}
+      bokehScale={L.post.dofBokehScale}
+    />
+  );
+}
 
 // ── Scene content ──
 function Content({ onVpHeight, themeColor }) {
@@ -159,6 +221,8 @@ export default function ShowcaseCanvas({
       }`}
     >
       <Canvas
+        flat
+        shadows
         dpr={[1, 1.5]}
         frameloop={isShown ? "always" : "demand"}
         raycaster={{}}
@@ -170,19 +234,29 @@ export default function ShowcaseCanvas({
         }}
         onCreated={({ gl }) => gl.setClearColor("#e8e8ee")}
       >
-        <ambientLight intensity={0.5} />
-        <spotLight
-          angle={0.3}
-          penumbra={1}
-          position={[0, 10, 20]}
-          intensity={4}
+        <ambientLight intensity={L.light.ambientIntensity} />
+        <directionalLight
+          position={[L.light.dirX, L.light.dirY, L.light.dirZ]}
+          intensity={L.light.dirIntensity}
+          castShadow
+          shadow-mapSize={[256, 256]}
+          shadow-bias={-0.0001}
         />
-        <Environment resolution={128}>
+        <Environment resolution={64}>
           <Lightformer
-            intensity={5}
-            position={[10, 5, 0]}
-            scale={[10, 50, 1]}
-            onUpdate={(self) => self.lookAt(0, 0, 0)}
+            position={[10, 10, 10]}
+            scale={10}
+            intensity={L.light.env1Intensity}
+          />
+          <Lightformer
+            position={[10, 0, -10]}
+            scale={10}
+            intensity={L.light.env2Intensity}
+          />
+          <Lightformer
+            position={[-10, -10, -10]}
+            scale={10}
+            intensity={L.light.env3Intensity}
           />
         </Environment>
         <Suspense fallback={null}>
@@ -191,6 +265,11 @@ export default function ShowcaseCanvas({
             themeColor={config?.gradColor1}
           />
         </Suspense>
+        <EffectComposer>
+          <N8AO aoRadius={L.post.aoRadius} intensity={L.post.aoIntensity} />
+          <DynamicDof />
+          <ToneMapping />
+        </EffectComposer>
       </Canvas>
 
       {/* Fingerprint loading overlay */}
@@ -232,7 +311,7 @@ export default function ShowcaseCanvas({
             themeColor={config?.gradColor1}
             onClose={onClose}
           />
-          <ShowcaseDebug />
+          {/* <ShowcaseDebug /> */}
           <SettleFooter
             onClose={onClose}
             onContact={() => setShowContact(true)}

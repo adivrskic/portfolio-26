@@ -166,12 +166,12 @@ export default function App() {
           setTimeout(() => handleCubeShowcase(section), 600);
         }}
       />
-      <DebugPanel
+      {/* <DebugPanel
         config={config}
         setConfig={setConfig}
         visible={debugVisible}
         setVisible={setDebugVisible}
-      />
+      /> */}
       <PrintContent />
     </div>
   );

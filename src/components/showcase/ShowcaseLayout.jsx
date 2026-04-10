@@ -65,6 +65,53 @@ export const L = {
     titleSize: 0.12,
     titleColor: "#1a1a2e",
   },
+  // ── Postprocessing ──
+  post: {
+    aoRadius: 0.5,
+    aoIntensity: 0.6,
+    dofFocusRange: 0.15,
+    dofBokehScale: 6,
+  },
+  // ── Lighting ──
+  light: {
+    ambientIntensity: 0.4,
+    dirIntensity: 1,
+    dirX: -10,
+    dirY: 10,
+    dirZ: 5,
+    env1Intensity: 4,
+    env2Intensity: 3,
+    env3Intensity: 3,
+  },
+  // ── Glass card ──
+  card: {
+    bgOpacity: 0.28,
+    borderOpacity: 0.15,
+    bgFadeSpeed: 0.04,
+  },
+  // ── Settle physics ──
+  physics: {
+    pushRadius: 2.5,
+    pushStrength: 18,
+    gravity: -9.81,
+    cubeMass: 5,
+    linearDamping: 4,
+    angularDamping: 3,
+    floorFriction: 1.5,
+    cubeFriction: 1.2,
+    restitution: 0.15,
+  },
+  // ── Glass material ──
+  glass: {
+    thickness: 2.5,
+    backsideThickness: 4,
+    roughness: 0.02,
+    ior: 1.5,
+    chromaticAberration: 0.05,
+    anisotropicBlur: 0.4,
+    samples: 4,
+    resolution: 128,
+  },
 };
 
 export function ease(t) {
