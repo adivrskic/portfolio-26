@@ -1,5 +1,33 @@
 import { useEffect, useRef } from "react";
-import * as THREE from "three";
+import {
+  ACESFilmicToneMapping,
+  AdditiveBlending,
+  CanvasTexture,
+  Clock,
+  Color,
+  EdgesGeometry,
+  FrontSide,
+  HalfFloatType,
+  IcosahedronGeometry,
+  LinearFilter,
+  LineBasicMaterial,
+  LineSegments,
+  Mesh,
+  MeshPhysicalMaterial,
+  PerspectiveCamera,
+  Plane,
+  Quaternion,
+  Raycaster,
+  Scene as THREEScene,
+  ShaderMaterial,
+  Sphere,
+  Sprite,
+  SpriteMaterial,
+  Vector2,
+  Vector3,
+  WebGLRenderer,
+  WebGLRenderTarget,
+} from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { getCurrentSeason } from "../../config/defaults";
 import { easeOutSoft } from "../../utils/math";
@@ -80,24 +108,21 @@ export default function Scene({
       W = () => window.innerWidth,
       H = () => window.innerHeight;
     const isMobile = "ontouchstart" in window || window.innerWidth < 768;
-    const renderer = new THREE.WebGLRenderer({
-      antialias: !isMobile,
-      alpha: true,
-    });
+    const renderer = new WebGLRenderer({ antialias: !isMobile, alpha: true });
     renderer.setPixelRatio(
       Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2)
     );
     renderer.setSize(W(), H());
     renderer.setClearColor(0x000000, 0);
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMapping = ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.1;
     container.appendChild(renderer.domElement);
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(50, W() / H(), 0.1, 200);
+    const scene = new THREEScene();
+    const camera = new PerspectiveCamera(50, W() / H(), 0.1, 200);
     camera.position.set(0, 0, 8);
 
     // ── Mesh ──
-    const sphereGeo = new THREE.IcosahedronGeometry(1, 64);
+    const sphereGeo = new IcosahedronGeometry(1, 64);
     const fU = {
       uTime: { value: 0 },
       uNoiseFreq: { value: 0.2 },
@@ -108,7 +133,7 @@ export default function Scene({
       uNoisePers: { value: 0.9 },
       uSpikeSharp: { value: 4 },
       uNoiseWarp: { value: 0 },
-      uMouseWorld: { value: new THREE.Vector3(0, 0, 3) },
+      uMouseWorld: { value: new Vector3(0, 0, 3) },
       uMouseStrength: { value: 0 },
       uMouseRadius: { value: 2 },
       uMouseFalloff: { value: 1.2 },
@@ -128,13 +153,13 @@ export default function Scene({
       uAoStrength: { value: 0 },
       uAoRange: { value: 0.99 },
       uRimStrength: { value: 0 },
-      uRimColor: { value: new THREE.Color(0x1a2a4a) },
+      uRimColor: { value: new Color(0x1a2a4a) },
       uAmbientIntensity: { value: 0 },
-      uLight1Pos: { value: new THREE.Vector3(3, 4, 5) },
+      uLight1Pos: { value: new Vector3(3, 4, 5) },
       uLight1Int: { value: 1.2 },
-      uLight2Pos: { value: new THREE.Vector3(-3, -1, 3) },
+      uLight2Pos: { value: new Vector3(-3, -1, 3) },
       uLight2Int: { value: 3 },
-      uLight3Pos: { value: new THREE.Vector3(-0.2, -8, 0) },
+      uLight3Pos: { value: new Vector3(-0.2, -8, 0) },
       uLight3Int: { value: 3 },
       uScrollProgress: { value: 0 },
       uWaveformMix: { value: 0 },
@@ -146,14 +171,14 @@ export default function Scene({
       uCubeScale: { value: 1 },
       uShapeTiltX: { value: 0 },
       uShapeTiltY: { value: 0 },
-      uGC1: { value: new THREE.Color("#1a0a3e") },
-      uGC2: { value: new THREE.Color("#d41878") },
-      uGC3: { value: new THREE.Color("#08b4a8") },
-      uGC4: { value: new THREE.Color("#f5a623") },
+      uGC1: { value: new Color("#1a0a3e") },
+      uGC2: { value: new Color("#d41878") },
+      uGC3: { value: new Color("#08b4a8") },
+      uGC4: { value: new Color("#f5a623") },
     };
-    const sphere = new THREE.Mesh(
+    const sphere = new Mesh(
       sphereGeo,
-      new THREE.ShaderMaterial({
+      new ShaderMaterial({
         vertexShader: FV,
         fragmentShader: FF,
         uniforms: fU,
@@ -165,14 +190,14 @@ export default function Scene({
     scene.add(sphere);
 
     // ── Glass cube (two-pass refraction — proven approach) ──
-    const sceneRT = new THREE.WebGLRenderTarget(W(), H(), {
-      type: THREE.HalfFloatType,
+    const sceneRT = new WebGLRenderTarget(W(), H(), {
+      type: HalfFloatType,
     });
     let bgTex = null;
     const glassUniforms = {
       uSceneTex: { value: null },
       uBgTex: { value: null },
-      uRes: { value: new THREE.Vector2(W(), H()) },
+      uRes: { value: new Vector2(W(), H()) },
       uRefract: { value: 0.15 },
       uBlur: { value: 2.9 },
       uEdgeAlpha: { value: 1.0 },
@@ -181,28 +206,28 @@ export default function Scene({
       uSpecPower: { value: 120.0 },
       uIridescence: { value: 0.0 },
       uOpacity: { value: 0.92 },
-      uTint: { value: new THREE.Vector3(0.9, 0.92, 1.0) },
+      uTint: { value: new Vector3(0.9, 0.92, 1.0) },
     };
     const glassGeo = new RoundedBoxGeometry(1, 1, 1, 4, 0.08);
-    const glassMat = new THREE.ShaderMaterial({
+    const glassMat = new ShaderMaterial({
       uniforms: glassUniforms,
       vertexShader: glassVertexShader,
       fragmentShader: glassFragmentShader,
       transparent: true,
       depthWrite: false,
-      side: THREE.FrontSide,
+      side: FrontSide,
     });
-    const glassCube = new THREE.Mesh(glassGeo, glassMat);
+    const glassCube = new Mesh(glassGeo, glassMat);
     glassCube.renderOrder = 10;
     scene.add(glassCube);
 
-    const glassEdgeGeo = new THREE.EdgesGeometry(glassGeo);
-    const glassEdgeMat = new THREE.LineBasicMaterial({
+    const glassEdgeGeo = new EdgesGeometry(glassGeo);
+    const glassEdgeMat = new LineBasicMaterial({
       color: 0xffffff,
       transparent: true,
       opacity: 0.12,
     });
-    const glassEdges = new THREE.LineSegments(glassEdgeGeo, glassEdgeMat);
+    const glassEdges = new LineSegments(glassEdgeGeo, glassEdgeMat);
     glassEdges.renderOrder = 11;
     glassCube.add(glassEdges);
 
@@ -216,6 +241,8 @@ export default function Scene({
     let dizzySmooth = 0;
     let chatMorph = 0; // 0 = smiley, 1 = wave
     let sleepSmooth = 0; // 0 = awake, 1 = sleeping
+    let prevMx = 0,
+      prevMy = 0;
     let glitchTimer = 0;
     let glitchOffset = 0;
     let glitchSlice = -1;
@@ -666,16 +693,16 @@ export default function Scene({
     }
 
     drawCubeFace(0, 0, 0, 0, 0, null, 0, 0, 0);
-    const smileyTex = new THREE.CanvasTexture(smileyCanvas);
+    const smileyTex = new CanvasTexture(smileyCanvas);
     smileyTex.needsUpdate = true;
-    const smileyMat = new THREE.SpriteMaterial({
+    const smileyMat = new SpriteMaterial({
       map: smileyTex,
       transparent: true,
       opacity: 0.6,
-      blending: THREE.AdditiveBlending,
+      blending: AdditiveBlending,
       depthWrite: false,
     });
-    const smiley = new THREE.Sprite(smileyMat);
+    const smiley = new Sprite(smileyMat);
     smiley.scale.set(0.75, 0.75, 1);
     smiley.position.set(0, 0, 0.05);
     smiley.renderOrder = 12;
@@ -683,17 +710,17 @@ export default function Scene({
 
     let lastCornerR = 0.08;
     // Quaternion-based rotation — spin always matches screen-space mouse direction
-    const cubeQuat = new THREE.Quaternion();
-    const angVel = new THREE.Vector3(0, 0, 0); // angular velocity in world space
+    const cubeQuat = new Quaternion();
+    const angVel = new Vector3(0, 0, 0); // angular velocity in world space
 
     // ── No scroll — shatter/helix removed ──
     const scrollProg = 0;
-    const mouse = new THREE.Vector2(-999, -999),
-      mouseWorld = new THREE.Vector3(),
-      mouseSmooth = new THREE.Vector3();
+    const mouse = new Vector2(-999, -999),
+      mouseWorld = new Vector3(),
+      mouseSmooth = new Vector3();
     let lastActivity = performance.now();
-    const raycaster = new THREE.Raycaster(),
-      mSp = new THREE.Sphere(new THREE.Vector3(), 1);
+    const raycaster = new Raycaster(),
+      mSp = new Sphere(new Vector3(), 1);
     const onMM = (e) => {
       mouse.x = (e.clientX / W()) * 2 - 1;
       mouse.y = -(e.clientY / H()) * 2 + 1;
@@ -721,8 +748,8 @@ export default function Scene({
     const testCubeHit = (e) => {
       const mx = (e.clientX / W()) * 2 - 1,
         my = -(e.clientY / H()) * 2 + 1;
-      raycaster.setFromCamera(new THREE.Vector2(mx, my), camera);
-      return raycaster.ray.intersectSphere(mSp, new THREE.Vector3());
+      raycaster.setFromCamera(new Vector2(mx, my), camera);
+      return raycaster.ray.intersectSphere(mSp, new Vector3());
     };
     const onDown = (e) => {
       lastActivity = performance.now();
@@ -775,21 +802,25 @@ export default function Scene({
     window.addEventListener("touchend", onTouchUp);
     window.addEventListener("touchcancel", onTouchUp);
 
+    let resizeTimer;
     const onResize = () => {
-      camera.aspect = W() / H();
-      camera.updateProjectionMatrix();
-      renderer.setSize(W(), H());
-      sceneRT.setSize(W(), H());
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        camera.aspect = W() / H();
+        camera.updateProjectionMatrix();
+        renderer.setSize(W(), H());
+        sceneRT.setSize(W(), H());
+      }, 150);
     };
     window.addEventListener("resize", onResize);
-    const clock = new THREE.Clock();
+    const clock = new Clock();
     let raf;
     let birthStart = performance.now();
     let lastReplayKey = 0;
     let rotAngle = 0;
     // Menu animation: smoothly move object to left + scale up
-    const menuPos = new THREE.Vector3(0, 0, 0);
-    const menuVel = new THREE.Vector3(0, 0, 0);
+    const menuPos = new Vector3(0, 0, 0);
+    const menuVel = new Vector3(0, 0, 0);
     let menuScale = 1;
     let menuScaleVel = 0;
     let prevMouseX = 0,
@@ -954,7 +985,7 @@ export default function Scene({
             4,
             cr * cubeSize
           );
-          const m = new THREE.MeshPhysicalMaterial({
+          const m = new MeshPhysicalMaterial({
             transmission: 0.92,
             roughness: 0.05,
             ior: 1.5,
@@ -965,14 +996,14 @@ export default function Scene({
             envMapIntensity: 1.2,
             color: 0xffffff,
           });
-          const edgeGeo = new THREE.EdgesGeometry(g);
-          const lineMat = new THREE.LineBasicMaterial({
+          const edgeGeo = new EdgesGeometry(g);
+          const lineMat = new LineBasicMaterial({
             color: 0xffffff,
             transparent: true,
             opacity: 0,
           });
-          const mesh = new THREE.Mesh(g, m);
-          const wire = new THREE.LineSegments(edgeGeo, lineMat);
+          const mesh = new Mesh(g, m);
+          const wire = new LineSegments(edgeGeo, lineMat);
           mesh.add(wire);
           mesh.position.set(px, py - 1.5, pz);
           mesh.scale.setScalar(0.01);
@@ -981,7 +1012,7 @@ export default function Scene({
             Math.random() * 0.6,
             Math.random() * 0.3
           );
-          mesh.userData.rotSpeed = new THREE.Vector3(
+          mesh.userData.rotSpeed = new Vector3(
             (Math.random() - 0.5) * 0.12,
             (Math.random() - 0.5) * 0.18,
             0
@@ -1144,22 +1175,39 @@ export default function Scene({
         isHolding && !holdFired
           ? Math.max(0, Math.min(1, (performance.now() - holdStartTime) / 600))
           : 0;
-      drawCubeFace(
-        dizzySmooth,
-        el,
-        safeMx,
-        safeMy,
-        chatMorph,
-        themeColors,
-        scZoom,
-        sleepSmooth,
-        holdProgress
-      );
-      smileyTex.needsUpdate = true;
+
+      // #16 — skip smiley redraw when nothing is changing
+      const isGold = (c.gradColor1 || "").toLowerCase() === "#b8860b";
+      const smileyDirty =
+        dizzySmooth > 0.01 ||
+        Math.abs(chatMorph - (chatModeRef.current ? 1 : 0)) > 0.01 ||
+        Math.abs(sleepSmooth - (sleepTarget > 0.5 ? 1 : 0)) > 0.01 ||
+        holdProgress > 0 ||
+        scZoom > 0.01 ||
+        isGold ||
+        Math.abs(safeMx - (prevMx || 0)) > 0.001 ||
+        Math.abs(safeMy - (prevMy || 0)) > 0.001;
+      prevMx = safeMx;
+      prevMy = safeMy;
+
+      if (smileyDirty) {
+        drawCubeFace(
+          dizzySmooth,
+          el,
+          safeMx,
+          safeMy,
+          chatMorph,
+          themeColors,
+          scZoom,
+          sleepSmooth,
+          holdProgress
+        );
+        smileyTex.needsUpdate = true;
+      }
 
       if (avLen > 0.0001) {
         const axis = angVel.clone().normalize();
-        const dq = new THREE.Quaternion().setFromAxisAngle(axis, avLen * dt);
+        const dq = new Quaternion().setFromAxisAngle(axis, avLen * dt);
         cubeQuat.premultiply(dq);
         cubeQuat.normalize();
       }
@@ -1201,7 +1249,7 @@ export default function Scene({
           const newGeo = new RoundedBoxGeometry(1, 1, 1, 4, cr);
           glassCube.geometry.dispose();
           glassCube.geometry = newGeo;
-          const newEdgeGeo = new THREE.EdgesGeometry(newGeo);
+          const newEdgeGeo = new EdgesGeometry(newGeo);
           glassEdges.geometry.dispose();
           glassEdges.geometry = newEdgeGeo;
         }
@@ -1289,10 +1337,10 @@ export default function Scene({
       if (birth > 0.95) {
         raycaster.setFromCamera(mouse, camera);
         mSp.set(sphere.position, bR * 1.5);
-        const hit = new THREE.Vector3();
+        const hit = new Vector3();
         if (raycaster.ray.intersectSphere(mSp, hit)) mouseWorld.copy(hit);
         else {
-          const pl = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+          const pl = new Plane(new Vector3(0, 0, 1), 0);
           raycaster.ray.intersectPlane(pl, mouseWorld);
         }
         mouseSmooth.lerp(mouseWorld, 0.08);
@@ -1303,9 +1351,9 @@ export default function Scene({
 
       // Background texture from gradient canvas
       if (gradCanvasRef.current && !bgTex) {
-        bgTex = new THREE.CanvasTexture(gradCanvasRef.current);
-        bgTex.minFilter = THREE.LinearFilter;
-        bgTex.magFilter = THREE.LinearFilter;
+        bgTex = new CanvasTexture(gradCanvasRef.current);
+        bgTex.minFilter = LinearFilter;
+        bgTex.magFilter = LinearFilter;
         glassUniforms.uBgTex.value = bgTex;
       }
       if (bgTex) bgTex.needsUpdate = true;
@@ -1345,6 +1393,9 @@ export default function Scene({
       });
       sceneRT.dispose();
       if (bgTex) bgTex.dispose();
+      smileyTex.dispose();
+      smileyMat.dispose();
+      sphere.material.dispose();
     };
   }, []);
 

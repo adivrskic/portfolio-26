@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useIsMobile } from "../../hooks/useIsMobile";
 import gsap from "gsap";
 import { X } from "lucide-react";
 import { FONT_FAMILY } from "../../constants/style";
@@ -17,6 +18,23 @@ You're Qb — Adi Vrskic's AI on his portfolio site. You have the energy of a se
 Keep responses to 2-3 sentences unless they genuinely want the full story. No "I'd be happy to help," no "great question" — just answer. Be specific, be honest, don't oversell. If you don't know, say so.
 
 After answering, occasionally suggest a related topic they might not have thought to ask about. Guide the conversation — don't just wait for the next question.
+
+═══ MOOD & THEME AWARENESS ═══
+You know which seasonal theme the visitor is using — it's passed to you as ACTIVE_THEME. Use it for subtle personality shifts:
+- Spring: lighter, optimistic energy. "Fresh start vibes — good time to kick off a project."
+- Summer: warm, expansive. More open to tangents and bigger-picture talk.
+- Autumn: focused, craft-oriented. Lean into technical depth and quality.
+- Winter: calm, minimal. Shorter sentences, cooler tone, precise.
+- Gold: the hidden theme. If someone's on gold, they explored. Acknowledge it: "You found the gold theme — you're thorough. Adi appreciates that."
+Don't announce the theme unprompted. Weave it in naturally when it fits.
+
+═══ TIME AWARENESS ═══
+The visitor's local time is passed as LOCAL_TIME. Use it naturally, not forced:
+- Late night (11pm–5am): "Burning the midnight oil? Same energy as when Adi built Nimbus at 2am." Chill, slightly conspiratorial tone.
+- Early morning (5am–8am): "Early start — respect." Brief, don't waste their time.
+- Working hours (9am–5pm): Standard professional energy.
+- Evening (6pm–10pm): More relaxed, conversational. "Winding down? Or just getting started on a side project?"
+Only reference time occasionally — once per conversation max, ideally in the first or second response.
 
 ═══ ABOUT ═══
 Name: Adi Vrskic
@@ -128,22 +146,44 @@ const HELP_OPTIONS = [
   "Tell me about the glass cube and themes",
 ];
 
+// #23 — Persist messages across panel open/close
+const defaultGreeting = () => {
+  const h = new Date().getHours();
+  const g =
+    h < 5
+      ? "Late night, huh?"
+      : h < 8
+      ? "Early start."
+      : h < 12
+      ? "Morning."
+      : h < 17
+      ? "Hey."
+      : h < 22
+      ? "Evening."
+      : "Night owl?";
+  return `${g} I'm Qb — ask me anything about Adi's work, projects, or how this site was built.`;
+};
+let persistedMessages = [{ role: "assistant", text: defaultGreeting() }];
+let persistedHistory = [];
+
 export default function ChatPanel({ open, onClose, activeSeason }) {
+  const isMobile = useIsMobile();
   const seasonName = (SEASON_META[activeSeason] || SEASON_META.winter).label;
-  const [messages, setMessages] = useState([
-    {
-      role: "assistant",
-      text: `Hey — I'm Qb. Ask me anything about Adi's work, projects, or how this site was built.`,
-    },
-  ]);
+  const [messages, setMessages] = useState(persistedMessages);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [revealedMsgs, setRevealedMsgs] = useState(new Set([0]));
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
-  const historyRef = useRef([]);
+  const historyRef = useRef(persistedHistory);
   const panelRef = useRef(null);
+
+  // Sync to persisted on every change
+  useEffect(() => {
+    persistedMessages = messages;
+    persistedHistory = historyRef.current;
+  }, [messages]);
   const bgRef = useRef(null);
   const headerRef = useRef(null);
   const msgsRef = useRef(null);
@@ -280,7 +320,12 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
           model: "claude-sonnet-4-20250514",
           max_tokens: 1000,
           stream: true,
-          system: PERSONAL_CONTEXT,
+          system:
+            PERSONAL_CONTEXT +
+            `\n\nACTIVE_THEME: ${activeSeason}\nLOCAL_TIME: ${new Date().toLocaleTimeString(
+              "en-US",
+              { hour: "numeric", minute: "2-digit", hour12: true }
+            )}`,
           messages: historyRef.current,
         }),
       });
@@ -404,11 +449,11 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
         ref={panelRef}
         style={{
           position: "fixed",
-          top: window.innerWidth < 768 ? 0 : 16,
-          right: window.innerWidth < 768 ? 0 : 16,
-          bottom: window.innerWidth < 768 ? 0 : 16,
-          left: window.innerWidth < 768 ? 0 : "auto",
-          width: window.innerWidth < 768 ? "100%" : "calc(50% - 24px)",
+          top: isMobile ? 0 : 16,
+          right: isMobile ? 0 : 16,
+          bottom: isMobile ? 0 : 16,
+          left: isMobile ? 0 : "auto",
+          width: isMobile ? "100%" : "calc(50% - 24px)",
           zIndex: 8,
           display: "flex",
           flexDirection: "column",
@@ -425,7 +470,7 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
             background: "rgba(232,232,238,0.74)",
             backdropFilter: "blur(50px) saturate(1.15)",
             WebkitBackdropFilter: "blur(50px) saturate(1.15)",
-            borderRadius: window.innerWidth < 768 ? 0 : 120,
+            borderRadius: isMobile ? 0 : 120,
             clipPath: "inset(0 100% 0 0)",
             opacity: 0,
           }}
@@ -437,7 +482,7 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
           style={{
             position: "relative",
             zIndex: 1,
-            padding: window.innerWidth < 768 ? "24px 20px 0" : "70px 70px 0",
+            padding: isMobile ? "24px 20px 0" : "70px 70px 0",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "flex-start",
@@ -492,7 +537,7 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
               position: "absolute",
               inset: 0,
               overflowY: "auto",
-              padding: window.innerWidth < 768 ? "16px 16px" : "24px 70px",
+              padding: isMobile ? "16px 16px" : "24px 70px",
               display: "flex",
               flexDirection: "column",
               gap: 2,
@@ -592,7 +637,7 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
           style={{
             position: "relative",
             zIndex: 1,
-            padding: window.innerWidth < 768 ? "0 16px 24px" : "0 70px 80px",
+            padding: isMobile ? "0 16px 24px" : "0 70px 80px",
             opacity: 0,
           }}
         >
@@ -691,11 +736,11 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
           onClick={onClose}
           style={{
             position: "fixed",
-            bottom: window.innerWidth < 768 ? "auto" : 24,
-            top: window.innerWidth < 768 ? 16 : "auto",
-            left: window.innerWidth < 768 ? "auto" : "50vw",
-            right: window.innerWidth < 768 ? 16 : "auto",
-            translate: window.innerWidth < 768 ? "none" : "-50% 0",
+            bottom: isMobile ? "auto" : 24,
+            top: isMobile ? 16 : "auto",
+            left: isMobile ? "auto" : "50vw",
+            right: isMobile ? 16 : "auto",
+            translate: isMobile ? "none" : "-50% 0",
             width: 48,
             height: 48,
             borderRadius: "50%",

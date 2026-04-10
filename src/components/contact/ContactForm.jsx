@@ -64,7 +64,7 @@ export default function ContactForm({ compact, textColor, inputColor }) {
 
   // ── CHANGE THIS to your Supabase project URL ──
   const CONTACT_URL =
-    "https://YOUR_PROJECT_REF.supabase.co/functions/v1/contact";
+    "https://xpyjqeghjxucubtaakda.supabase.co/functions/v1/contact";
 
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState(null);

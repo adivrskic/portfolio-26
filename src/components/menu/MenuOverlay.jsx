@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { useIsMobile } from "../../hooks/useIsMobile";
 import gsap from "gsap";
 import ContactForm from "../contact/ContactForm";
 import { Flower2, Sun, Leaf, Snowflake, X, ArrowRight } from "lucide-react";
@@ -516,6 +517,7 @@ export default function MenuOverlay({
   const [section, setSection] = useState("about");
   const [hovered, setHovered] = useState(null);
   const [goldPop, setGoldPop] = useState(false);
+  const isMobile = useIsMobile();
 
   const panelRef = useRef(null);
   const leftRef = useRef(null);
@@ -847,7 +849,7 @@ export default function MenuOverlay({
           <div
             style={{
               flex: 1,
-              padding: window.innerWidth < 768 ? "16px 20px" : "70px 70px",
+              padding: isMobile ? "16px 20px" : "70px 70px",
               boxSizing: "border-box",
               display: "flex",
               flexDirection: "column",
@@ -960,10 +962,7 @@ export default function MenuOverlay({
                     <div
                       data-stg
                       style={{
-                        padding:
-                          window.innerWidth < 768
-                            ? "16px 14px 12px"
-                            : "28px 28px 24px",
+                        padding: isMobile ? "16px 14px 12px" : "28px 28px 24px",
                         borderRadius: 14,
                         border: "0.5px solid " + T + "0.08)",
                         marginBottom: 12,
@@ -1041,9 +1040,8 @@ export default function MenuOverlay({
                   <div
                     style={{
                       display: "grid",
-                      gridTemplateColumns:
-                        window.innerWidth < 768 ? "1fr" : "1fr 1fr 1fr",
-                      gap: window.innerWidth < 768 ? 8 : 10,
+                      gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr",
+                      gap: isMobile ? 8 : 10,
                       flex: 1,
                     }}
                   >
@@ -1320,14 +1318,12 @@ export default function MenuOverlay({
                         data-stg
                         style={{
                           flex: 1,
-                          display: window.innerWidth < 768 ? "grid" : "flex",
-                          gridTemplateColumns:
-                            window.innerWidth < 768 ? "1fr" : undefined,
-                          gap: window.innerWidth < 768 ? 8 : 10,
+                          display: isMobile ? "grid" : "flex",
+                          gridTemplateColumns: isMobile ? "1fr" : undefined,
+                          gap: isMobile ? 8 : 10,
                           minHeight: 0,
                           position: "relative",
-                          overflow:
-                            window.innerWidth < 768 ? "auto" : "visible",
+                          overflow: isMobile ? "auto" : "visible",
                         }}
                       >
                         {themes.map((t) => (

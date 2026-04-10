@@ -715,6 +715,333 @@ export default function DebugPanel({
             />
           </Section>
 
+          <Section title="RETICLE">
+            <Sl
+              label="Range"
+              value={c.reticleRange ?? 1.2}
+              onChange={up("reticleRange")}
+              min={0.3}
+              max={3}
+              step={0.05}
+            />
+            <Sl
+              label="Min radius"
+              value={c.reticleMinR ?? 16}
+              onChange={up("reticleMinR")}
+              min={4}
+              max={40}
+              step={1}
+            />
+            <Sl
+              label="Max radius"
+              value={c.reticleMaxR ?? 50}
+              onChange={up("reticleMaxR")}
+              min={20}
+              max={100}
+              step={1}
+            />
+            <Sl
+              label="Cross size"
+              value={c.reticleCrossSize ?? 10}
+              onChange={up("reticleCrossSize")}
+              min={2}
+              max={30}
+              step={1}
+            />
+            <Sl
+              label="Opacity"
+              value={c.reticleOpacity ?? 0.55}
+              onChange={up("reticleOpacity")}
+              min={0.05}
+              max={1}
+              step={0.05}
+            />
+            <Sl
+              label="Smoothing"
+              value={c.reticleSmoothing ?? 0.08}
+              onChange={up("reticleSmoothing")}
+              min={0.01}
+              max={0.3}
+              step={0.01}
+            />
+          </Section>
+
+          <Section title="GLASS CUBE">
+            <Sl
+              label="Sphere radius"
+              value={c.sphereRadius ?? 0.7}
+              onChange={up("sphereRadius")}
+              min={0.2}
+              max={1.5}
+              step={0.05}
+            />
+            <Sl
+              label="Shape scale"
+              value={c.shapeScale ?? 1.1}
+              onChange={up("shapeScale")}
+              min={0.5}
+              max={2}
+              step={0.05}
+            />
+            <Sl
+              label="Roughness"
+              value={c.roughness ?? 0.01}
+              onChange={up("roughness")}
+              min={0}
+              max={0.5}
+              step={0.01}
+            />
+            <Sl
+              label="Metallic"
+              value={c.metallic ?? 2}
+              onChange={up("metallic")}
+              min={0}
+              max={5}
+              step={0.1}
+            />
+            <Sl
+              label="Specular"
+              value={c.specularIntensity ?? 4}
+              onChange={up("specularIntensity")}
+              min={0}
+              max={10}
+              step={0.2}
+            />
+            <Sl
+              label="Fresnel power"
+              value={c.fresnelPower ?? 1}
+              onChange={up("fresnelPower")}
+              min={0}
+              max={5}
+              step={0.1}
+            />
+            <Sl
+              label="Fresnel intensity"
+              value={c.fresnelIntensity ?? 2}
+              onChange={up("fresnelIntensity")}
+              min={0}
+              max={5}
+              step={0.1}
+            />
+            <Sl
+              label="Iridescence"
+              value={c.iridescence ?? 1}
+              onChange={up("iridescence")}
+              min={0}
+              max={3}
+              step={0.1}
+            />
+            <Sl
+              label="Env reflect"
+              value={c.envReflect ?? 3}
+              onChange={up("envReflect")}
+              min={0}
+              max={8}
+              step={0.2}
+            />
+            <Sl
+              label="Env brightness"
+              value={c.envBrightness ?? 4}
+              onChange={up("envBrightness")}
+              min={0}
+              max={10}
+              step={0.2}
+            />
+            <Sl
+              label="AO strength"
+              value={c.aoStrength ?? 1.5}
+              onChange={up("aoStrength")}
+              min={0}
+              max={4}
+              step={0.1}
+            />
+            <Sl
+              label="AO range"
+              value={c.aoRange ?? 0.05}
+              onChange={up("aoRange")}
+              min={0}
+              max={0.3}
+              step={0.005}
+            />
+            <Sl
+              label="Rim strength"
+              value={c.rimStrength ?? 1.5}
+              onChange={up("rimStrength")}
+              min={0}
+              max={4}
+              step={0.1}
+            />
+          </Section>
+
+          <Section title="GOLD GLITTER">
+            <Sl
+              label="Count"
+              value={c.glitterCount ?? 800}
+              onChange={up("glitterCount")}
+              min={100}
+              max={2000}
+              step={50}
+            />
+            <Sl
+              label="Size min"
+              value={c.glitterSizeMin ?? 0.5}
+              onChange={up("glitterSizeMin")}
+              min={0.1}
+              max={2}
+              step={0.05}
+            />
+            <Sl
+              label="Size max"
+              value={c.glitterSizeMax ?? 2.3}
+              onChange={up("glitterSizeMax")}
+              min={0.5}
+              max={5}
+              step={0.1}
+            />
+            <Sl
+              label="Lifetime min"
+              value={c.glitterLifetimeMin ?? 5}
+              onChange={up("glitterLifetimeMin")}
+              min={1}
+              max={20}
+              step={0.5}
+            />
+            <Sl
+              label="Lifetime max"
+              value={c.glitterLifetimeMax ?? 15}
+              onChange={up("glitterLifetimeMax")}
+              min={3}
+              max={30}
+              step={1}
+            />
+            <Sl
+              label="Drift min"
+              value={c.glitterDriftMin ?? 25}
+              onChange={up("glitterDriftMin")}
+              min={5}
+              max={60}
+              step={1}
+            />
+            <Sl
+              label="Drift max"
+              value={c.glitterDriftMax ?? 80}
+              onChange={up("glitterDriftMax")}
+              min={20}
+              max={150}
+              step={5}
+            />
+            <Sl
+              label="Spread"
+              value={c.glitterSpread ?? 79}
+              onChange={up("glitterSpread")}
+              min={10}
+              max={150}
+              step={5}
+            />
+            <Sl
+              label="Spawn rate"
+              value={c.glitterSpawnRate ?? 40}
+              onChange={up("glitterSpawnRate")}
+              min={5}
+              max={80}
+              step={1}
+            />
+            <Sl
+              label="Idle rate"
+              value={c.glitterIdleRate ?? 1}
+              onChange={up("glitterIdleRate")}
+              min={0}
+              max={5}
+              step={0.2}
+            />
+            <Sl
+              label="Fade exp"
+              value={c.glitterFadeExp ?? 0.2}
+              onChange={up("glitterFadeExp")}
+              min={0.05}
+              max={1.5}
+              step={0.05}
+            />
+          </Section>
+
+          <Section title="MENU / OVERLAY">
+            <Sl
+              label="Blur"
+              value={c.menuBlur ?? 18}
+              onChange={up("menuBlur")}
+              min={0}
+              max={50}
+              step={1}
+            />
+            <Sl
+              label="BG opacity"
+              value={c.menuBgOpacity ?? 0.74}
+              onChange={up("menuBgOpacity")}
+              min={0.2}
+              max={1}
+              step={0.02}
+            />
+            <Sl
+              label="Pill offset X"
+              value={c.pillOffsetX ?? 280}
+              onChange={up("pillOffsetX")}
+              min={50}
+              max={500}
+              step={10}
+            />
+            <Sl
+              label="Pill offset Y"
+              value={c.pillOffsetY ?? 200}
+              onChange={up("pillOffsetY")}
+              min={50}
+              max={400}
+              step={10}
+            />
+            <Sl
+              label="Pill line width"
+              value={c.pillLineWidth ?? 0.8}
+              onChange={up("pillLineWidth")}
+              min={0.2}
+              max={3}
+              step={0.1}
+            />
+          </Section>
+
+          <Section title="LIGHTING">
+            <Sl
+              label="Light 1 intensity"
+              value={c.light1Intensity ?? 1.2}
+              onChange={up("light1Intensity")}
+              min={0}
+              max={5}
+              step={0.1}
+            />
+            <Sl
+              label="Light 1 X"
+              value={c.light1X ?? 3}
+              onChange={up("light1X")}
+              min={-10}
+              max={10}
+              step={0.5}
+            />
+            <Sl
+              label="Base bright start"
+              value={c.baseBrightStart ?? 1}
+              onChange={up("baseBrightStart")}
+              min={0}
+              max={3}
+              step={0.1}
+            />
+            <Sl
+              label="Base bright end"
+              value={c.baseBrightEnd ?? 0.5}
+              onChange={up("baseBrightEnd")}
+              min={0}
+              max={2}
+              step={0.1}
+            />
+          </Section>
+
           <div
             style={{
               display: "flex",

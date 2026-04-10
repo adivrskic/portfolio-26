@@ -6,7 +6,17 @@ import {
   useEffect,
   useCallback,
 } from "react";
-import * as THREE from "three";
+import {
+  BoxGeometry,
+  Color,
+  Euler,
+  MathUtils,
+  Matrix4,
+  Quaternion,
+  SRGBColorSpace,
+  TextureLoader,
+  Vector3,
+} from "three";
 import { Canvas, useThree, useFrame, useLoader } from "@react-three/fiber";
 import {
   Text as DreiText,
@@ -17,6 +27,7 @@ import {
 } from "@react-three/drei";
 import GlassCube from "../scene/GlassCube";
 import ContactForm from "../contact/ContactForm";
+import ShowcaseDebug from "../debug/ShowcaseDebug";
 import { Flex, Box } from "@react-three/flex";
 
 // Inter font for 3D text — matches the rest of the site
@@ -32,7 +43,7 @@ const state = { top: 0, section: 0, totalSections: 0 };
 // ║  LAYOUT CONFIG — edit these values to tweak everything          ║
 // ║  Save the file and HMR will reload instantly                    ║
 // ╚══════════════════════════════════════════════════════════════════╝
-const L = {
+export const L = {
   // ── Section spacing (world units) ──
   sectionH: 14, // vertical distance between sections
   heroH: 8, // hero section height
@@ -211,7 +222,7 @@ const preloadPromise =
 // Also do R3F-level preload so useLoader hits cache
 PROJECTS.forEach((p) => {
   p.images.forEach((url) => {
-    useLoader.preload(THREE.TextureLoader, url);
+    useLoader.preload(TextureLoader, url);
   });
 });
 
@@ -237,11 +248,7 @@ function CameraScroll() {
     if (Math.abs(introOffset.current) < 0.01) introOffset.current = 0;
 
     const targetY = getSectionY(state.section);
-    lerp.current = THREE.MathUtils.lerp(
-      lerp.current,
-      targetY,
-      L.anim.cameraLerp
-    );
+    lerp.current = MathUtils.lerp(lerp.current, targetY, L.anim.cameraLerp);
     // Keep state.top in sync for other components
     state.top = lerp.current;
     camera.position.y = -lerp.current + introOffset.current;
@@ -252,8 +259,8 @@ function CameraScroll() {
 
 // ── Image plane ──
 function Img({ url, w, h }) {
-  const tex = useLoader(THREE.TextureLoader, url);
-  tex.colorSpace = THREE.SRGBColorSpace;
+  const tex = useLoader(TextureLoader, url);
+  tex.colorSpace = SRGBColorSpace;
   return (
     <mesh>
       <planeGeometry args={[w, h]} />
@@ -549,7 +556,7 @@ function ShowcaseCube() {
   const shadowRef = useRef();
   const { viewport, pointer } = useThree();
 
-  const glowColor = useRef(new THREE.Color("#ffffff"));
+  const glowColor = useRef(new Color("#ffffff"));
   const scaleRef = useRef(1);
   const posX = useRef(0);
   const posY = useRef(0);
@@ -608,7 +615,7 @@ function ShowcaseCube() {
     }
 
     if (phase.current === "fading-out") {
-      scaleRef.current = THREE.MathUtils.lerp(scaleRef.current, 0, FADE_SPEED);
+      scaleRef.current = MathUtils.lerp(scaleRef.current, 0, FADE_SPEED);
       if (scaleRef.current < 0.02) {
         scaleRef.current = 0;
         phase.current = "hidden";
@@ -630,13 +637,9 @@ function ShowcaseCube() {
       }
     } else if (phase.current === "fading-in") {
       const p = getPosForSection(displayedSection.current);
-      scaleRef.current = THREE.MathUtils.lerp(
-        scaleRef.current,
-        p.scale,
-        FADE_SPEED
-      );
-      posX.current = THREE.MathUtils.lerp(posX.current, p.x, 0.05);
-      posY.current = THREE.MathUtils.lerp(posY.current, p.y, 0.05);
+      scaleRef.current = MathUtils.lerp(scaleRef.current, p.scale, FADE_SPEED);
+      posX.current = MathUtils.lerp(posX.current, p.x, 0.05);
+      posY.current = MathUtils.lerp(posY.current, p.y, 0.05);
       if (Math.abs(scaleRef.current - p.scale) < 0.05) {
         scaleRef.current = p.scale;
         phase.current = "visible";
@@ -644,9 +647,9 @@ function ShowcaseCube() {
     } else {
       // visible — track position smoothly
       const p = getPosForSection(displayedSection.current);
-      scaleRef.current = THREE.MathUtils.lerp(scaleRef.current, p.scale, 0.04);
-      posX.current = THREE.MathUtils.lerp(posX.current, p.x, 0.04);
-      posY.current = THREE.MathUtils.lerp(posY.current, p.y, 0.04);
+      scaleRef.current = MathUtils.lerp(scaleRef.current, p.scale, 0.04);
+      posX.current = MathUtils.lerp(posX.current, p.x, 0.04);
+      posY.current = MathUtils.lerp(posY.current, p.y, 0.04);
     }
 
     // ── Cursor push — only at project sections ──
@@ -692,7 +695,7 @@ function ShowcaseCube() {
 
     // Glow
     const projIdx = displayedSection.current - 1;
-    const accent = new THREE.Color(
+    const accent = new Color(
       projIdx >= 0 && projIdx < N ? PROJECTS[projIdx].accent : "#ffffff"
     );
     glowColor.current.lerp(accent, 0.03);
@@ -751,23 +754,23 @@ const CLUMP_CUBE_SIZE = 0.6;
 function SettleClump() {
   const meshRef = useRef();
   const groupRef = useRef();
-  const mat4 = useMemo(() => new THREE.Matrix4(), []);
-  const tmpV = useMemo(() => new THREE.Vector3(), []);
-  const dq = useMemo(() => new THREE.Quaternion(), []);
-  const euler = useMemo(() => new THREE.Euler(), []);
+  const mat4 = useMemo(() => new Matrix4(), []);
+  const tmpV = useMemo(() => new Vector3(), []);
+  const dq = useMemo(() => new Quaternion(), []);
+  const euler = useMemo(() => new Euler(), []);
   const { size, viewport, pointer } = useThree();
   const opSmooth = useRef(0);
 
   const particles = useMemo(() => {
-    const rfs = (r) => THREE.MathUtils.randFloatSpread(r);
+    const rfs = (r) => MathUtils.randFloatSpread(r);
     const arr = [];
     for (let i = 0; i < CLUMP_COUNT; i++) {
       arr.push({
-        pos: new THREE.Vector3(rfs(10), rfs(8), rfs(4)),
-        vel: new THREE.Vector3(rfs(0.3), rfs(0.3), rfs(0.1)),
-        angVel: new THREE.Vector3(rfs(0.3), rfs(0.3), rfs(0.2)),
-        quat: new THREE.Quaternion().setFromEuler(
-          new THREE.Euler(rfs(Math.PI), rfs(Math.PI), rfs(Math.PI))
+        pos: new Vector3(rfs(10), rfs(8), rfs(4)),
+        vel: new Vector3(rfs(0.3), rfs(0.3), rfs(0.1)),
+        angVel: new Vector3(rfs(0.3), rfs(0.3), rfs(0.2)),
+        quat: new Quaternion().setFromEuler(
+          new Euler(rfs(Math.PI), rfs(Math.PI), rfs(Math.PI))
         ),
       });
     }
@@ -776,7 +779,7 @@ function SettleClump() {
 
   const geo = useMemo(
     () =>
-      new THREE.BoxGeometry(
+      new BoxGeometry(
         CLUMP_CUBE_SIZE,
         CLUMP_CUBE_SIZE,
         CLUMP_CUBE_SIZE,
@@ -786,6 +789,7 @@ function SettleClump() {
       ),
     []
   );
+  useEffect(() => () => geo.dispose(), [geo]);
 
   useFrame(({ camera }, dt) => {
     if (!meshRef.current || !groupRef.current) return;
@@ -998,6 +1002,19 @@ export default function ShowcaseCanvas({ open, onClose, config }) {
     }
   }, [open]);
 
+  // #22 — Escape key closes showcase
+  useEffect(() => {
+    if (!visible) return;
+    const onKey = (e) => {
+      if (e.key === "Escape" && !closingRef.current) {
+        closingRef.current = true;
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [visible, onClose]);
+
   const handleVpHeight = useCallback((h) => setVpHeight(h), []);
 
   // Wheel handler — snap to sections with debounce
@@ -1026,6 +1043,18 @@ export default function ShowcaseCanvas({ open, onClose, config }) {
     },
     [onClose]
   );
+
+  // #22 — Escape key closes showcase
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape" && visible && !closingRef.current) {
+        closingRef.current = true;
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [visible, onClose]);
 
   // Current section for footer visibility
   const isAtSettle = state.section >= state.totalSections - 1;
@@ -1111,6 +1140,7 @@ export default function ShowcaseCanvas({ open, onClose, config }) {
         themeColor={config?.gradColor1}
         onClose={onClose}
       />
+      <ShowcaseDebug />
 
       {/* Settle footer — contact + exit buttons */}
       <SettleFooter
