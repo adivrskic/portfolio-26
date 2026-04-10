@@ -74,9 +74,11 @@ export default function GradientBackground({
     const smooth = { x: -500, y: -500 };
     let prevX = -500,
       prevY = -500;
+    let lastBrushTime = 0; // tracks last cursor movement for idle fade
     const onMove = (e) => {
       mouse.x = e.clientX;
       mouse.y = e.clientY;
+      lastBrushTime = performance.now();
     };
     window.addEventListener("mousemove", onMove);
 
@@ -207,8 +209,16 @@ export default function GradientBackground({
       const cursorMoved = Math.sqrt(cursorDx * cursorDx + cursorDy * cursorDy);
       const cursorActive = smooth.x > 0 && smooth.y > 0;
 
-      // ── Mask decay ──
-      const decay = 1 - (cc.brushFade || 0.018) * 0.5;
+      // ── Mask decay — accelerates to full fade after idle period ──
+      const idleMs = performance.now() - lastBrushTime;
+      const idleThreshold = 8000; // start fading after 8s idle
+      const idleRamp = 4000; // ramp to full fade over 4s
+      let decayRate = (cc.brushFade || 0.018) * 0.5;
+      if (lastBrushTime > 0 && idleMs > idleThreshold) {
+        const ramp = Math.min(1, (idleMs - idleThreshold) / idleRamp);
+        decayRate = decayRate + ramp * 0.06; // dramatically increase fade
+      }
+      const decay = 1 - decayRate;
       tCtx.clearRect(0, 0, W, H);
       tCtx.globalAlpha = decay;
       tCtx.drawImage(mask, 0, 0, mask.width, mask.height, 0, 0, W, H);

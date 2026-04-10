@@ -28,7 +28,6 @@ import {
 import GlassCube from "../scene/GlassCube";
 import ContactForm from "../contact/ContactForm";
 import ShowcaseDebug from "../debug/ShowcaseDebug";
-import { DARK_RGBA, BG_HEX } from "../../constants/style";
 
 // Inter font for 3D text — matches the rest of the site
 const FONT_URL =
@@ -37,7 +36,7 @@ function Text(props) {
   return <DreiText font={FONT_URL} {...props} />;
 }
 
-const state = { top: 0, section: 0, totalSections: 0 };
+const state = { top: 0, section: 0, totalSections: 0, hoveredPanel: -1 };
 
 // ╔══════════════════════════════════════════════════════════════════╗
 // ║  LAYOUT CONFIG — edit these values to tweak everything          ║
@@ -80,7 +79,7 @@ export const L = {
 
   // ── Glass cube ──
   cube: {
-    size: 1.8, // scale at project sections — larger for cinematic layout
+    size: 0.8, // scale at project sections — smaller cube
     centerX: 0, // centered
     z: 1, // z depth — between images (0) and text (2)
     fadeSpeed: 0.08, // lerp speed for scale fade in/out
@@ -310,15 +309,36 @@ function TextFade({ sectionY, delay = 0, children }) {
 }
 
 // ── Image fade — fades + scales up ──
-function ImageFade({ sectionY, children }) {
+function ImageFade({ sectionY, delay = 0, children }) {
   const ref = useRef();
   const op = useRef(0);
   const sc = useRef(L.anim.imgScaleFrom);
+  const started = useRef(false);
+  const timer = useRef(0);
 
-  useFrame(({ camera }) => {
+  useFrame(({ camera }, delta) => {
     if (!ref.current) return;
     const dist = Math.abs(camera.position.y - sectionY);
-    const target = dist < L.anim.textVisRange ? 1 : 0;
+    const visible = dist < L.anim.textVisRange;
+    if (visible && !started.current) started.current = true;
+    if (!started.current) {
+      ref.current.traverse((child) => {
+        if (child.material && child.material.opacity !== undefined) {
+          child.material.opacity = 0;
+          child.material.transparent = true;
+        }
+      });
+      return;
+    }
+    // Stagger: accumulate time, only start fading after delay
+    timer.current += delta;
+    const staggerDelay = delay * 0.18; // seconds between each image
+    const active = visible && timer.current >= staggerDelay;
+    const target = active ? 1 : 0;
+    if (!visible) {
+      timer.current = 0;
+      started.current = false;
+    }
     op.current += (target - op.current) * L.anim.imgFade;
     sc.current +=
       ((target > 0.5 ? 1 : L.anim.imgScaleFrom) - sc.current) * L.anim.imgScale;
@@ -340,31 +360,63 @@ function ImageFade({ sectionY, children }) {
 function ProjectSection({ project, index, s, vw, vh }) {
   const sectionY = -(HERO_H + index * SECTION_H);
 
-  // Layout D — Cinematic panels
-  const panelGap = vw * 0.015;
-  const panelW = (vw - panelGap * 4) / 3; // 3 panels with gaps on edges + between
-  const panelH = vh * 0.88;
-  const panelTop = vh * 0.04;
+  // Padding — right side clears progress bar, same on all other sides
+  const rightPadScreen = 80;
+  const rightPadWorld =
+    (rightPadScreen /
+      (typeof window !== "undefined" ? window.innerWidth : 1440)) *
+    vw;
+  const pad = rightPadWorld;
+  const gap = vw * 0.008; // thin gap between panels
 
-  // Panel X positions (centered)
-  const panelX = (i) =>
-    -vw / 2 + panelGap + i * (panelW + panelGap) + panelW / 2;
+  const availW = vw - pad * 2;
+  const availH = vh - pad * 2;
 
-  // Text positioning — overlaid center-bottom
-  const textCenterX = 0;
-  const textBaseY = -vh * 0.18;
-  const titleSize = Math.min(1.2 * s, vw * 0.08);
-  const bodySize = 0.18 * s;
-  const tagSize = 0.07 * s;
-  const skillSize = 0.06 * s;
+  // Magazine spread: hero = 2/3, stacked = 1/3
+  const heroW = (availW - gap) * 0.64;
+  const stackW = (availW - gap) * 0.36;
+  const stackH = (availH - gap) / 2;
+
+  // X positions (centered in available area)
+  const leftEdge = -vw / 2 + pad;
+  const heroX = leftEdge + heroW / 2;
+  const stackX = leftEdge + heroW + gap + stackW / 2;
+
+  // Y positions
+  const heroY = 0; // centered vertically
+  const stackTopY = stackH / 2 + gap / 2; // upper stack image
+  const stackBotY = -stackH / 2 - gap / 2; // lower stack image
+
+  // Midpoint X between hero and stack (where the seam is)
+  const seamX = leftEdge + heroW + gap / 2;
+
+  // Store layout info for cube
+  if (!state.panels) state.panels = {};
+  state.panels[index] = {
+    panelX: (i) => (i === 0 ? heroX : stackX),
+    panelW: heroW,
+    panelH: availH,
+    pad,
+    gap,
+    sectionY,
+    seamX, // cube target X
+  };
+
+  // Text — bottom-left of hero image, overlaid
+  const textX = leftEdge + pad * 0.5;
+  const textBottomY = -availH / 2 + pad * 0.3;
+  const titleSize = Math.min(1.0 * s, vw * 0.055);
+  const bodySize = 0.15 * s;
+  const tagSize = 0.06 * s;
+  const skillSize = 0.05 * s;
 
   return (
     <group position={[0, sectionY, 0]}>
       {/* ── Giant ghosted number ── */}
       <TextFade sectionY={sectionY} delay={0}>
         <Text
-          position={[vw * 0.28, vh * 0.15, -1]}
-          fontSize={vw * 0.25}
+          position={[leftEdge + heroW - pad, availH * 0.35, -1]}
+          fontSize={vw * 0.2}
           letterSpacing={-0.05}
           color="#1a1a2e"
           anchorX="right"
@@ -375,26 +427,43 @@ function ProjectSection({ project, index, s, vw, vh }) {
         </Text>
       </TextFade>
 
-      {/* ── Three tall image panels ── */}
-      {project.images.map((url, i) => (
-        <ImageFade key={i} sectionY={sectionY}>
-          <group position={[panelX(i), panelTop, 0]}>
-            <Suspense fallback={null}>
-              <Img url={url} w={panelW} h={panelH} />
-            </Suspense>
-          </group>
-        </ImageFade>
-      ))}
+      {/* ── Hero image (left, full height) ── */}
+      <ImageFade sectionY={sectionY} delay={0}>
+        <group position={[heroX, heroY, 0]}>
+          <Suspense fallback={null}>
+            <Img url={project.images[0]} w={heroW} h={availH} />
+          </Suspense>
+        </group>
+      </ImageFade>
+
+      {/* ── Top stacked image ── */}
+      <ImageFade sectionY={sectionY} delay={1}>
+        <group position={[stackX, stackTopY, 0]}>
+          <Suspense fallback={null}>
+            <Img url={project.images[1]} w={stackW} h={stackH} />
+          </Suspense>
+        </group>
+      </ImageFade>
+
+      {/* ── Bottom stacked image ── */}
+      <ImageFade sectionY={sectionY} delay={2}>
+        <group position={[stackX, stackBotY, 0]}>
+          <Suspense fallback={null}>
+            <Img url={project.images[2]} w={stackW} h={stackH} />
+          </Suspense>
+        </group>
+      </ImageFade>
 
       {/* ── Tag ── */}
       <TextFade sectionY={sectionY} delay={1}>
         <Text
-          position={[textCenterX, textBaseY, 2]}
+          position={[textX, textBottomY + vh * 0.18, 2]}
           fontSize={tagSize}
           letterSpacing={0.15}
           color="#ffffff"
-          anchorX="center"
-          fillOpacity={0.4}
+          anchorX="left"
+          anchorY="bottom"
+          fillOpacity={0.45}
         >
           {project.tag}
         </Text>
@@ -403,16 +472,16 @@ function ProjectSection({ project, index, s, vw, vh }) {
       {/* ── Title ── */}
       <TextFade sectionY={sectionY} delay={2}>
         <Text
-          position={[textCenterX, textBaseY - vh * 0.055, 2]}
+          position={[textX, textBottomY + vh * 0.06, 2]}
           fontSize={titleSize}
           letterSpacing={-0.03}
-          lineHeight={1}
+          lineHeight={1.1}
           color="#ffffff"
-          anchorX="center"
-          anchorY="top"
-          textAlign="center"
-          maxWidth={vw * 0.6}
-          fillOpacity={0.85}
+          anchorX="left"
+          anchorY="bottom"
+          textAlign="left"
+          maxWidth={heroW * 0.85}
+          fillOpacity={0.9}
         >
           {project.title}
         </Text>
@@ -421,45 +490,31 @@ function ProjectSection({ project, index, s, vw, vh }) {
       {/* ── Description ── */}
       <TextFade sectionY={sectionY} delay={3}>
         <Text
-          position={[textCenterX, textBaseY - vh * 0.15, 2]}
+          position={[textX, textBottomY + vh * 0.01, 2]}
           fontSize={bodySize}
           lineHeight={1.7}
           color="#ffffff"
-          anchorX="center"
+          anchorX="left"
           anchorY="top"
-          textAlign="center"
-          maxWidth={vw * 0.4}
-          fillOpacity={0.35}
+          textAlign="left"
+          maxWidth={heroW * 0.7}
+          fillOpacity={0.4}
         >
           {project.text}
         </Text>
       </TextFade>
 
-      {/* ── Skills pills (as text row) ── */}
+      {/* ── Skills ── */}
       <TextFade sectionY={sectionY} delay={4}>
         <Text
-          position={[textCenterX, -vh * 0.4, 2]}
+          position={[textX, textBottomY - vh * 0.06, 2]}
           fontSize={skillSize}
           letterSpacing={0.1}
           color="#ffffff"
-          anchorX="center"
-          fillOpacity={0.25}
+          anchorX="left"
+          fillOpacity={0.3}
         >
           {project.skills.join("  ·  ")}
-        </Text>
-      </TextFade>
-
-      {/* ── Link ── */}
-      <TextFade sectionY={sectionY} delay={4}>
-        <Text
-          position={[textCenterX, -vh * 0.44, 2]}
-          fontSize={skillSize}
-          letterSpacing={0.12}
-          color="#ffffff"
-          anchorX="center"
-          fillOpacity={0.2}
-        >
-          VIEW PROJECT →
         </Text>
       </TextFade>
     </group>
@@ -549,13 +604,17 @@ function ShowcaseCube() {
         // Hero — centered
         return { x: 0, y: -state.top, scale: 1 };
       } else if (sec > 0 && sec <= N) {
-        // Project section — on image grid side, half off-screen
+        // Project section — cube sits at the seam between hero and stacked images
         const projIdx = sec - 1;
-        // Content is on contentSide, cube goes opposite
-        const cubeSide = 1; // centered for cinematic layout
+        const sectionCenterY = -(HERO_H + projIdx * SECTION_H);
+        const panels = state.panels && state.panels[projIdx];
+
+        const targetX = panels ? panels.seamX : 0;
+        const topHalfY = sectionCenterY + vh * 0.15; // upper portion, above the seam
+
         return {
-          x: 0,
-          y: -(HERO_H + projIdx * SECTION_H) + vh * 0.05,
+          x: targetX,
+          y: topHalfY,
           scale: CUBE_SIZE_AT_SECTION,
         };
       } else {
@@ -567,6 +626,9 @@ function ShowcaseCube() {
         };
       }
     }
+
+    // ── No panel hover detection needed for magazine layout ──
+    state.hoveredPanel = -1;
 
     // ── State machine ──
     if (
@@ -607,11 +669,11 @@ function ShowcaseCube() {
         phase.current = "visible";
       }
     } else {
-      // visible — track position smoothly
+      // visible — track position smoothly (airy, floaty movement)
       const p = getPosForSection(displayedSection.current);
       scaleRef.current = MathUtils.lerp(scaleRef.current, p.scale, 0.04);
-      posX.current = MathUtils.lerp(posX.current, p.x, 0.04);
-      posY.current = MathUtils.lerp(posY.current, p.y, 0.04);
+      posX.current = MathUtils.lerp(posX.current, p.x, 0.018);
+      posY.current = MathUtils.lerp(posY.current, p.y, 0.018);
     }
 
     // ── Cursor push — only at project sections ──
@@ -936,6 +998,87 @@ function Content({ onVpHeight }) {
   );
 }
 
+// ── Intro wave — full-screen tick bars with rippling wave ──
+function IntroWave() {
+  const containerRef = useRef();
+  const tickRefs = useRef([]);
+  const startTime = useRef(performance.now());
+
+  const TICK_COUNT = 60;
+  const TICK_H = 2;
+  const TICK_GAP = 6;
+  const totalH = TICK_COUNT * (TICK_H + TICK_GAP);
+
+  useEffect(() => {
+    let raf;
+    function tick() {
+      raf = requestAnimationFrame(tick);
+      const t = (performance.now() - startTime.current) / 1000;
+      for (let i = 0; i < TICK_COUNT; i++) {
+        const el = tickRefs.current[i];
+        if (!el) continue;
+        // Sine wave traveling downward
+        const phase = (i / TICK_COUNT) * Math.PI * 3 - t * 4;
+        const wave = Math.sin(phase) * 0.5 + 0.5; // 0..1
+        const baseW = 40;
+        const maxW = window.innerWidth * 0.85;
+        const w = baseW + (maxW - baseW) * wave;
+        const op = 0.04 + 0.15 * wave;
+        el.style.width = w + "px";
+        el.style.opacity = op;
+      }
+    }
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 1,
+        background: "#e8e8ee",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "flex-end",
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          right: 24,
+          top: "50%",
+          transform: "translateY(-50%)",
+          height: totalH,
+        }}
+      >
+        {Array.from({ length: TICK_COUNT }, (_, i) => (
+          <div
+            key={i}
+            ref={(el) => {
+              tickRefs.current[i] = el;
+            }}
+            style={{
+              position: "absolute",
+              right: 0,
+              top: i * (TICK_H + TICK_GAP),
+              height: TICK_H,
+              width: 40,
+              borderRadius: 1,
+              background: "rgba(26,26,46,1)",
+              opacity: 0.04,
+              transition: "none",
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Main export ──
 export default function ShowcaseCanvas({ open, onClose, config }) {
   const containerRef = useRef();
@@ -1024,31 +1167,7 @@ export default function ShowcaseCanvas({ open, onClose, config }) {
   if (!visible) return null;
 
   if (!preloaded) {
-    return (
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 1,
-          background: BG_HEX,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <div
-          style={{
-            width: 24,
-            height: 24,
-            border: `2px solid ${DARK_RGBA}0.08)`,
-            borderTop: `2px solid ${DARK_RGBA}0.3)`,
-            borderRadius: "50%",
-            animation: "spin 0.8s linear infinite",
-          }}
-        />
-        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-      </div>
-    );
+    return <IntroWave />;
   }
 
   return (
@@ -1060,7 +1179,7 @@ export default function ShowcaseCanvas({ open, onClose, config }) {
         inset: 0,
         zIndex: 1,
         cursor: "default",
-        background: BG_HEX,
+        background: "#e8e8ee",
         overflow: "hidden",
       }}
     >
@@ -1073,7 +1192,7 @@ export default function ShowcaseCanvas({ open, onClose, config }) {
           alpha: false,
           antialias: true,
         }}
-        onCreated={({ gl }) => gl.setClearColor(BG_HEX)}
+        onCreated={({ gl }) => gl.setClearColor("#e8e8ee")}
       >
         <ambientLight intensity={0.5} />
         <spotLight
@@ -1153,15 +1272,15 @@ export default function ShowcaseCanvas({ open, onClose, config }) {
                 fontWeight: 300,
                 letterSpacing: "0.2em",
                 textTransform: "uppercase",
-                color: DARK_RGBA + "0.3)",
+                color: "rgba(26,26,46,0.3)",
                 cursor: "pointer",
                 transition: "color 0.3s",
               }}
               onMouseEnter={(e) => {
-                e.target.style.color = DARK_RGBA + "0.6)";
+                e.target.style.color = "rgba(26,26,46,0.6)";
               }}
               onMouseLeave={(e) => {
-                e.target.style.color = DARK_RGBA + "0.3)";
+                e.target.style.color = "rgba(26,26,46,0.3)";
               }}
             >
               Close
@@ -1206,7 +1325,7 @@ function SettleFooter({ onClose, onContact, totalSections }) {
     fontWeight: 300,
     letterSpacing: "0.2em",
     textTransform: "uppercase",
-    color: DARK_RGBA + "0.3)",
+    color: "rgba(26,26,46,0.3)",
     padding: "6px 0",
     transition: "color 0.3s",
     display: "block",
@@ -1235,10 +1354,10 @@ function SettleFooter({ onClose, onContact, totalSections }) {
         style={linkStyle}
         onClick={onContact}
         onMouseEnter={(e) => {
-          e.target.style.color = DARK_RGBA + "0.7)";
+          e.target.style.color = "rgba(26,26,46,0.7)";
         }}
         onMouseLeave={(e) => {
-          e.target.style.color = DARK_RGBA + "0.3)";
+          e.target.style.color = "rgba(26,26,46,0.3)";
         }}
       >
         Contact
@@ -1247,10 +1366,10 @@ function SettleFooter({ onClose, onContact, totalSections }) {
         style={linkStyle}
         onClick={onClose}
         onMouseEnter={(e) => {
-          e.target.style.color = DARK_RGBA + "0.7)";
+          e.target.style.color = "rgba(26,26,46,0.7)";
         }}
         onMouseLeave={(e) => {
-          e.target.style.color = DARK_RGBA + "0.3)";
+          e.target.style.color = "rgba(26,26,46,0.3)";
         }}
       >
         Exit
@@ -1300,7 +1419,7 @@ function SectionProgress({ totalSections, themeColor, onClose }) {
         if (gauss > 0.15) {
           el.style.backgroundColor = `rgba(${themeRgb},1)`;
         } else {
-          el.style.backgroundColor = DARK_RGBA + "1)";
+          el.style.backgroundColor = "rgba(26,26,46,1)";
         }
       }
       if (startRef.current) {
@@ -1340,7 +1459,7 @@ function SectionProgress({ totalSections, themeColor, onClose }) {
           fontWeight: 300,
           letterSpacing: "0.2em",
           textTransform: "uppercase",
-          color: DARK_RGBA + "0.6)",
+          color: "rgba(26,26,46,0.6)",
           background: "none",
           border: "none",
           cursor: "pointer",
@@ -1350,10 +1469,10 @@ function SectionProgress({ totalSections, themeColor, onClose }) {
           whiteSpace: "nowrap",
         }}
         onMouseEnter={(e) => {
-          e.target.style.color = DARK_RGBA + "0.85)";
+          e.target.style.color = "rgba(26,26,46,0.85)";
         }}
         onMouseLeave={(e) => {
-          e.target.style.color = DARK_RGBA + "0.6)";
+          e.target.style.color = "rgba(26,26,46,0.6)";
         }}
       >
         Close
@@ -1371,7 +1490,7 @@ function SectionProgress({ totalSections, themeColor, onClose }) {
           fontWeight: 300,
           letterSpacing: "0.2em",
           textTransform: "uppercase",
-          color: DARK_RGBA + "1)",
+          color: "rgba(26,26,46,1)",
           opacity: 0,
           transition: "opacity 0.5s",
         }}
@@ -1392,7 +1511,7 @@ function SectionProgress({ totalSections, themeColor, onClose }) {
             height: TICK_H,
             width: BASE_W,
             borderRadius: 1,
-            background: DARK_RGBA + "1)",
+            background: "rgba(26,26,46,1)",
             opacity: 0.06,
             transition:
               "width 0.7s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.5s, background-color 0.5s",
@@ -1412,7 +1531,7 @@ function SectionProgress({ totalSections, themeColor, onClose }) {
           fontWeight: 300,
           letterSpacing: "0.2em",
           textTransform: "uppercase",
-          color: DARK_RGBA + "1)",
+          color: "rgba(26,26,46,1)",
           opacity: 0,
           transition: "opacity 0.5s",
         }}

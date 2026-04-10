@@ -17,8 +17,6 @@
     />
     <meta property="og:url" content="https://adivrskic.dev" />
     <meta property="og:image" content="https://adivrskic.dev/og-image.png" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Adi Vrskic — Creative Developer" />
     <meta
@@ -75,74 +73,87 @@
         pointer-events: none;
       }
       #initial-loader svg {
-        width: 48px;
-        height: 48px;
+        width: 72px;
+        height: 72px;
       }
-      @keyframes loaderSpin {
+      @keyframes avDraw {
+        from {
+          stroke-dashoffset: 1;
+        }
         to {
-          transform: rotate(360deg);
+          stroke-dashoffset: 0;
         }
       }
-      @keyframes loaderPulse {
-        0%,
-        100% {
-          opacity: 0.12;
+      @keyframes avCircle {
+        from {
+          stroke-dashoffset: 1;
+          opacity: 0;
         }
-        50% {
-          opacity: 0.3;
+        to {
+          stroke-dashoffset: 0;
+          opacity: 1;
         }
       }
-      .loader-cube {
-        animation: loaderSpin 4s linear infinite;
-        transform-origin: 24px 24px;
+      .av-circle {
+        stroke-dasharray: 1;
+        stroke-dashoffset: 1;
+        animation: avCircle 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
       }
-      .loader-dot {
-        animation: loaderPulse 1.4s ease-in-out infinite;
+      .av-letter {
+        stroke-dasharray: 1;
+        stroke-dashoffset: 1;
+        animation: avDraw 1.4s cubic-bezier(0.22, 1, 0.36, 1) 0.4s forwards;
+      }
+      .av-letter-v {
+        animation-delay: 0.6s;
+      }
+      .av-crossbar {
+        animation-delay: 0.8s;
       }
     </style>
   </head>
   <body>
     <!-- Loading spinner — visible until React hydrates -->
     <div id="initial-loader">
-      <svg viewBox="0 0 48 48">
-        <g class="loader-cube">
-          <rect
-            x="10"
-            y="10"
-            width="28"
-            height="28"
-            rx="5"
-            fill="none"
-            stroke="#1a1a2e"
-            stroke-width="0.8"
-            opacity="0.1"
-          />
-        </g>
+      <svg viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
         <circle
-          class="loader-dot"
-          cx="19"
-          cy="25"
-          r="2"
-          fill="#1a1a2e"
+          class="av-circle"
+          cx="36"
+          cy="36"
+          r="32"
+          stroke="#1a1a2e"
+          stroke-width="0.6"
           opacity="0.12"
+          pathLength="1"
         />
-        <circle
-          class="loader-dot"
-          style="animation-delay: 0.2s"
-          cx="24"
-          cy="25"
-          r="2"
-          fill="#1a1a2e"
-          opacity="0.12"
+        <path
+          class="av-letter"
+          d="M17 52 L27 22 L37 52"
+          stroke="#1a1a2e"
+          stroke-width="0.9"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          opacity="0.28"
+          pathLength="1"
         />
-        <circle
-          class="loader-dot"
-          style="animation-delay: 0.4s"
-          cx="29"
-          cy="25"
-          r="2"
-          fill="#1a1a2e"
-          opacity="0.12"
+        <path
+          class="av-letter av-crossbar"
+          d="M21 44 L33 44"
+          stroke="#1a1a2e"
+          stroke-width="0.7"
+          stroke-linecap="round"
+          opacity="0.18"
+          pathLength="1"
+        />
+        <path
+          class="av-letter av-letter-v"
+          d="M37 22 L47 52 L57 22"
+          stroke="#1a1a2e"
+          stroke-width="0.9"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          opacity="0.28"
+          pathLength="1"
         />
       </svg>
     </div>
@@ -152,22 +163,16 @@
     <script>
       // Fade out loader once React renders
       window.addEventListener("DOMContentLoaded", () => {
-        const loader = document.getElementById("initial-loader");
-        const dismiss = () => {
-          loader?.classList.add("fade");
-          setTimeout(() => loader?.remove(), 600);
-        };
         const check = setInterval(() => {
           if (document.querySelector(".app-root")) {
-            dismiss();
+            document.getElementById("initial-loader")?.classList.add("fade");
+            setTimeout(
+              () => document.getElementById("initial-loader")?.remove(),
+              600
+            );
             clearInterval(check);
           }
         }, 100);
-        // Fallback: dismiss after 10s even if React fails to mount
-        setTimeout(() => {
-          clearInterval(check);
-          dismiss();
-        }, 10000);
       });
     </script>
   </body>
