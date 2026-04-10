@@ -241,6 +241,8 @@ export default function Scene({
     let dizzySmooth = 0;
     let chatMorph = 0; // 0 = smiley, 1 = wave
     let sleepSmooth = 0; // 0 = awake, 1 = sleeping
+    let happySmooth = 0; // 0 = normal, 1 = happy (after chat closes)
+    let prevChatMode = false;
     let prevMx = 0,
       prevMy = 0;
     let glitchTimer = 0;
@@ -285,12 +287,14 @@ export default function Scene({
       alpha,
       surprise,
       sleep,
-      colors
+      colors,
+      happy
     ) {
       const lx = (lookX || 0) * 12;
       const ly = (lookY || 0) * -8;
       const sp = surprise || 0;
       const sl = sleep || 0;
+      const hp = happy || 0;
       const fx = smCx + lx;
       const fy = smCy + ly;
       const eyeL = { x: fx - 30, y: fy - 18 - sp * 4 };
@@ -344,7 +348,23 @@ export default function Scene({
 
         const eyeR_size = 8 + sp * 4;
 
-        if (sl > 0.3) {
+        if (hp > 0.3) {
+          // Happy eyes — ^_^ upward arcs
+          sCtx.strokeStyle = tint;
+          sCtx.lineWidth = 3;
+          sCtx.lineCap = "round";
+          [eyeL, eyeR].forEach((eye) => {
+            sCtx.beginPath();
+            sCtx.arc(
+              eye.x + ox,
+              eye.y + oy + 2,
+              8,
+              1.15 * Math.PI,
+              1.85 * Math.PI
+            );
+            sCtx.stroke();
+          });
+        } else if (sl > 0.3) {
           // Sleepy eyes — closed downward arcs
           sCtx.strokeStyle = tint;
           sCtx.lineWidth = 3;
@@ -409,7 +429,11 @@ export default function Scene({
         sCtx.strokeStyle = tint;
         sCtx.lineCap = "round";
         sCtx.beginPath();
-        if (sl > 0.3) {
+        if (hp > 0.3) {
+          // Happy mouth — wide cheerful smile
+          sCtx.lineWidth = 4;
+          sCtx.arc(fx + ox, fy - 6 + oy, 32, 0.25 * Math.PI, 0.75 * Math.PI);
+        } else if (sl > 0.3) {
           // Sleepy mouth — small flat line, slightly droopy
           sCtx.lineWidth = 3;
           sCtx.moveTo(fx + ox - 12, fy + 8 + oy);
@@ -603,7 +627,8 @@ export default function Scene({
       colors,
       surprise,
       sleep,
-      holdProg
+      holdProg,
+      happy
     ) {
       sCtx.clearRect(0, 0, 256, 256);
       const faceAlpha = Math.max(0, 1 - morph * 2.5);
@@ -617,7 +642,8 @@ export default function Scene({
           faceAlpha,
           surprise,
           sleep,
-          colors
+          colors,
+          happy
         );
       if (waveAlpha > 0.01) drawWaveLayer(time, waveAlpha, colors);
 
@@ -692,7 +718,7 @@ export default function Scene({
       }
     }
 
-    drawCubeFace(0, 0, 0, 0, 0, null, 0, 0, 0);
+    drawCubeFace(0, 0, 0, 0, 0, null, 0, 0, 0, 0);
     const smileyTex = new CanvasTexture(smileyCanvas);
     smileyTex.needsUpdate = true;
     const smileyMat = new SpriteMaterial({
@@ -1158,6 +1184,10 @@ export default function Scene({
       // Smooth morph: 0 = smiley face, 1 = wave visualizer
       const morphTarget = chatModeRef.current ? 1 : 0;
       chatMorph += (morphTarget - chatMorph) * 1.8 * dt;
+      // Happy face when returning from chat
+      if (prevChatMode && !chatModeRef.current) happySmooth = 1;
+      prevChatMode = chatModeRef.current;
+      happySmooth = Math.max(0, happySmooth - dt * 0.3); // decay over ~3s
       // Sleep: ramp after 15s of inactivity
       const idleTime = (performance.now() - lastActivity) / 1000;
       const sleepTarget = idleTime > 15 ? Math.min(1, (idleTime - 15) / 3) : 0;
@@ -1180,6 +1210,7 @@ export default function Scene({
       const isGold = (c.gradColor1 || "").toLowerCase() === "#b8860b";
       const smileyDirty =
         dizzySmooth > 0.01 ||
+        happySmooth > 0.01 ||
         Math.abs(chatMorph - (chatModeRef.current ? 1 : 0)) > 0.01 ||
         Math.abs(sleepSmooth - (sleepTarget > 0.5 ? 1 : 0)) > 0.01 ||
         holdProgress > 0 ||
@@ -1200,7 +1231,8 @@ export default function Scene({
           themeColors,
           scZoom,
           sleepSmooth,
-          holdProgress
+          holdProgress,
+          happySmooth
         );
         smileyTex.needsUpdate = true;
       }

@@ -79,7 +79,7 @@ export const L = {
 
   // ── Glass cube ──
   cube: {
-    size: 0.8, // scale at project sections — smaller cube
+    size: 0.6, // scale at project sections — 25% smaller cube
     centerX: 0, // centered
     z: 1, // z depth — between images (0) and text (2)
     fadeSpeed: 0.08, // lerp speed for scale fade in/out
@@ -377,10 +377,14 @@ function ProjectSection({ project, index, s, vw, vh }) {
   const stackW = (availW - gap) * 0.36;
   const stackH = (availH - gap) / 2;
 
-  // X positions (centered in available area)
+  // X positions — alternate layout for odd/even sections
+  const flipped = index % 2 === 1;
   const leftEdge = -vw / 2 + pad;
-  const heroX = leftEdge + heroW / 2;
-  const stackX = leftEdge + heroW + gap + stackW / 2;
+  const rightEdge = vw / 2 - pad;
+  const heroX = flipped ? rightEdge - heroW / 2 : leftEdge + heroW / 2;
+  const stackX = flipped
+    ? leftEdge + stackW / 2
+    : leftEdge + heroW + gap + stackW / 2;
 
   // Y positions
   const heroY = 0; // centered vertically
@@ -388,7 +392,9 @@ function ProjectSection({ project, index, s, vw, vh }) {
   const stackBotY = -stackH / 2 - gap / 2; // lower stack image
 
   // Midpoint X between hero and stack (where the seam is)
-  const seamX = leftEdge + heroW + gap / 2;
+  const seamX = flipped
+    ? rightEdge - heroW - gap / 2
+    : leftEdge + heroW + gap / 2;
 
   // Store layout info for cube
   if (!state.panels) state.panels = {};
@@ -402,9 +408,9 @@ function ProjectSection({ project, index, s, vw, vh }) {
     seamX, // cube target X
   };
 
-  // Text — bottom-left of hero image, overlaid
-  const textX = leftEdge + pad * 0.5;
-  const textBottomY = -availH / 2 + pad * 0.3;
+  // Text — bottom of hero image side, overlaid
+  const textX = flipped ? rightEdge - heroW + pad * 1.5 : leftEdge + pad * 2;
+  const textBottomY = -availH / 2 + pad * 1.5;
   const titleSize = Math.min(1.0 * s, vw * 0.055);
   const bodySize = 0.15 * s;
   const tagSize = 0.06 * s;
@@ -415,7 +421,11 @@ function ProjectSection({ project, index, s, vw, vh }) {
       {/* ── Giant ghosted number ── */}
       <TextFade sectionY={sectionY} delay={0}>
         <Text
-          position={[leftEdge + heroW - pad, availH * 0.35, -1]}
+          position={[
+            flipped ? rightEdge - pad : leftEdge + heroW - pad,
+            availH * 0.35,
+            -1,
+          ]}
           fontSize={vw * 0.2}
           letterSpacing={-0.05}
           color="#1a1a2e"
@@ -453,6 +463,31 @@ function ProjectSection({ project, index, s, vw, vh }) {
           </Suspense>
         </group>
       </ImageFade>
+
+      {/* ── Dark gradient overlay behind text — full width ── */}
+      <mesh position={[0, -availH * 0.15, 1]}>
+        <planeGeometry args={[vw, availH * 0.7]} />
+        <shaderMaterial
+          transparent
+          depthWrite={false}
+          uniforms={{ uColor: { value: new Color("#000000") } }}
+          vertexShader={`
+            varying vec2 vUv;
+            void main() {
+              vUv = uv;
+              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+          `}
+          fragmentShader={`
+            uniform vec3 uColor;
+            varying vec2 vUv;
+            void main() {
+              float alpha = smoothstep(1.0, 0.2, vUv.y) * 0.7;
+              gl_FragColor = vec4(uColor, alpha);
+            }
+          `}
+        />
+      </mesh>
 
       {/* ── Tag ── */}
       <TextFade sectionY={sectionY} delay={1}>
@@ -571,14 +606,12 @@ function ShowcaseCube() {
   const cubeRef = useRef();
   const glowRef = useRef();
   const shadowRef = useRef();
-  const { viewport, pointer } = useThree();
+  const { viewport } = useThree();
 
   const glowColor = useRef(new Color("#ffffff"));
   const scaleRef = useRef(1);
   const posX = useRef(0);
   const posY = useRef(0);
-  const pushX = useRef(0);
-  const pushY = useRef(0);
   const spinVelX = useRef(0);
   const spinVelY = useRef(0);
 
@@ -601,8 +634,10 @@ function ShowcaseCube() {
     // ── Compute target position for a given section ──
     function getPosForSection(sec) {
       if (sec === 0) {
-        // Hero — centered
-        return { x: 0, y: -state.top, scale: 1 };
+        // Hero — drift slowly back and forth across the text
+        const t = clock.elapsedTime;
+        const driftX = Math.sin(t * 0.3) * vw * 0.22;
+        return { x: driftX, y: -state.top, scale: 0.5 };
       } else if (sec > 0 && sec <= N) {
         // Project section — cube sits at the seam between hero and stacked images
         const projIdx = sec - 1;
@@ -676,46 +711,21 @@ function ShowcaseCube() {
       posY.current = MathUtils.lerp(posY.current, p.y, 0.018);
     }
 
-    // ── Cursor push — only at project sections ──
-    const inProject =
-      displayedSection.current > 0 &&
-      displayedSection.current <= N &&
-      phase.current === "visible";
-    if (inProject) {
-      const mouseWX = (pointer.x * vw) / 2;
-      const camY = -state.top;
-      const mouseAbsY = (pointer.y * vh) / 2 + camY;
-      const dx = posX.current - mouseWX;
-      const dy = posY.current - mouseAbsY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const pushRadius = L.cube.push.radius;
-      if (dist < pushRadius && dist > 0.1) {
-        const str = Math.pow(1 - dist / pushRadius, 2) * L.cube.push.strength;
-        pushX.current +=
-          ((dx / dist) * str - pushX.current) * L.cube.push.response;
-        pushY.current +=
-          ((dy / dist) * str - pushY.current) * L.cube.push.response;
-      } else {
-        pushX.current *= L.cube.push.decayActive;
-        pushY.current *= L.cube.push.decayActive;
-      }
-    } else {
-      pushX.current *= L.cube.push.decayIdle;
-      pushY.current *= L.cube.push.decayIdle;
-    }
+    // ── Cursor push disabled — cube is static ──
 
     // ── Apply ──
-    cubeRef.current.position.x = posX.current + pushX.current;
-    cubeRef.current.position.y = posY.current + pushY.current;
+    cubeRef.current.position.x = posX.current;
+    cubeRef.current.position.y = posY.current;
     cubeRef.current.position.z = L.cube.z;
     cubeRef.current.scale.setScalar(Math.max(0.001, scaleRef.current));
     cubeRef.current.visible = scaleRef.current > 0.01;
 
-    // Rotation
+    // Rotation — faster at hero for visual interest
     spinVelX.current *= 0.97;
     spinVelY.current *= 0.97;
-    cubeRef.current.rotation.x += 0.001 + spinVelX.current;
-    cubeRef.current.rotation.y += 0.002 + spinVelY.current;
+    const atHero = displayedSection.current === 0;
+    cubeRef.current.rotation.x += (atHero ? 0.004 : 0.001) + spinVelX.current;
+    cubeRef.current.rotation.y += (atHero ? 0.006 : 0.002) + spinVelY.current;
 
     // Glow
     const projIdx = displayedSection.current - 1;
@@ -726,7 +736,9 @@ function ShowcaseCube() {
     if (glowRef.current) {
       glowRef.current.color.copy(glowColor.current);
       glowRef.current.intensity =
-        (inProject ? 3 : 0.5) * Math.min(1, scaleRef.current);
+        (displayedSection.current > 0 && displayedSection.current <= N
+          ? 3
+          : 0.5) * Math.min(1, scaleRef.current);
       glowRef.current.position.copy(cubeRef.current.position);
       glowRef.current.position.z += 1;
     }
@@ -935,7 +947,7 @@ function SettleName() {
     opRef.current += (target - opRef.current) * 0.035;
     groupRef.current.traverse((child) => {
       if (child.material && child.material.opacity !== undefined) {
-        child.material.opacity = opRef.current * 0.15;
+        child.material.opacity = opRef.current;
         child.material.transparent = true;
       }
     });
@@ -945,9 +957,9 @@ function SettleName() {
     <group ref={groupRef} position={[0, -SETTLE_START, -3]}>
       <Text
         position={[0, 0, 0]}
-        fontSize={vw * 0.14}
+        fontSize={vw * 0.12}
         lineHeight={1}
-        letterSpacing={0.25}
+        letterSpacing={-0.03}
         anchorX="center"
         anchorY="middle"
         textAlign="center"
