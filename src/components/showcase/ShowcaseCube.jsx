@@ -44,8 +44,8 @@ export default function ShowcaseCube() {
         const sectionCenterY = -(HERO_H + projIdx * SECTION_H);
         const panels = state.panels && state.panels[projIdx];
         const targetX = panels ? panels.seamX : 0;
-        const topHalfY = sectionCenterY + vh * 0.04;
-        return { x: targetX, y: topHalfY, scale: CUBE_SIZE_AT_SECTION };
+        const targetY = sectionCenterY + (panels?.forkY || vh * 0.04);
+        return { x: targetX, y: targetY, scale: CUBE_SIZE_AT_SECTION };
       } else {
         return { x: 0, y: -SETTLE_START, scale: 0.01 };
       }

@@ -2,6 +2,7 @@ import { Suspense, useRef } from "react";
 import { Color, MathUtils, SRGBColorSpace, TextureLoader } from "three";
 import { useThree, useFrame, useLoader } from "@react-three/fiber";
 import { Text as DreiText } from "@react-three/drei";
+import { Flex, Box } from "@react-three/flex";
 import {
   L,
   state,
@@ -47,38 +48,9 @@ function Img({ url, w, h }) {
   );
 }
 
-function TextFade({ sectionY, delay = 0, children }) {
+function FadeIn({ sectionY, delay = 0, children }) {
   const ref = useRef();
   const op = useRef(0);
-  const started = useRef(false);
-
-  useFrame(({ camera }) => {
-    if (!ref.current) return;
-    const dist = Math.abs(camera.position.y - sectionY);
-    const visible = dist < L.anim.textVisRange;
-    if (visible && !started.current) started.current = true;
-    const target = visible ? 1 : 0;
-    const d = started.current
-      ? Math.max(0, target - delay * L.anim.textStagger)
-      : 0;
-    op.current += (d - op.current) * L.anim.textFade;
-    const drift = (1 - op.current) * L.anim.textDrift;
-    ref.current.position.y = drift;
-    ref.current.traverse((child) => {
-      if (child.material && child.material.opacity !== undefined) {
-        child.material.opacity = op.current;
-        child.material.transparent = true;
-      }
-    });
-  });
-
-  return <group ref={ref}>{children}</group>;
-}
-
-function ImageFade({ sectionY, delay = 0, children }) {
-  const ref = useRef();
-  const op = useRef(0);
-  const sc = useRef(L.anim.imgScaleFrom);
   const started = useRef(false);
   const timer = useRef(0);
 
@@ -89,7 +61,7 @@ function ImageFade({ sectionY, delay = 0, children }) {
     if (visible && !started.current) started.current = true;
     if (!started.current) {
       ref.current.traverse((child) => {
-        if (child.material && child.material.opacity !== undefined) {
+        if (child.material) {
           child.material.opacity = 0;
           child.material.transparent = true;
         }
@@ -97,19 +69,17 @@ function ImageFade({ sectionY, delay = 0, children }) {
       return;
     }
     timer.current += delta;
-    const staggerDelay = delay * 0.18;
-    const active = visible && timer.current >= staggerDelay;
+    const active = visible && timer.current >= delay * 0.15;
     const target = active ? 1 : 0;
     if (!visible) {
       timer.current = 0;
       started.current = false;
     }
-    op.current += (target - op.current) * L.anim.imgFade;
-    sc.current +=
-      ((target > 0.5 ? 1 : L.anim.imgScaleFrom) - sc.current) * L.anim.imgScale;
-    ref.current.scale.setScalar(sc.current);
+    op.current += (target - op.current) * 0.04;
+    const drift = (1 - op.current) * 1.2;
+    ref.current.position.y = drift;
     ref.current.traverse((child) => {
-      if (child.material && child.material.opacity !== undefined) {
+      if (child.material) {
         child.material.opacity = op.current;
         child.material.transparent = true;
       }
@@ -119,185 +89,259 @@ function ImageFade({ sectionY, delay = 0, children }) {
   return <group ref={ref}>{children}</group>;
 }
 
+function GlassCard({ sectionY, w, h }) {
+  const matRef = useRef();
+  const borderRef = useRef();
+
+  useFrame(({ camera }) => {
+    const dist = Math.abs(camera.position.y - sectionY);
+    const t = dist < 5 ? clamp(1 - (dist - 1) / 4, 0, 1) : 0;
+    if (matRef.current)
+      matRef.current.opacity += (t * 0.28 - matRef.current.opacity) * 0.04;
+    if (borderRef.current) {
+      borderRef.current.traverse((c) => {
+        if (c.material)
+          c.material.opacity += (t * 0.15 - c.material.opacity) * 0.04;
+      });
+    }
+  });
+
+  const bw = 0.01;
+  return (
+    <group>
+      <mesh position={[0, 0, -0.5]}>
+        <planeGeometry args={[w, h]} />
+        <meshBasicMaterial
+          ref={matRef}
+          color="#ffffff"
+          transparent
+          opacity={0}
+          depthWrite={false}
+        />
+      </mesh>
+      <group ref={borderRef}>
+        <mesh position={[0, h / 2, -0.49]}>
+          <planeGeometry args={[w, bw]} />
+          <meshBasicMaterial color="#ffffff" transparent opacity={0} />
+        </mesh>
+        <mesh position={[0, -h / 2, -0.49]}>
+          <planeGeometry args={[w, bw]} />
+          <meshBasicMaterial color="#ffffff" transparent opacity={0} />
+        </mesh>
+        <mesh position={[-w / 2, 0, -0.49]}>
+          <planeGeometry args={[bw, h]} />
+          <meshBasicMaterial color="#ffffff" transparent opacity={0} />
+        </mesh>
+        <mesh position={[w / 2, 0, -0.49]}>
+          <planeGeometry args={[bw, h]} />
+          <meshBasicMaterial color="#ffffff" transparent opacity={0} />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
 export function ProjectSection({ project, index, s, vw, vh }) {
   const sectionY = -(HERO_H + index * SECTION_H);
 
-  const rightPadScreen = 80;
-  const rightPadWorld =
-    (rightPadScreen /
-      (typeof window !== "undefined" ? window.innerWidth : 1440)) *
-    vw;
-  const pad = rightPadWorld;
-  const gap = vw * 0.008;
-
-  const availW = vw - pad * 2;
-  const availH = vh - pad * 2;
-
-  const heroW = (availW - gap) * 0.64;
-  const stackW = (availW - gap) * 0.36;
-  const stackH = (availH - gap) / 2;
+  // Minimal padding — just clearance for the progress bar on the right
+  const rightClear = vw * 0.04; // progress bar space
+  const edgePad = vw * 0.008; // tiny breathing room
+  const cardW = vw - edgePad - rightClear;
+  const cardH = vh - edgePad * 2;
+  const gap = vw * 0.004;
+  const cardPad = vw * 0.005;
 
   const flipped = index % 2 === 1;
-  const leftEdge = -vw / 2 + pad;
-  const rightEdge = vw / 2 - pad;
-  const heroX = flipped ? rightEdge - heroW / 2 : leftEdge + heroW / 2;
-  const stackX = flipped
-    ? leftEdge + stackW / 2
-    : leftEdge + heroW + gap + stackW / 2;
 
-  const heroY = 0;
-  const stackTopY = stackH / 2 + gap / 2;
-  const stackBotY = -stackH / 2 - gap / 2;
+  // Pre-compute sizes to match what flex will allocate
+  const imgFrac = 0.55;
+  const usableW = cardW - cardPad * 2 - gap;
+  const usableH = cardH - cardPad * 2;
+  const imgColW = usableW * imgFrac;
+  const txtColW = usableW * (1 - imgFrac);
+  const heroH = (usableH - gap) * 0.6;
+  const stackH = (usableH - gap) * 0.4;
+  const stackItemW = (imgColW - gap) / 2;
 
-  const seamX = flipped
-    ? rightEdge - heroW - gap / 2
-    : leftEdge + heroW + gap / 2;
+  // Card is offset slightly left (more space on right for progress bar)
+  const cardOffsetX = -(rightClear - edgePad) / 2;
+
+  // Fork point for cube (in world space, accounting for card offset)
+  const imgColCenterX =
+    cardOffsetX +
+    (flipped
+      ? cardW / 2 - cardPad - imgColW / 2
+      : -(cardW / 2 - cardPad - imgColW / 2));
+  const forkY = usableH / 2 - heroH - gap / 2;
 
   if (!state.panels) state.panels = {};
-  state.panels[index] = {
-    panelX: (i) => (i === 0 ? heroX : stackX),
-    panelW: heroW,
-    panelH: availH,
-    pad,
-    gap,
-    sectionY,
-    seamX,
-  };
+  state.panels[index] = { seamX: imgColCenterX, forkY, sectionY };
 
-  const textX = flipped ? rightEdge - heroW + pad * 1.5 : leftEdge + pad * 2;
-  const textBottomY = -availH / 2 + pad * 0.5;
-  const titleSize = Math.min(1.0 * s, vw * 0.055);
-  const bodySize = 0.15 * s;
-  const tagSize = 0.06 * s;
-  const skillSize = 0.05 * s;
+  const D = "#1a1a2e";
 
   return (
-    <group position={[0, sectionY, 0]}>
-      <TextFade sectionY={sectionY} delay={0}>
-        <Text
-          position={[
-            flipped ? rightEdge - pad : leftEdge + heroW - pad,
-            availH * 0.35,
-            -1,
-          ]}
-          fontSize={vw * 0.2}
-          letterSpacing={-0.05}
-          color="#1a1a2e"
-          anchorX="right"
-          anchorY="top"
-          fillOpacity={0.03}
+    <group position={[cardOffsetX, sectionY, 0]}>
+      <GlassCard sectionY={sectionY} w={cardW} h={cardH} />
+
+      <Flex
+        size={[cardW, cardH, 0]}
+        position={[-cardW / 2, cardH / 2, 0]}
+        flexDirection={flipped ? "row-reverse" : "row"}
+        padding={cardPad}
+      >
+        {/* ═══ Image column ═══ */}
+        <Box
+          flex={imgFrac}
+          flexDirection="column"
+          marginRight={flipped ? 0 : gap}
+          marginLeft={flipped ? gap : 0}
         >
-          {project.number}
-        </Text>
-      </TextFade>
+          <Box flex={0.6} marginBottom={gap} centerAnchor>
+            <FadeIn sectionY={sectionY} delay={0}>
+              <Suspense fallback={null}>
+                <Img url={project.images[0]} w={imgColW} h={heroH} />
+              </Suspense>
+            </FadeIn>
+          </Box>
 
-      <ImageFade sectionY={sectionY} delay={0}>
-        <group position={[heroX, heroY, 0]}>
-          <Suspense fallback={null}>
-            <Img url={project.images[0]} w={heroW} h={availH} />
-          </Suspense>
-        </group>
-      </ImageFade>
+          <Box flex={0.4} flexDirection="row">
+            <Box flex={1} marginRight={gap / 2} centerAnchor>
+              <FadeIn sectionY={sectionY} delay={1}>
+                <Suspense fallback={null}>
+                  <Img url={project.images[1]} w={stackItemW} h={stackH} />
+                </Suspense>
+              </FadeIn>
+            </Box>
+            <Box flex={1} marginLeft={gap / 2} centerAnchor>
+              <FadeIn sectionY={sectionY} delay={2}>
+                <Suspense fallback={null}>
+                  <Img url={project.images[2]} w={stackItemW} h={stackH} />
+                </Suspense>
+              </FadeIn>
+            </Box>
+          </Box>
+        </Box>
 
-      <ImageFade sectionY={sectionY} delay={1}>
-        <group position={[stackX, stackTopY, 0]}>
-          <Suspense fallback={null}>
-            <Img url={project.images[1]} w={stackW} h={stackH} />
-          </Suspense>
-        </group>
-      </ImageFade>
-
-      <ImageFade sectionY={sectionY} delay={2}>
-        <group position={[stackX, stackBotY, 0]}>
-          <Suspense fallback={null}>
-            <Img url={project.images[2]} w={stackW} h={stackH} />
-          </Suspense>
-        </group>
-      </ImageFade>
-
-      <mesh position={[0, -vh * 0.15, 1]}>
-        <planeGeometry args={[vw, vh]} />
-        <shaderMaterial
-          transparent
-          depthWrite={false}
-          uniforms={{ uColor: { value: new Color("#000000") } }}
-          vertexShader={`
-            varying vec2 vUv;
-            void main() {
-              vUv = uv;
-              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-            }
-          `}
-          fragmentShader={`
-            uniform vec3 uColor;
-            varying vec2 vUv;
-            void main() {
-              float alpha = smoothstep(1.0, 0.2, vUv.y) * 0.7;
-              gl_FragColor = vec4(uColor, alpha);
-            }
-          `}
-        />
-      </mesh>
-
-      <TextFade sectionY={sectionY} delay={1}>
-        <Text
-          position={[textX, textBottomY + vh * 0.18, 2]}
-          fontSize={tagSize}
-          letterSpacing={0.15}
-          color="#ffffff"
-          anchorX="left"
-          anchorY="bottom"
-          fillOpacity={0.7}
+        {/* ═══ Text column ═══ */}
+        <Box
+          flex={1 - imgFrac}
+          flexDirection="column"
+          justifyContent="center"
+          paddingLeft={vw * 0.015}
+          paddingRight={vw * 0.005}
         >
-          {project.tag}
-        </Text>
-      </TextFade>
+          {/* Ghost number */}
+          <Box height={2.2}>
+            <FadeIn sectionY={sectionY} delay={0}>
+              <Text
+                fontSize={2.0}
+                letterSpacing={-0.03}
+                color={D}
+                anchorX="left"
+                anchorY="top"
+                fillOpacity={0.04}
+              >
+                {project.number}
+              </Text>
+            </FadeIn>
+          </Box>
 
-      <TextFade sectionY={sectionY} delay={2}>
-        <Text
-          position={[textX, textBottomY + vh * 0.04, 2]}
-          fontSize={titleSize}
-          letterSpacing={-0.03}
-          lineHeight={1.1}
-          color="#ffffff"
-          anchorX="left"
-          anchorY="bottom"
-          textAlign="left"
-          maxWidth={heroW * 0.85}
-          fillOpacity={1}
-        >
-          {project.title}
-        </Text>
-      </TextFade>
+          {/* Tag */}
+          <Box height={0.3}>
+            <FadeIn sectionY={sectionY} delay={1}>
+              <Text
+                fontSize={0.12}
+                letterSpacing={0.15}
+                color={D}
+                anchorX="left"
+                anchorY="top"
+                fillOpacity={0.4}
+              >
+                {project.tag}
+              </Text>
+            </FadeIn>
+          </Box>
 
-      <TextFade sectionY={sectionY} delay={3}>
-        <Text
-          position={[textX, textBottomY - vh * 0.02, 2]}
-          fontSize={bodySize}
-          lineHeight={1.7}
-          color="#ffffff"
-          anchorX="left"
-          anchorY="top"
-          textAlign="left"
-          maxWidth={heroW * 0.7}
-          fillOpacity={0.65}
-        >
-          {project.text}
-        </Text>
-      </TextFade>
+          {/* Title */}
+          <Box height={1.2}>
+            <FadeIn sectionY={sectionY} delay={2}>
+              <Text
+                fontSize={0.9}
+                letterSpacing={-0.02}
+                lineHeight={1.15}
+                color={D}
+                anchorX="left"
+                anchorY="top"
+                textAlign="left"
+                maxWidth={txtColW * 0.95}
+                fillOpacity={0.85}
+              >
+                {project.title}
+              </Text>
+            </FadeIn>
+          </Box>
 
-      <TextFade sectionY={sectionY} delay={4}>
-        <Text
-          position={[textX, textBottomY - vh * 0.12, 2]}
-          fontSize={skillSize}
-          letterSpacing={0.1}
-          color="#ffffff"
-          anchorX="left"
-          fillOpacity={0.5}
-        >
-          {project.skills.join("  ·  ")}
-        </Text>
-      </TextFade>
+          {/* Description */}
+          <Box height={1.4}>
+            <FadeIn sectionY={sectionY} delay={3}>
+              <Text
+                fontSize={0.22}
+                lineHeight={1.75}
+                color={D}
+                anchorX="left"
+                anchorY="top"
+                textAlign="left"
+                maxWidth={txtColW * 0.9}
+                fillOpacity={0.5}
+              >
+                {project.text}
+              </Text>
+            </FadeIn>
+          </Box>
+
+          {/* Skills */}
+          <Box height={0.3}>
+            <FadeIn sectionY={sectionY} delay={4}>
+              <Text
+                fontSize={0.1}
+                letterSpacing={0.08}
+                color={D}
+                anchorX="left"
+                anchorY="top"
+                fillOpacity={0.35}
+              >
+                {project.skills.join("  ·  ")}
+              </Text>
+            </FadeIn>
+          </Box>
+
+          {/* Project link */}
+          <Box height={0.4} marginTop={0.3}>
+            <FadeIn sectionY={sectionY} delay={5}>
+              <Text
+                fontSize={0.11}
+                letterSpacing={0.1}
+                color={D}
+                anchorX="left"
+                anchorY="top"
+                fillOpacity={0.3}
+                onClick={() => window.open(project.link, "_blank")}
+                onPointerOver={(e) => {
+                  document.body.style.cursor = "pointer";
+                  e.object.material.opacity = 0.6;
+                }}
+                onPointerOut={(e) => {
+                  document.body.style.cursor = "";
+                  e.object.material.opacity = 0.3;
+                }}
+              >
+                {"VIEW PROJECT  \u2197"}
+              </Text>
+            </FadeIn>
+          </Box>
+        </Box>
+      </Flex>
     </group>
   );
 }

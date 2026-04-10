@@ -161,7 +161,7 @@ export default function ShowcaseCanvas({
       <Canvas
         dpr={[1, 1.5]}
         frameloop={isShown ? "always" : "demand"}
-        raycaster={{ enabled: false }}
+        raycaster={{}}
         camera={{ position: [0, 0, 12], fov: 45, far: 200, near: 0.1 }}
         gl={{
           powerPreference: "high-performance",
