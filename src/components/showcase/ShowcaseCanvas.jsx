@@ -68,8 +68,8 @@ const L = {
 
   // ── Glass cube ──
   cube: {
-    size: 1.8, // scale at project sections
-    centerX: 0.25, // horizontal position (× vw, cube side)
+    size: 1.35, // scale at project sections
+    centerX: 0.275, // horizontal position (× vw, center of 45% half)
     z: 5, // z depth (in front of everything)
     fadeSpeed: 0.08, // lerp speed for scale fade in/out
     hiddenPause: 0.1, // seconds to stay hidden before teleporting
@@ -347,9 +347,25 @@ function AccentPlane({ sectionY, color, w, h }) {
 function ProjectSection({ project, index, s, vw, vh }) {
   const sectionY = -(HERO_H + index * SECTION_H);
   const flip = index % 2 !== 0;
-  const pad = vw * 0.03;
-  const imgGap = vw * 0.01;
-  const imgAspect = 0.65;
+  const pad = vw * 0.04;
+  const imgGap = vw * 0.008;
+  const imgAspect = 0.62;
+
+  // Content gets 55%, cube gets 45%
+  const contentW = vw * 0.55;
+  const cubeW = vw * 0.45;
+  const innerW = contentW - pad * 2;
+
+  // Image sizing — 3 across, fill the content width
+  const singleImgW = (innerW - imgGap * 2) / 3;
+  const singleImgH = singleImgW * imgAspect;
+
+  // Text sizing
+  const titleSize = 0.6 * s;
+  const bodySize = 0.18 * s;
+  const numSize = 0.1 * s;
+  const tagSize = 0.07 * s;
+  const textMaxW = innerW;
 
   return (
     <group position={[0, sectionY, 0]}>
@@ -359,50 +375,49 @@ function ProjectSection({ project, index, s, vw, vh }) {
         flexDirection={flip ? "row-reverse" : "row"}
         alignItems="center"
       >
-        {/* ── Content half: images + text ── */}
+        {/* ── Content: images + text ── */}
         <Box
-          flex={1}
+          width={contentW}
+          height={vh}
           flexDirection="column"
           padding={pad}
           justifyContent="center"
         >
-          {/* Image row — explicit height so Yoga can compute layout */}
-          {(() => {
-            const rowW = vw / 2 - pad * 2;
-            const singleW = (rowW - imgGap * 2) / 3;
-            const singleH = singleW * imgAspect;
-            return (
+          {/* Image row */}
+          <Box
+            width={innerW}
+            height={singleImgH}
+            flexDirection="row"
+            marginBottom={vh * 0.035}
+          >
+            {project.images.map((url, i) => (
               <Box
-                width={rowW}
-                height={singleH}
-                flexDirection="row"
-                marginBottom={vh * 0.04}
+                key={i}
+                width={singleImgW}
+                height={singleImgH}
+                marginLeft={i > 0 ? imgGap : 0}
               >
-                {project.images.map((url, i) => (
-                  <Box
-                    key={i}
-                    width={singleW}
-                    height={singleH}
-                    marginLeft={i > 0 ? imgGap : 0}
-                  >
-                    <ImageFade sectionY={sectionY}>
-                      <Suspense fallback={null}>
-                        <Img url={url} w={singleW} h={singleH} />
-                      </Suspense>
-                    </ImageFade>
-                  </Box>
-                ))}
+                <ImageFade sectionY={sectionY}>
+                  <Suspense fallback={null}>
+                    <Img url={url} w={singleImgW} h={singleImgH} />
+                  </Suspense>
+                </ImageFade>
               </Box>
-            );
-          })()}
+            ))}
+          </Box>
 
-          {/* Number */}
-          <Box height={L.text.number.size * s * 1.5} marginBottom={vh * 0.01}>
+          {/* Number + Tag row */}
+          <Box
+            height={numSize * 1.6}
+            marginBottom={vh * 0.008}
+            flexDirection="row"
+            alignItems="center"
+          >
             <TextFade sectionY={sectionY} delay={0}>
               <Text
-                fontSize={L.text.number.size * s}
-                letterSpacing={L.text.number.spacing}
-                color={L.text.number.color}
+                fontSize={numSize}
+                letterSpacing={0.15}
+                color="#bbbbbb"
                 anchorX="left"
               >
                 {project.number}
@@ -410,13 +425,12 @@ function ProjectSection({ project, index, s, vw, vh }) {
             </TextFade>
           </Box>
 
-          {/* Tag */}
-          <Box height={L.text.tag.size * s * 1.5} marginBottom={vh * 0.02}>
+          <Box height={tagSize * 1.6} marginBottom={vh * 0.025}>
             <TextFade sectionY={sectionY} delay={1}>
               <Text
-                fontSize={L.text.tag.size * s}
-                letterSpacing={L.text.tag.spacing}
-                color={L.text.tag.color}
+                fontSize={tagSize}
+                letterSpacing={0.2}
+                color="#aaaaaa"
                 anchorX="left"
               >
                 {project.tag}
@@ -425,48 +439,49 @@ function ProjectSection({ project, index, s, vw, vh }) {
           </Box>
 
           {/* Title */}
-          <Box height={L.text.title.size * s * 1.3} marginBottom={vh * 0.02}>
-            {(w) => (
-              <TextFade sectionY={sectionY} delay={2}>
-                <Text
-                  fontSize={L.text.title.size * s}
-                  lineHeight={L.text.title.lineH}
-                  letterSpacing={L.text.title.spacing}
-                  color={L.text.title.color}
-                  anchorX="left"
-                  anchorY="top"
-                  textAlign="left"
-                  maxWidth={w}
-                >
-                  {project.title}
-                </Text>
-              </TextFade>
-            )}
+          <Box height={titleSize * 1.4} marginBottom={vh * 0.018}>
+            <TextFade sectionY={sectionY} delay={2}>
+              <Text
+                fontSize={titleSize}
+                lineHeight={1.1}
+                letterSpacing={-0.03}
+                color="#1a1a2e"
+                anchorX="left"
+                anchorY="top"
+                textAlign="left"
+                maxWidth={textMaxW}
+              >
+                {project.title}
+              </Text>
+            </TextFade>
           </Box>
 
-          {/* Description */}
-          <Box height={L.text.body.size * s * 5}>
-            {(w) => (
-              <TextFade sectionY={sectionY} delay={3}>
-                <Text
-                  fontSize={L.text.body.size * s}
-                  lineHeight={L.text.body.lineH}
-                  letterSpacing={L.text.body.spacing}
-                  color={L.text.body.color}
-                  anchorX="left"
-                  anchorY="top"
-                  textAlign="left"
-                  maxWidth={w}
-                >
-                  {project.text}
-                </Text>
-              </TextFade>
-            )}
+          {/* Description — wraps */}
+          <Box height={bodySize * 6}>
+            <TextFade sectionY={sectionY} delay={3}>
+              <Text
+                fontSize={bodySize}
+                lineHeight={1.7}
+                color="#888888"
+                anchorX="left"
+                anchorY="top"
+                textAlign="left"
+                maxWidth={textMaxW * 0.85}
+              >
+                {project.text}
+              </Text>
+            </TextFade>
           </Box>
         </Box>
 
         {/* ── Cube half: accent backdrop ── */}
-        <Box flex={1} justifyContent="center" alignItems="center" centerAnchor>
+        <Box
+          width={cubeW}
+          height={vh}
+          justifyContent="center"
+          alignItems="center"
+          centerAnchor
+        >
           {(w, h) => (
             <AccentPlane
               sectionY={sectionY}
