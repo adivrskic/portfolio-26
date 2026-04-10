@@ -271,6 +271,40 @@ export default function Scene({
       [255, 240, 160],
     ];
 
+    function drawGoldSparkles(time, colors) {
+      const isGold = (colors?.[0] || "").toLowerCase() === "#b8860b";
+      if (!isGold) return;
+      for (let si = 0; si < SPARKLE_COUNT; si++) {
+        const sp = sparkles[si];
+        const twinkle = Math.sin(time * sp.speed + sp.phase) * 0.5 + 0.5;
+        const sparkAlpha = twinkle * twinkle * 0.8;
+        if (sparkAlpha < 0.05) continue;
+        const sx = smCx + ((sp.x + sp.driftX * time * 30) % 180) - 90;
+        const sy = smCy + ((sp.y + sp.driftY * time * 30 + 200) % 200) - 100;
+        const tone = GOLD_TONES[sp.tone];
+        sCtx.save();
+        sCtx.globalAlpha = sparkAlpha;
+        sCtx.fillStyle = `rgb(${tone[0]},${tone[1]},${tone[2]})`;
+        sCtx.shadowColor = `rgba(${tone[0]},${tone[1]},${tone[2]},0.6)`;
+        sCtx.shadowBlur = 4 + twinkle * 4;
+        const sz = sp.size * (0.6 + twinkle * 0.4);
+        const rot = time * 0.5 + sp.phase;
+        sCtx.translate(sx, sy);
+        sCtx.rotate(rot);
+        sCtx.beginPath();
+        for (let p = 0; p < 4; p++) {
+          const a = (p / 4) * Math.PI * 2;
+          const a2 = a + Math.PI / 4;
+          sCtx.lineTo(Math.cos(a) * sz * 2.5, Math.sin(a) * sz * 2.5);
+          sCtx.lineTo(Math.cos(a2) * sz * 0.6, Math.sin(a2) * sz * 0.6);
+        }
+        sCtx.closePath();
+        sCtx.fill();
+        sCtx.shadowBlur = 0;
+        sCtx.restore();
+      }
+    }
+
     function hexRgb(hex) {
       if (!hex || typeof hex !== "string") return { r: 180, g: 200, b: 255 };
       const h = hex.replace("#", "");
@@ -525,44 +559,7 @@ export default function Scene({
       }
 
       // ── Gold sparkles ──
-      const isGold = (colors?.[0] || "").toLowerCase() === "#b8860b";
-      if (isGold) {
-        for (let si = 0; si < SPARKLE_COUNT; si++) {
-          const sp = sparkles[si];
-          // Twinkle: sine-based fade with unique phase
-          const twinkle = Math.sin(time * sp.speed + sp.phase) * 0.5 + 0.5;
-          const sparkAlpha = twinkle * twinkle * 0.8; // pow2 for sharper on/off
-          if (sparkAlpha < 0.05) continue;
-
-          // Drift position over time (wrap around)
-          const sx = smCx + ((sp.x + sp.driftX * time * 30) % 180) - 90;
-          const sy = smCy + ((sp.y + sp.driftY * time * 30 + 200) % 200) - 100;
-
-          const tone = GOLD_TONES[sp.tone];
-          sCtx.save();
-          sCtx.globalAlpha = sparkAlpha;
-          sCtx.fillStyle = `rgb(${tone[0]},${tone[1]},${tone[2]})`;
-          sCtx.shadowColor = `rgba(${tone[0]},${tone[1]},${tone[2]},0.6)`;
-          sCtx.shadowBlur = 4 + twinkle * 4;
-
-          // Draw 4-point star
-          const sz = sp.size * (0.6 + twinkle * 0.4);
-          const rot = time * 0.5 + sp.phase;
-          sCtx.translate(sx, sy);
-          sCtx.rotate(rot);
-          sCtx.beginPath();
-          for (let p = 0; p < 4; p++) {
-            const a = (p / 4) * Math.PI * 2;
-            const a2 = a + Math.PI / 4;
-            sCtx.lineTo(Math.cos(a) * sz * 2.5, Math.sin(a) * sz * 2.5);
-            sCtx.lineTo(Math.cos(a2) * sz * 0.6, Math.sin(a2) * sz * 0.6);
-          }
-          sCtx.closePath();
-          sCtx.fill();
-          sCtx.shadowBlur = 0;
-          sCtx.restore();
-        }
-      }
+      drawGoldSparkles(time, colors);
 
       sCtx.restore();
     }
@@ -664,6 +661,8 @@ export default function Scene({
           blink
         );
       if (waveAlpha > 0.01) drawWaveLayer(time, waveAlpha, colors);
+      // Gold sparkles persist across both face and wave modes
+      drawGoldSparkles(time, colors);
 
       // ── Hold progress ring ──
       const hp = holdProg || 0;

@@ -1536,7 +1536,7 @@ function SectionProgress({ totalSections, themeColor, onClose }) {
     <div
       style={{
         position: "absolute",
-        right: 24,
+        right: 16,
         top: "50%",
         transform: "translateY(-50%)",
         height: totalH,
