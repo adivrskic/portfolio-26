@@ -410,7 +410,7 @@ function ProjectSection({ project, index, s, vw, vh }) {
 
   // Text — bottom of hero image side, overlaid
   const textX = flipped ? rightEdge - heroW + pad * 1.5 : leftEdge + pad * 2;
-  const textBottomY = -availH / 2 + pad * 1.5;
+  const textBottomY = -availH / 2 + pad * 0.5;
   const titleSize = Math.min(1.0 * s, vw * 0.055);
   const bodySize = 0.15 * s;
   const tagSize = 0.06 * s;
@@ -465,8 +465,8 @@ function ProjectSection({ project, index, s, vw, vh }) {
       </ImageFade>
 
       {/* ── Dark gradient overlay behind text — full width ── */}
-      <mesh position={[0, -availH * 0.15, 1]}>
-        <planeGeometry args={[vw, availH * 0.7]} />
+      <mesh position={[0, -vh * 0.15, 1]}>
+        <planeGeometry args={[vw, vh]} />
         <shaderMaterial
           transparent
           depthWrite={false}
@@ -498,7 +498,7 @@ function ProjectSection({ project, index, s, vw, vh }) {
           color="#ffffff"
           anchorX="left"
           anchorY="bottom"
-          fillOpacity={0.45}
+          fillOpacity={0.7}
         >
           {project.tag}
         </Text>
@@ -507,7 +507,7 @@ function ProjectSection({ project, index, s, vw, vh }) {
       {/* ── Title ── */}
       <TextFade sectionY={sectionY} delay={2}>
         <Text
-          position={[textX, textBottomY + vh * 0.06, 2]}
+          position={[textX, textBottomY + vh * 0.04, 2]}
           fontSize={titleSize}
           letterSpacing={-0.03}
           lineHeight={1.1}
@@ -516,7 +516,7 @@ function ProjectSection({ project, index, s, vw, vh }) {
           anchorY="bottom"
           textAlign="left"
           maxWidth={heroW * 0.85}
-          fillOpacity={0.9}
+          fillOpacity={1}
         >
           {project.title}
         </Text>
@@ -525,7 +525,7 @@ function ProjectSection({ project, index, s, vw, vh }) {
       {/* ── Description ── */}
       <TextFade sectionY={sectionY} delay={3}>
         <Text
-          position={[textX, textBottomY + vh * 0.01, 2]}
+          position={[textX, textBottomY - vh * 0.02, 2]}
           fontSize={bodySize}
           lineHeight={1.7}
           color="#ffffff"
@@ -533,7 +533,7 @@ function ProjectSection({ project, index, s, vw, vh }) {
           anchorY="top"
           textAlign="left"
           maxWidth={heroW * 0.7}
-          fillOpacity={0.4}
+          fillOpacity={0.65}
         >
           {project.text}
         </Text>
@@ -542,12 +542,12 @@ function ProjectSection({ project, index, s, vw, vh }) {
       {/* ── Skills ── */}
       <TextFade sectionY={sectionY} delay={4}>
         <Text
-          position={[textX, textBottomY - vh * 0.06, 2]}
+          position={[textX, textBottomY - vh * 0.12, 2]}
           fontSize={skillSize}
           letterSpacing={0.1}
           color="#ffffff"
           anchorX="left"
-          fillOpacity={0.3}
+          fillOpacity={0.5}
         >
           {project.skills.join("  ·  ")}
         </Text>
@@ -645,7 +645,7 @@ function ShowcaseCube() {
         const panels = state.panels && state.panels[projIdx];
 
         const targetX = panels ? panels.seamX : 0;
-        const topHalfY = sectionCenterY + vh * 0.15; // upper portion, above the seam
+        const topHalfY = sectionCenterY + vh * 0.04; // lowered ~100px
 
         return {
           x: targetX,
@@ -721,11 +721,11 @@ function ShowcaseCube() {
     cubeRef.current.visible = scaleRef.current > 0.01;
 
     // Rotation — faster at hero for visual interest
-    spinVelX.current *= 0.97;
-    spinVelY.current *= 0.97;
+    spinVelX.current *= 0.99;
+    spinVelY.current *= 0.99;
     const atHero = displayedSection.current === 0;
-    cubeRef.current.rotation.x += (atHero ? 0.004 : 0.001) + spinVelX.current;
-    cubeRef.current.rotation.y += (atHero ? 0.006 : 0.002) + spinVelY.current;
+    cubeRef.current.rotation.x += (atHero ? 0.012 : 0.001) + spinVelX.current;
+    cubeRef.current.rotation.y += (atHero ? 0.016 : 0.002) + spinVelY.current;
 
     // Glow
     const projIdx = displayedSection.current - 1;

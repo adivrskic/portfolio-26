@@ -78,7 +78,7 @@ export default function App() {
   const fading = showcaseTransition || showcaseOpen;
 
   return (
-    <div className="app-root hide-cursor">
+    <div className={`app-root${chatMode ? "" : " hide-cursor"}`}>
       <Showcase
         open={showcaseOpen}
         onClose={handleCloseShowcase}
