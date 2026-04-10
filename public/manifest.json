@@ -1,0 +1,21 @@
+{
+  "name": "Adi Vrskic — Creative Developer",
+  "short_name": "Adi Vrskic",
+  "description": "Full-stack creative developer building AI-powered products and immersive 3D web experiences.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#e8e8ee",
+  "theme_color": "#e8e8ee",
+  "icons": [
+    {
+      "src": "/pwa-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/pwa-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

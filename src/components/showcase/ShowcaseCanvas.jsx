@@ -28,7 +28,6 @@ import {
 import GlassCube from "../scene/GlassCube";
 import ContactForm from "../contact/ContactForm";
 import ShowcaseDebug from "../debug/ShowcaseDebug";
-import { Flex, Box } from "@react-three/flex";
 
 // Inter font for 3D text — matches the rest of the site
 const FONT_URL =
@@ -80,9 +79,9 @@ export const L = {
 
   // ── Glass cube ──
   cube: {
-    size: 1.35, // scale at project sections
-    centerX: 0.275, // horizontal position (× vw, center of 45% half)
-    z: 5, // z depth (in front of everything)
+    size: 1.8, // scale at project sections — larger for cinematic layout
+    centerX: 0, // centered
+    z: 1, // z depth — between images (0) and text (2)
     fadeSpeed: 0.08, // lerp speed for scale fade in/out
     hiddenPause: 0.1, // seconds to stay hidden before teleporting
     push: {
@@ -134,6 +133,8 @@ const PROJECTS = [
     tag: "AI WEBSITE GENERATOR · 2025",
     text: "Full-stack AI that generates production-ready websites from prompts. Real-time streaming, 60+ design controls, multi-format export.",
     accent: "#1a8fe0",
+    skills: ["React", "Supabase", "Claude API", "Stripe", "Vite"],
+    link: "https://nimbuswebsites.com",
     images: [
       "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=600&h=400&fit=crop&q=80",
       "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600&h=400&fit=crop&q=80",
@@ -146,6 +147,8 @@ const PROJECTS = [
     tag: "WEB ACCESSIBILITY · 2024",
     text: "Accessibility auditing platform with AI analysis, Slack alerts, and WCAG compliance tracking at scale.",
     accent: "#8b5cf6",
+    skills: ["React", "AI Analysis", "Slack API", "WCAG"],
+    link: "https://github.com/adivrskic/xsbl",
     images: [
       "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=600&h=400&fit=crop&q=80",
       "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=600&h=400&fit=crop&q=80",
@@ -158,6 +161,8 @@ const PROJECTS = [
     tag: "AI WAREHOUSE · 2024",
     text: "Inventory platform with AI demand forecasting, intelligent routing, and native mobile apps.",
     accent: "#10b981",
+    skills: ["React Native", "AI Forecasting", "Node.js", "PostgreSQL"],
+    link: "https://github.com/adivrskic/nimbus-wms",
     images: [
       "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&h=400&fit=crop&q=80",
       "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=600&h=400&fit=crop&q=80",
@@ -170,6 +175,8 @@ const PROJECTS = [
     tag: "COMPONENT LIBRARY · 2023",
     text: "Neumorphism React library with soft UI design, customizable theming, and composable API.",
     accent: "#f59e0b",
+    skills: ["React", "CSS-in-JS", "Theming", "npm"],
+    link: "https://github.com/adivrskic/pillow",
     images: [
       "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&h=400&fit=crop&q=80",
       "https://images.unsplash.com/photo-1545235617-9465d2a55698?w=600&h=400&fit=crop&q=80",
@@ -182,6 +189,8 @@ const PROJECTS = [
     tag: "3D ART · 2023",
     text: "Creative coding — neon text around a 3D object with dynamic lighting in WebGL.",
     accent: "#a855f7",
+    skills: ["Three.js", "WebGL", "GLSL", "Creative Coding"],
+    link: "https://github.com/adivrskic",
     images: [
       "https://images.unsplash.com/photo-1633356122102-3fe601e05bd2?w=600&h=400&fit=crop&q=80",
       "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=600&h=400&fit=crop&q=80",
@@ -325,181 +334,133 @@ function ImageFade({ sectionY, children }) {
 }
 
 // ── Accent plane — fills the cube's half with project color ──
-function AccentPlane({ sectionY, color, w, h }) {
-  const matRef = useRef();
-
-  useFrame(({ camera }) => {
-    if (!matRef.current) return;
-    const dist = Math.abs(camera.position.y - sectionY);
-    const target = dist < L.backdrop.visRange ? L.backdrop.opacity : 0;
-    matRef.current.opacity +=
-      (target - matRef.current.opacity) * L.backdrop.fadeSpeed;
-  });
-
-  return (
-    <mesh position={[0, 0, L.backdrop.z]}>
-      <planeGeometry args={[w * 0.9, h * 0.85]} />
-      <meshBasicMaterial
-        ref={matRef}
-        color={color}
-        transparent
-        opacity={0}
-        depthWrite={false}
-        toneMapped={false}
-      />
-    </mesh>
-  );
-}
 
 // ── Project section — @react-three/flex layout ──
 function ProjectSection({ project, index, s, vw, vh }) {
   const sectionY = -(HERO_H + index * SECTION_H);
-  const flip = index % 2 !== 0;
-  const pad = vw * 0.04;
-  const imgGap = vw * 0.008;
-  const imgAspect = 0.62;
 
-  // Content gets 55%, cube gets 45%
-  const contentW = vw * 0.55;
-  const cubeW = vw * 0.45;
-  const innerW = contentW - pad * 2;
+  // Layout D — Cinematic panels
+  const panelGap = vw * 0.015;
+  const panelW = (vw - panelGap * 4) / 3; // 3 panels with gaps on edges + between
+  const panelH = vh * 0.88;
+  const panelTop = vh * 0.04;
 
-  // Image sizing — 3 across, fill the content width
-  const singleImgW = (innerW - imgGap * 2) / 3;
-  const singleImgH = singleImgW * imgAspect;
+  // Panel X positions (centered)
+  const panelX = (i) =>
+    -vw / 2 + panelGap + i * (panelW + panelGap) + panelW / 2;
 
-  // Text sizing
-  const titleSize = 0.6 * s;
+  // Text positioning — overlaid center-bottom
+  const textCenterX = 0;
+  const textBaseY = -vh * 0.18;
+  const titleSize = Math.min(1.2 * s, vw * 0.08);
   const bodySize = 0.18 * s;
-  const numSize = 0.1 * s;
   const tagSize = 0.07 * s;
-  const textMaxW = innerW;
+  const skillSize = 0.06 * s;
 
   return (
     <group position={[0, sectionY, 0]}>
-      <Flex
-        position={[-vw / 2, vh / 2, 0]}
-        size={[vw, vh, 0]}
-        flexDirection={flip ? "row-reverse" : "row"}
-        alignItems="center"
-      >
-        {/* ── Content: images + text ── */}
-        <Box
-          width={contentW}
-          height={vh}
-          flexDirection="column"
-          padding={pad}
-          justifyContent="center"
+      {/* ── Giant ghosted number ── */}
+      <TextFade sectionY={sectionY} delay={0}>
+        <Text
+          position={[vw * 0.28, vh * 0.15, -1]}
+          fontSize={vw * 0.25}
+          letterSpacing={-0.05}
+          color="#1a1a2e"
+          anchorX="right"
+          anchorY="top"
+          fillOpacity={0.03}
         >
-          {/* Image row */}
-          <Box
-            width={innerW}
-            height={singleImgH}
-            flexDirection="row"
-            marginBottom={vh * 0.035}
-          >
-            {project.images.map((url, i) => (
-              <Box
-                key={i}
-                width={singleImgW}
-                height={singleImgH}
-                marginLeft={i > 0 ? imgGap : 0}
-              >
-                <ImageFade sectionY={sectionY}>
-                  <Suspense fallback={null}>
-                    <Img url={url} w={singleImgW} h={singleImgH} />
-                  </Suspense>
-                </ImageFade>
-              </Box>
-            ))}
-          </Box>
+          {project.number}
+        </Text>
+      </TextFade>
 
-          {/* Number + Tag row */}
-          <Box
-            height={numSize * 1.6}
-            marginBottom={vh * 0.008}
-            flexDirection="row"
-            alignItems="center"
-          >
-            <TextFade sectionY={sectionY} delay={0}>
-              <Text
-                fontSize={numSize}
-                letterSpacing={0.15}
-                color="#bbbbbb"
-                anchorX="left"
-              >
-                {project.number}
-              </Text>
-            </TextFade>
-          </Box>
+      {/* ── Three tall image panels ── */}
+      {project.images.map((url, i) => (
+        <ImageFade key={i} sectionY={sectionY}>
+          <group position={[panelX(i), panelTop, 0]}>
+            <Suspense fallback={null}>
+              <Img url={url} w={panelW} h={panelH} />
+            </Suspense>
+          </group>
+        </ImageFade>
+      ))}
 
-          <Box height={tagSize * 1.6} marginBottom={vh * 0.025}>
-            <TextFade sectionY={sectionY} delay={1}>
-              <Text
-                fontSize={tagSize}
-                letterSpacing={0.2}
-                color="#aaaaaa"
-                anchorX="left"
-              >
-                {project.tag}
-              </Text>
-            </TextFade>
-          </Box>
-
-          {/* Title */}
-          <Box height={titleSize * 1.4} marginBottom={vh * 0.018}>
-            <TextFade sectionY={sectionY} delay={2}>
-              <Text
-                fontSize={titleSize}
-                lineHeight={1.1}
-                letterSpacing={-0.03}
-                color="#1a1a2e"
-                anchorX="left"
-                anchorY="top"
-                textAlign="left"
-                maxWidth={textMaxW}
-              >
-                {project.title}
-              </Text>
-            </TextFade>
-          </Box>
-
-          {/* Description — wraps */}
-          <Box height={bodySize * 6}>
-            <TextFade sectionY={sectionY} delay={3}>
-              <Text
-                fontSize={bodySize}
-                lineHeight={1.7}
-                color="#888888"
-                anchorX="left"
-                anchorY="top"
-                textAlign="left"
-                maxWidth={textMaxW * 0.85}
-              >
-                {project.text}
-              </Text>
-            </TextFade>
-          </Box>
-        </Box>
-
-        {/* ── Cube half: accent backdrop ── */}
-        <Box
-          width={cubeW}
-          height={vh}
-          justifyContent="center"
-          alignItems="center"
-          centerAnchor
+      {/* ── Tag ── */}
+      <TextFade sectionY={sectionY} delay={1}>
+        <Text
+          position={[textCenterX, textBaseY, 2]}
+          fontSize={tagSize}
+          letterSpacing={0.15}
+          color="#ffffff"
+          anchorX="center"
+          fillOpacity={0.4}
         >
-          {(w, h) => (
-            <AccentPlane
-              sectionY={sectionY}
-              color={project.accent}
-              w={w}
-              h={h}
-            />
-          )}
-        </Box>
-      </Flex>
+          {project.tag}
+        </Text>
+      </TextFade>
+
+      {/* ── Title ── */}
+      <TextFade sectionY={sectionY} delay={2}>
+        <Text
+          position={[textCenterX, textBaseY - vh * 0.055, 2]}
+          fontSize={titleSize}
+          letterSpacing={-0.03}
+          lineHeight={1}
+          color="#ffffff"
+          anchorX="center"
+          anchorY="top"
+          textAlign="center"
+          maxWidth={vw * 0.6}
+          fillOpacity={0.85}
+        >
+          {project.title}
+        </Text>
+      </TextFade>
+
+      {/* ── Description ── */}
+      <TextFade sectionY={sectionY} delay={3}>
+        <Text
+          position={[textCenterX, textBaseY - vh * 0.15, 2]}
+          fontSize={bodySize}
+          lineHeight={1.7}
+          color="#ffffff"
+          anchorX="center"
+          anchorY="top"
+          textAlign="center"
+          maxWidth={vw * 0.4}
+          fillOpacity={0.35}
+        >
+          {project.text}
+        </Text>
+      </TextFade>
+
+      {/* ── Skills pills (as text row) ── */}
+      <TextFade sectionY={sectionY} delay={4}>
+        <Text
+          position={[textCenterX, -vh * 0.4, 2]}
+          fontSize={skillSize}
+          letterSpacing={0.1}
+          color="#ffffff"
+          anchorX="center"
+          fillOpacity={0.25}
+        >
+          {project.skills.join("  ·  ")}
+        </Text>
+      </TextFade>
+
+      {/* ── Link ── */}
+      <TextFade sectionY={sectionY} delay={4}>
+        <Text
+          position={[textCenterX, -vh * 0.44, 2]}
+          fontSize={skillSize}
+          letterSpacing={0.12}
+          color="#ffffff"
+          anchorX="center"
+          fillOpacity={0.2}
+        >
+          VIEW PROJECT →
+        </Text>
+      </TextFade>
     </group>
   );
 }
@@ -590,10 +551,10 @@ function ShowcaseCube() {
         // Project section — on image grid side, half off-screen
         const projIdx = sec - 1;
         // Content is on contentSide, cube goes opposite
-        const cubeSide = projIdx % 2 === 0 ? 1 : -1;
+        const cubeSide = 1; // centered for cinematic layout
         return {
-          x: cubeSide * vw * L.cube.centerX,
-          y: -(HERO_H + projIdx * SECTION_H),
+          x: 0,
+          y: -(HERO_H + projIdx * SECTION_H) + vh * 0.05,
           scale: CUBE_SIZE_AT_SECTION,
         };
       } else {

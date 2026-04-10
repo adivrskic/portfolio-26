@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60" width="60" height="60">
+  <style>
+    @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
+    @keyframes pulse { 0%,100% { opacity: 0.15 } 50% { opacity: 0.35 } }
+    .cube { animation: spin 4s linear infinite; transform-origin: 30px 30px; }
+    .dot { animation: pulse 1.4s ease-in-out infinite; }
+    .dot2 { animation-delay: 0.2s; }
+    .dot3 { animation-delay: 0.4s; }
+  </style>
+  <g class="cube">
+    <rect x="14" y="14" width="32" height="32" rx="6" fill="none" stroke="#1a1a2e" stroke-width="1" opacity="0.12"/>
+  </g>
+  <circle class="dot" cx="24" cy="31" r="2" fill="#1a1a2e" opacity="0.15"/>
+  <circle class="dot dot2" cx="30" cy="31" r="2" fill="#1a1a2e" opacity="0.15"/>
+  <circle class="dot dot3" cx="36" cy="31" r="2" fill="#1a1a2e" opacity="0.15"/>
+</svg>

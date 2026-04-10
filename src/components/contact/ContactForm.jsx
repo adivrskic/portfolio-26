@@ -18,10 +18,9 @@ import Field from "./Field";
 import SliderRow from "./SliderRow";
 
 const F = FONT_FAMILY;
-const D = DARK_RGBA;
 
 export default function ContactForm({ compact, textColor, inputColor }) {
-  const D = textColor || "rgba(26,26,46,";
+  const D = textColor || DARK_RGBA;
   const IC = inputColor || "#e8e8ee";
   // Convert input color hex to rgba prefix for opacity usage
   const icR = parseInt(IC.slice(1, 3), 16) || 232;
@@ -62,8 +61,8 @@ export default function ContactForm({ compact, textColor, inputColor }) {
     }));
   };
 
-  // ── CHANGE THIS to your Supabase project URL ──
   const CONTACT_URL =
+    import.meta.env.VITE_CONTACT_ENDPOINT ||
     "https://xpyjqeghjxucubtaakda.supabase.co/functions/v1/contact";
 
   const [sending, setSending] = useState(false);

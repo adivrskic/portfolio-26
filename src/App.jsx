@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { DEFAULTS, getCurrentSeason } from "./config/defaults";
+import { useIsMobile } from "./hooks/useIsMobile";
 import GradientBackground from "./components/gradient/GradientBackground";
 import Scene from "./components/scene/Scene";
 import Reticle from "./components/reticle/Reticle";
@@ -9,14 +10,12 @@ import ChatPanel from "./components/chat/ChatPanel";
 import DebugPanel from "./components/debug/DebugPanel";
 import ShowcaseCanvas from "./components/showcase/ShowcaseCanvas";
 import ShowcaseHTML from "./components/showcase/Showcase";
+import PrintContent from "./components/print/PrintContent";
 import "./App.css";
 
-const IS_MOBILE =
-  typeof window !== "undefined" &&
-  (window.innerWidth < 768 || "ontouchstart" in window);
-const Showcase = IS_MOBILE ? ShowcaseHTML : ShowcaseCanvas;
-
 export default function App() {
+  const isMobile = useIsMobile(768);
+  const Showcase = isMobile ? ShowcaseHTML : ShowcaseCanvas;
   const [config, setConfig] = useState({ ...DEFAULTS });
   const [debugVisible, setDebugVisible] = useState(false);
   const [birthComplete, setBirthComplete] = useState(false);
@@ -172,6 +171,7 @@ export default function App() {
         visible={debugVisible}
         setVisible={setDebugVisible}
       />
+      <PrintContent />
     </div>
   );
 }

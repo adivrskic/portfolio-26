@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 80" width="500" height="80">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#e8e8ee"/>
+      <stop offset="100%" stop-color="#e0e0ec"/>
+    </linearGradient>
+    <linearGradient id="cube" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#c8d0dc" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#a0aab8" stop-opacity="0.8"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="500" height="80" rx="8" fill="url(#bg)"/>
+
+  <!-- Mini cube with smiley -->
+  <g transform="translate(32, 40)">
+    <rect x="-16" y="-16" width="32" height="32" rx="6" fill="url(#cube)" stroke="#8890a0" stroke-width="0.6"/>
+    <circle cx="-5" cy="-3" r="2" fill="#5a6070" opacity="0.5"/>
+    <circle cx="5" cy="-3" r="2" fill="#5a6070" opacity="0.5"/>
+    <path d="M-6 5 Q0 10 6 5" stroke="#5a6070" stroke-width="1" fill="none" stroke-linecap="round" opacity="0.4"/>
+  </g>
+
+  <!-- Divider -->
+  <line x1="64" y1="20" x2="64" y2="60" stroke="#1a1a2e" stroke-width="0.5" opacity="0.1"/>
+
+  <!-- Text -->
+  <text x="80" y="34" font-family="Inter, -apple-system, sans-serif" font-size="16" font-weight="300" fill="#1a1a2e" letter-spacing="-0.01em" opacity="0.75">Adi Vrskic</text>
+  <text x="80" y="50" font-family="Inter, -apple-system, sans-serif" font-size="10" font-weight="300" fill="#1a1a2e" letter-spacing="0.1em" opacity="0.35">CREATIVE DEVELOPER</text>
+
+  <!-- Links -->
+  <text x="80" y="66" font-family="Inter, -apple-system, sans-serif" font-size="9" font-weight="300" fill="#1a1a2e" opacity="0.25">adivrskic.dev · github.com/adivrskic · linkedin.com/in/adi-vrskic</text>
+</svg>

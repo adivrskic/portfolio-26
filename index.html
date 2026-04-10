@@ -16,14 +16,23 @@
       content="Full-stack engineer specializing in React, Three.js, and AI. Building things that feel alive."
     />
     <meta property="og:url" content="https://adivrskic.dev" />
-    <meta property="og:image" content="https://adivrskic.dev/og-image.jpg" />
+    <meta property="og:image" content="https://adivrskic.dev/og-image.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Adi Vrskic — Creative Developer" />
     <meta
       name="twitter:description"
       content="Full-stack engineer specializing in React, Three.js, and AI."
     />
+
+    <!-- Icons -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- Print stylesheet -->
+    <link rel="stylesheet" href="/print.css" media="print" />
+
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -48,10 +57,110 @@
       body {
         background: #e8e8ee;
       }
+      /* Inline loading spinner — shows before React mounts */
+      #initial-loader {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #e8e8ee;
+        z-index: 9999;
+        transition: opacity 0.5s;
+      }
+      #initial-loader.fade {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #initial-loader svg {
+        width: 48px;
+        height: 48px;
+      }
+      @keyframes loaderSpin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @keyframes loaderPulse {
+        0%,
+        100% {
+          opacity: 0.12;
+        }
+        50% {
+          opacity: 0.3;
+        }
+      }
+      .loader-cube {
+        animation: loaderSpin 4s linear infinite;
+        transform-origin: 24px 24px;
+      }
+      .loader-dot {
+        animation: loaderPulse 1.4s ease-in-out infinite;
+      }
     </style>
   </head>
   <body>
+    <!-- Loading spinner — visible until React hydrates -->
+    <div id="initial-loader">
+      <svg viewBox="0 0 48 48">
+        <g class="loader-cube">
+          <rect
+            x="10"
+            y="10"
+            width="28"
+            height="28"
+            rx="5"
+            fill="none"
+            stroke="#1a1a2e"
+            stroke-width="0.8"
+            opacity="0.1"
+          />
+        </g>
+        <circle
+          class="loader-dot"
+          cx="19"
+          cy="25"
+          r="2"
+          fill="#1a1a2e"
+          opacity="0.12"
+        />
+        <circle
+          class="loader-dot"
+          style="animation-delay: 0.2s"
+          cx="24"
+          cy="25"
+          r="2"
+          fill="#1a1a2e"
+          opacity="0.12"
+        />
+        <circle
+          class="loader-dot"
+          style="animation-delay: 0.4s"
+          cx="29"
+          cy="25"
+          r="2"
+          fill="#1a1a2e"
+          opacity="0.12"
+        />
+      </svg>
+    </div>
+
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    <script>
+      // Fade out loader once React renders
+      window.addEventListener("DOMContentLoaded", () => {
+        const check = setInterval(() => {
+          if (document.querySelector(".app-root")) {
+            document.getElementById("initial-loader")?.classList.add("fade");
+            setTimeout(
+              () => document.getElementById("initial-loader")?.remove(),
+              600
+            );
+            clearInterval(check);
+          }
+        }, 100);
+      });
+    </script>
   </body>
 </html>

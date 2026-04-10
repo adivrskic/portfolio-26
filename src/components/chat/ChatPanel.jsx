@@ -298,129 +298,142 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
     return () => clearTimeout(t);
   }, [messages]);
 
-  const sendMessage = useCallback(async (text) => {
-    const txt = text.trim();
-    if (!txt) return;
-    setMessages((m) => [...m, { role: "user", text: txt }]);
-    setInput("");
-    setShowHelp(false);
-    setTyping(true);
+  const sendMessage = useCallback(
+    async (text) => {
+      const txt = text.trim();
+      if (!txt) return;
+      setMessages((m) => [...m, { role: "user", text: txt }]);
+      setInput("");
+      setShowHelp(false);
+      setTyping(true);
 
-    // Build conversation history for the API
-    historyRef.current = [
-      ...historyRef.current,
-      { role: "user", content: txt },
-    ];
-
-    try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          stream: true,
-          system:
-            PERSONAL_CONTEXT +
-            `\n\nACTIVE_THEME: ${activeSeason}\nLOCAL_TIME: ${new Date().toLocaleTimeString(
-              "en-US",
-              { hour: "numeric", minute: "2-digit", hour12: true }
-            )}`,
-          messages: historyRef.current,
-        }),
-      });
-
-      if (!response.ok) throw new Error("API error");
-
-      // Add empty assistant message that we'll stream into
-      const streamIdx = { current: -1 };
-      setMessages((m) => {
-        streamIdx.current = m.length;
-        return [...m, { role: "assistant", text: "" }];
-      });
-      setTyping(false);
-
-      let fullReply = "";
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          const json = line.slice(6).trim();
-          if (json === "[DONE]") continue;
-          try {
-            const evt = JSON.parse(json);
-            if (evt.type === "content_block_delta" && evt.delta?.text) {
-              fullReply += evt.delta.text;
-              const display = fullReply.replace(/<!--EMAIL:.*?-->/, "").trim();
-              setMessages((m) => {
-                const updated = [...m];
-                if (updated[streamIdx.current]) {
-                  updated[streamIdx.current] = {
-                    role: "assistant",
-                    text: display,
-                  };
-                }
-                return updated;
-              });
-            }
-          } catch {}
-        }
-      }
-
-      // Handle email tag in final reply
-      const emailMatch = fullReply.match(/<!--EMAIL:(.*?)-->/);
-      if (emailMatch) {
-        try {
-          const emailData = JSON.parse(emailMatch[1]);
-          await fetch(
-            "https://xpyjqeghjxucubtaakda.supabase.co/functions/v1/contact",
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                name: emailData.name,
-                email: emailData.email,
-                message: emailData.message,
-                source: "qb-chat",
-              }),
-            }
-          ).catch(() => {});
-        } catch {}
-        fullReply = fullReply.replace(/<!--EMAIL:.*?-->/, "").trim();
-        setMessages((m) => {
-          const updated = [...m];
-          if (updated[streamIdx.current]) {
-            updated[streamIdx.current] = { role: "assistant", text: fullReply };
-          }
-          return updated;
-        });
-      }
-
+      // Build conversation history for the API
       historyRef.current = [
         ...historyRef.current,
-        { role: "assistant", content: fullReply },
+        { role: "user", content: txt },
       ];
-    } catch {
-      setTyping(false);
-      setMessages((m) => [
-        ...m,
-        {
-          role: "assistant",
-          text: "Having trouble connecting right now. Try again in a moment.",
-        },
-      ]);
-    }
-  }, []);
+
+      try {
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 1000,
+            stream: true,
+            system:
+              PERSONAL_CONTEXT +
+              `\n\nACTIVE_THEME: ${activeSeason}\nLOCAL_TIME: ${new Date().toLocaleTimeString(
+                "en-US",
+                { hour: "numeric", minute: "2-digit", hour12: true }
+              )}`,
+            messages: historyRef.current,
+          }),
+        });
+
+        if (!response.ok) throw new Error("API error");
+
+        // Add empty assistant message that we'll stream into
+        const streamIdx = { current: -1 };
+        setMessages((m) => {
+          streamIdx.current = m.length;
+          return [...m, { role: "assistant", text: "" }];
+        });
+        setTyping(false);
+
+        let fullReply = "";
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            const json = line.slice(6).trim();
+            if (json === "[DONE]") continue;
+            try {
+              const evt = JSON.parse(json);
+              if (evt.type === "content_block_delta" && evt.delta?.text) {
+                fullReply += evt.delta.text;
+                const display = fullReply
+                  .replace(/<!--EMAIL:.*?-->/, "")
+                  .trim();
+                setMessages((m) => {
+                  const updated = [...m];
+                  if (updated[streamIdx.current]) {
+                    updated[streamIdx.current] = {
+                      role: "assistant",
+                      text: display,
+                    };
+                  }
+                  return updated;
+                });
+              }
+            } catch (e) {
+              console.warn("SSE parse error:", e);
+            }
+          }
+        }
+
+        // Handle email tag in final reply
+        const emailMatch = fullReply.match(/<!--EMAIL:(.*?)-->/);
+        if (emailMatch) {
+          try {
+            const emailData = JSON.parse(emailMatch[1]);
+            await fetch(
+              import.meta.env.VITE_CONTACT_ENDPOINT ||
+                "https://xpyjqeghjxucubtaakda.supabase.co/functions/v1/contact",
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  name: emailData.name,
+                  email: emailData.email,
+                  message: emailData.message,
+                  source: "qb-chat",
+                }),
+              }
+            ).catch((e) => console.warn("Contact send failed:", e));
+          } catch (e) {
+            console.warn("Email tag parse error:", e);
+          }
+          fullReply = fullReply.replace(/<!--EMAIL:.*?-->/, "").trim();
+          setMessages((m) => {
+            const updated = [...m];
+            if (updated[streamIdx.current]) {
+              updated[streamIdx.current] = {
+                role: "assistant",
+                text: fullReply,
+              };
+            }
+            return updated;
+          });
+        }
+
+        historyRef.current = [
+          ...historyRef.current,
+          { role: "assistant", content: fullReply },
+        ];
+      } catch {
+        setTyping(false);
+        setMessages((m) => [
+          ...m,
+          {
+            role: "assistant",
+            text: "Having trouble connecting right now. Try again in a moment.",
+          },
+        ]);
+      }
+    },
+    [activeSeason]
+  );
 
   const send = useCallback(() => {
     sendMessage(input);
@@ -459,6 +472,8 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
           flexDirection: "column",
           pointerEvents: "none",
           cursor: "default",
+          overflow: "hidden",
+          borderRadius: isMobile ? 0 : 120,
         }}
       >
         {/* Background — clipPath reveal like menu right panel */}
@@ -476,48 +491,29 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
           }}
         />
 
-        {/* Header */}
+        {/* Large decorative season icon — right side, partially cut off */}
         <div
           ref={headerRef}
           style={{
-            position: "relative",
-            zIndex: 1,
-            padding: isMobile ? "24px 20px 0" : "70px 70px 0",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
+            position: "absolute",
+            top: isMobile ? "10%" : "12%",
+            right: isMobile ? "-28px" : "-375px",
+            zIndex: 0,
             opacity: 0,
+            pointerEvents: "none",
           }}
         >
-          <div
-            style={{
-              animation: active ? "ambFloat0 7s ease-in-out infinite" : "none",
-            }}
-          >
-            {(() => {
-              const s = SEASON_META[activeSeason] || SEASON_META.winter;
-              const Ic = s.icon;
-              return (
-                <p
-                  style={{
-                    fontSize: 16,
-                    fontWeight: 300,
-                    color: "rgba(18,18,40,0.25)",
-                    fontFamily: F,
-                    margin: 0,
-                    letterSpacing: "0.2em",
-                    textTransform: "uppercase",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                  }}
-                >
-                  <Ic size={16} strokeWidth={1.2} color="rgba(18,18,40,0.25)" />
-                  Qb
-                </p>
-              );
-            })()}
-          </div>
+          {(() => {
+            const s = SEASON_META[activeSeason] || SEASON_META.winter;
+            const Ic = s.icon;
+            return (
+              <Ic
+                size={isMobile ? 140 : 750}
+                strokeWidth={0.5}
+                color="rgba(18,18,40,0.02)"
+              />
+            );
+          })()}
         </div>
 
         {/* Messages */}

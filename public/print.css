@@ -1,0 +1,112 @@
+/* print.css — add to index.html: <link rel="stylesheet" href="/print.css" media="print" /> */
+
+@media print {
+  /* Hide everything interactive */
+  canvas,
+  .menu-wrapper,
+  [data-chat-panel],
+  .reticle,
+  .gradient-bg,
+  .debug-panel,
+  button,
+  .app-root > div:not(.print-content) {
+    display: none !important;
+  }
+
+  /* Reset page */
+  html,
+  body,
+  #root,
+  .app-root {
+    overflow: visible !important;
+    height: auto !important;
+    background: white !important;
+    cursor: auto !important;
+  }
+
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  /* Show printable content */
+  .print-content {
+    display: block !important;
+    color: #1a1a2e;
+    font-family: "Inter", -apple-system, sans-serif;
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 40px 20px;
+  }
+
+  .print-content h1 {
+    font-size: 28px;
+    font-weight: 200;
+    margin: 0 0 4px;
+    letter-spacing: -0.01em;
+  }
+
+  .print-content .subtitle {
+    font-size: 11px;
+    font-weight: 300;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #888;
+    margin: 0 0 24px;
+  }
+
+  .print-content .links {
+    font-size: 10px;
+    color: #666;
+    margin-bottom: 32px;
+  }
+
+  .print-content .links a {
+    color: #444;
+    text-decoration: none;
+  }
+
+  .print-content hr {
+    border: none;
+    border-top: 0.5px solid #ddd;
+    margin: 24px 0;
+  }
+
+  .print-content h2 {
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #999;
+    margin: 0 0 12px;
+  }
+
+  .print-content p {
+    font-size: 13px;
+    font-weight: 300;
+    line-height: 1.7;
+    color: #444;
+    margin: 0 0 8px;
+  }
+
+  .print-content .project {
+    margin-bottom: 16px;
+  }
+
+  .print-content .project h3 {
+    font-size: 15px;
+    font-weight: 400;
+    margin: 0 0 2px;
+  }
+
+  .print-content .project .tech {
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #999;
+  }
+
+  @page {
+    margin: 0.75in;
+  }
+}
