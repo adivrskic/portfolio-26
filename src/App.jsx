@@ -9,7 +9,6 @@ import MenuOverlay from "./components/menu/MenuOverlay";
 import ChatPanel from "./components/chat/ChatPanel";
 import DebugPanel from "./components/debug/DebugPanel";
 import ShowcaseCanvas from "./components/showcase/ShowcaseCanvas";
-import ShowcaseHTML from "./components/showcase/Showcase";
 import PrintContent from "./components/print/PrintContent";
 import "./App.css";
 
@@ -159,7 +158,6 @@ export default function App() {
         config={config}
         onThemeChange={handleThemeChange}
         activeSeason={activeSeason}
-        goldUnlocked={true}
         onShowcase={() => {
           setMenuOpen(false);
           setTimeout(() => handleCubeShowcase(), 600);

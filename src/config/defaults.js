@@ -1,3 +1,5 @@
+import { BG_HEX } from "../constants/style";
+
 // Season-based gradient theme
 const SEASON_COLORS = {
   spring: ["#1a4a2e", "#e8a0bf", "#3d9e5c", "#d4f0c6"],
@@ -64,7 +66,7 @@ export const DEFAULTS = {
   ambientIntensity: 0,
   totalScrollRange: 130,
   scrollSpeed: 1,
-  bgColor: "#e8e8ee",
+  bgColor: BG_HEX,
   textColor: "#1a1a2e",
   textColorLight: "#ffffff",
   textOpacity: 0.7,
@@ -185,7 +187,7 @@ export const DEFAULTS = {
   menuBlur: 30,
   menuBgOpacity: 0.2,
   menuTextColor: "#1a1a2e",
-  menuInputColor: "#e8e8ee",
+  menuInputColor: BG_HEX,
   reticleRange: 1.2,
   reticleMinR: 16,
   reticleMaxR: 50,
@@ -217,6 +219,7 @@ export const DEFAULTS = {
   glitterSpawnRate: 50,
   glitterIdleRate: 2,
   glitterFadeExp: 0.6,
+  // Timestamp seed used to trigger birth animation replays (change to replay)
   birthReplay: 1775786365506,
   birthEasing: 4.2,
 

@@ -1,0 +1,143 @@
+.contact-form {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 460px;
+}
+
+.contact-form__input {
+  font-family: "Inter", -apple-system, sans-serif;
+  font-size: 13px;
+  font-weight: 300;
+  border-radius: 4px;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border 0.2s, background 0.2s;
+}
+
+.contact-form__section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.contact-form__section-label {
+  font-size: 10px;
+  font-family: "Inter", -apple-system, sans-serif;
+  font-weight: 300;
+  letter-spacing: 0.1em;
+}
+
+.contact-form__error-badge {
+  font-size: 9px;
+  font-family: "Inter", -apple-system, sans-serif;
+  padding: 3px 10px;
+  border-radius: 10px;
+  background: rgba(200, 60, 60, 0.06);
+  border: 0.5px solid rgba(200, 60, 60, 0.12);
+  color: rgba(200, 60, 60, 0.5);
+  font-weight: 400;
+  letter-spacing: 0.03em;
+}
+
+.contact-form__error-badge--absolute {
+  position: absolute;
+  right: 12px;
+  top: 10px;
+  pointer-events: none;
+}
+
+.contact-form__services {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.contact-form__service-pill {
+  font-family: "Inter", -apple-system, sans-serif;
+  font-size: 11px;
+  padding: 7px 13px 7px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.contact-form__textarea-wrap {
+  position: relative;
+}
+
+.contact-form__textarea {
+  height: auto;
+  resize: none;
+  padding: 12px 16px;
+  padding-bottom: 36px;
+}
+
+.contact-form__char-ring {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  width: 28px;
+  height: 28px;
+}
+
+.contact-form__char-count {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 7px;
+  font-family: "Inter", -apple-system, sans-serif;
+  font-weight: 300;
+}
+
+.contact-form__valid-check {
+  position: absolute;
+  right: 12px;
+  top: 10px;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(40, 160, 100, 0.08);
+  border: 0.5px solid rgba(40, 160, 100, 0.18);
+}
+
+.contact-form__submit {
+  font-family: "Inter", -apple-system, sans-serif;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 12px 16px;
+  border-radius: 4px;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.contact-form__send-error {
+  font-size: 11px;
+  font-family: "Inter", -apple-system, sans-serif;
+  font-weight: 300;
+  color: rgba(200, 60, 60, 0.6);
+  text-align: center;
+  margin: 4px 0 0;
+}

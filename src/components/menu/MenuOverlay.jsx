@@ -346,17 +346,13 @@ function ThemeCard({ theme: t, isActive, onClick }) {
     }
   }, [drawStamp, resize]);
 
-  const onMove = useCallback(
-    (e) => {
-      if (t.locked) return;
-      const cv = mainRef.current;
-      if (!cv) return;
-      const rect = cv.getBoundingClientRect();
-      mouseRef.current.x = e.clientX - rect.left;
-      mouseRef.current.y = e.clientY - rect.top;
-    },
-    [t.locked]
-  );
+  const onMove = useCallback((e) => {
+    const cv = mainRef.current;
+    if (!cv) return;
+    const rect = cv.getBoundingClientRect();
+    mouseRef.current.x = e.clientX - rect.left;
+    mouseRef.current.y = e.clientY - rect.top;
+  }, []);
 
   const onEnter = useCallback(
     (e) => {
@@ -428,10 +424,10 @@ function ThemeCard({ theme: t, isActive, onClick }) {
         padding: 0,
         borderRadius: 14,
         border: "0.5px solid " + D + "0.04)",
-        cursor: t.locked ? "default" : "pointer",
+        cursor: "pointer",
         background: "transparent",
-        opacity: t.locked ? 0.2 : 1,
-        filter: t.locked ? "grayscale(0.6)" : "none",
+        opacity: 1,
+        filter: "none",
         transition: "border-color 0.3s, transform 0.3s",
         transform: "scale(1)",
         display: "flex",
@@ -510,13 +506,11 @@ export default function MenuOverlay({
   config: c,
   onThemeChange,
   activeSeason,
-  goldUnlocked,
   onShowcase,
 }) {
   const [mounted, setMounted] = useState(false);
   const [section, setSection] = useState("about");
   const [hovered, setHovered] = useState(null);
-  const [goldPop, setGoldPop] = useState(false);
   const isMobile = useIsMobile();
 
   const panelRef = useRef(null);
@@ -741,11 +735,6 @@ export default function MenuOverlay({
 
   const pickTheme = useCallback(
     (t) => {
-      if (t.locked) {
-        setGoldPop(true);
-        setTimeout(() => setGoldPop(false), 2000);
-        return;
-      }
       if (onThemeChange)
         onThemeChange(
           {
@@ -773,9 +762,7 @@ export default function MenuOverlay({
   ];
   const feat = PROJECTS.find((p) => p.featured);
   const rest = PROJECTS.filter((p) => !p.featured);
-  const themes = THEMES.map((t) =>
-    t.id === "gold" ? { ...t, locked: !goldUnlocked } : t
-  );
+  const themes = THEMES;
 
   return (
     <>
@@ -1334,28 +1321,6 @@ export default function MenuOverlay({
                             onClick={() => pickTheme(t)}
                           />
                         ))}
-                        {goldPop && (
-                          <div
-                            style={{
-                              position: "absolute",
-                              bottom: -36,
-                              right: 0,
-                              width: "20%",
-                              textAlign: "center",
-                              padding: "7px 16px",
-                              borderRadius: 8,
-                              background: "rgba(255,255,255,0.9)",
-                              border: "0.5px solid " + T + "0.08)",
-                              fontSize: 12,
-                              color: T + "0.6)",
-                              fontFamily: F,
-                              fontWeight: 300,
-                              animation: "goldPop 0.4s ease",
-                            }}
-                          >
-                            Unlock this theme first
-                          </div>
-                        )}
                       </div>
                     </>
                   );

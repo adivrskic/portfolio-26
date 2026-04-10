@@ -1,0 +1,46 @@
+.field {
+  position: relative;
+}
+
+.field__icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  display: flex;
+}
+
+.field__error {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 9px;
+  font-family: "Inter", -apple-system, sans-serif;
+  padding: 3px 10px;
+  border-radius: 10px;
+  background: rgba(200, 60, 60, 0.06);
+  border: 0.5px solid rgba(200, 60, 60, 0.12);
+  color: rgba(200, 60, 60, 0.5);
+  font-weight: 400;
+  letter-spacing: 0.03em;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.field__valid {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(40, 160, 100, 0.08);
+  border: 0.5px solid rgba(40, 160, 100, 0.18);
+}

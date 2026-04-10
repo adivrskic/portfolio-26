@@ -28,6 +28,7 @@ import {
 import GlassCube from "../scene/GlassCube";
 import ContactForm from "../contact/ContactForm";
 import ShowcaseDebug from "../debug/ShowcaseDebug";
+import { DARK_RGBA, BG_HEX } from "../../constants/style";
 
 // Inter font for 3D text — matches the rest of the site
 const FONT_URL =
@@ -1029,7 +1030,7 @@ export default function ShowcaseCanvas({ open, onClose, config }) {
           position: "fixed",
           inset: 0,
           zIndex: 1,
-          background: "#e8e8ee",
+          background: BG_HEX,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -1039,8 +1040,8 @@ export default function ShowcaseCanvas({ open, onClose, config }) {
           style={{
             width: 24,
             height: 24,
-            border: "2px solid rgba(26,26,46,0.08)",
-            borderTop: "2px solid rgba(26,26,46,0.3)",
+            border: `2px solid ${DARK_RGBA}0.08)`,
+            borderTop: `2px solid ${DARK_RGBA}0.3)`,
             borderRadius: "50%",
             animation: "spin 0.8s linear infinite",
           }}
@@ -1059,7 +1060,7 @@ export default function ShowcaseCanvas({ open, onClose, config }) {
         inset: 0,
         zIndex: 1,
         cursor: "default",
-        background: "#e8e8ee",
+        background: BG_HEX,
         overflow: "hidden",
       }}
     >
@@ -1072,7 +1073,7 @@ export default function ShowcaseCanvas({ open, onClose, config }) {
           alpha: false,
           antialias: true,
         }}
-        onCreated={({ gl }) => gl.setClearColor("#e8e8ee")}
+        onCreated={({ gl }) => gl.setClearColor(BG_HEX)}
       >
         <ambientLight intensity={0.5} />
         <spotLight
@@ -1152,15 +1153,15 @@ export default function ShowcaseCanvas({ open, onClose, config }) {
                 fontWeight: 300,
                 letterSpacing: "0.2em",
                 textTransform: "uppercase",
-                color: "rgba(26,26,46,0.3)",
+                color: DARK_RGBA + "0.3)",
                 cursor: "pointer",
                 transition: "color 0.3s",
               }}
               onMouseEnter={(e) => {
-                e.target.style.color = "rgba(26,26,46,0.6)";
+                e.target.style.color = DARK_RGBA + "0.6)";
               }}
               onMouseLeave={(e) => {
-                e.target.style.color = "rgba(26,26,46,0.3)";
+                e.target.style.color = DARK_RGBA + "0.3)";
               }}
             >
               Close
@@ -1205,7 +1206,7 @@ function SettleFooter({ onClose, onContact, totalSections }) {
     fontWeight: 300,
     letterSpacing: "0.2em",
     textTransform: "uppercase",
-    color: "rgba(26,26,46,0.3)",
+    color: DARK_RGBA + "0.3)",
     padding: "6px 0",
     transition: "color 0.3s",
     display: "block",
@@ -1234,10 +1235,10 @@ function SettleFooter({ onClose, onContact, totalSections }) {
         style={linkStyle}
         onClick={onContact}
         onMouseEnter={(e) => {
-          e.target.style.color = "rgba(26,26,46,0.7)";
+          e.target.style.color = DARK_RGBA + "0.7)";
         }}
         onMouseLeave={(e) => {
-          e.target.style.color = "rgba(26,26,46,0.3)";
+          e.target.style.color = DARK_RGBA + "0.3)";
         }}
       >
         Contact
@@ -1246,10 +1247,10 @@ function SettleFooter({ onClose, onContact, totalSections }) {
         style={linkStyle}
         onClick={onClose}
         onMouseEnter={(e) => {
-          e.target.style.color = "rgba(26,26,46,0.7)";
+          e.target.style.color = DARK_RGBA + "0.7)";
         }}
         onMouseLeave={(e) => {
-          e.target.style.color = "rgba(26,26,46,0.3)";
+          e.target.style.color = DARK_RGBA + "0.3)";
         }}
       >
         Exit
@@ -1299,7 +1300,7 @@ function SectionProgress({ totalSections, themeColor, onClose }) {
         if (gauss > 0.15) {
           el.style.backgroundColor = `rgba(${themeRgb},1)`;
         } else {
-          el.style.backgroundColor = "rgba(26,26,46,1)";
+          el.style.backgroundColor = DARK_RGBA + "1)";
         }
       }
       if (startRef.current) {
@@ -1339,7 +1340,7 @@ function SectionProgress({ totalSections, themeColor, onClose }) {
           fontWeight: 300,
           letterSpacing: "0.2em",
           textTransform: "uppercase",
-          color: "rgba(26,26,46,0.6)",
+          color: DARK_RGBA + "0.6)",
           background: "none",
           border: "none",
           cursor: "pointer",
@@ -1349,10 +1350,10 @@ function SectionProgress({ totalSections, themeColor, onClose }) {
           whiteSpace: "nowrap",
         }}
         onMouseEnter={(e) => {
-          e.target.style.color = "rgba(26,26,46,0.85)";
+          e.target.style.color = DARK_RGBA + "0.85)";
         }}
         onMouseLeave={(e) => {
-          e.target.style.color = "rgba(26,26,46,0.6)";
+          e.target.style.color = DARK_RGBA + "0.6)";
         }}
       >
         Close
@@ -1370,7 +1371,7 @@ function SectionProgress({ totalSections, themeColor, onClose }) {
           fontWeight: 300,
           letterSpacing: "0.2em",
           textTransform: "uppercase",
-          color: "rgba(26,26,46,1)",
+          color: DARK_RGBA + "1)",
           opacity: 0,
           transition: "opacity 0.5s",
         }}
@@ -1391,7 +1392,7 @@ function SectionProgress({ totalSections, themeColor, onClose }) {
             height: TICK_H,
             width: BASE_W,
             borderRadius: 1,
-            background: "rgba(26,26,46,1)",
+            background: DARK_RGBA + "1)",
             opacity: 0.06,
             transition:
               "width 0.7s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.5s, background-color 0.5s",
@@ -1411,7 +1412,7 @@ function SectionProgress({ totalSections, themeColor, onClose }) {
           fontWeight: 300,
           letterSpacing: "0.2em",
           textTransform: "uppercase",
-          color: "rgba(26,26,46,1)",
+          color: DARK_RGBA + "1)",
           opacity: 0,
           transition: "opacity 0.5s",
         }}

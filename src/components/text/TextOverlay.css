@@ -1,0 +1,56 @@
+.text-overlay__row {
+  position: fixed;
+  left: 0;
+  width: 100vw;
+  display: flex;
+  justify-content: center;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.text-overlay__name {
+  display: flex;
+  align-items: center;
+  line-height: 1;
+}
+
+.text-overlay__letter {
+  display: inline-block;
+  font-family: "Inter", -apple-system, sans-serif;
+  text-transform: uppercase;
+  line-height: 1;
+  cursor: default;
+  user-select: none;
+}
+
+@keyframes taperedFloat {
+  0%,
+  100% {
+    transform: translateX(-50%) translateY(0);
+  }
+  50% {
+    transform: translateX(-50%) translateY(-4px);
+  }
+}
+
+.text-overlay__menu-btn {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 14px 16px;
+  min-width: 48px;
+  min-height: 48px;
+  animation: taperedFloat 4s ease-in-out infinite;
+}
+
+.text-overlay__menu-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.4s cubic-bezier(0.33, 1, 0.68, 1);
+}

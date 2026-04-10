@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Fingerprint } from "lucide-react";
 import { sampleLuminance } from "../../utils/color";
 import { BG_COLOR } from "../../constants/style";
+import "./Reticle.css";
 
-// Skip entirely on touch-only devices
 const IS_TOUCH =
   typeof window !== "undefined" && window.matchMedia("(hover: none)").matches;
 
@@ -36,7 +36,6 @@ export default function Reticle({
   scrollRef.current = scrollProgress;
   chatRef.current = chatMode;
 
-  // Permanently dismiss hold pill once showcase has been triggered
   if (showcaseTriggered) holdDismissed.current = true;
 
   useEffect(() => {
@@ -100,7 +99,6 @@ export default function Reticle({
       if (scrollRef.current > 0.01) scrollDismissed.current = true;
       if (chatRef.current) holdDismissed.current = true;
 
-      // First pill + line (press & hold)
       const showHold = showHint && !holdDismissed.current;
       if (lineRef.current && pillRef.current) {
         if (showHold) {
@@ -131,7 +129,6 @@ export default function Reticle({
           ? Math.min(1, (p - 0.8) / 0.1)
           : 0;
 
-      // Second pill + line (scroll)
       const showScroll = showHint && !scrollDismissed.current;
       if (line2Ref.current && pill2Ref.current) {
         if (showScroll) {
@@ -180,89 +177,48 @@ export default function Reticle({
     ("ontouchstart" in window || navigator.maxTouchPoints > 0);
   const verb = isTouch ? "tap" : "click";
 
-  const pillStyle = {
-    position: "fixed",
-    padding: "8px 18px",
-    borderRadius: 24,
-    pointerEvents: "none",
-    zIndex: 14,
-    background: "rgba(255,255,255,0.88)",
-    border: "0.5px solid rgba(18,18,40,0.06)",
-    backdropFilter: "blur(10px)",
-    fontSize: 11,
-    fontFamily: "'Inter',-apple-system,sans-serif",
-    fontWeight: 300,
-    color: "rgba(18,18,40,0.6)",
-    letterSpacing: "0.06em",
-    whiteSpace: "nowrap",
-    opacity: 0,
-    transition: "opacity 0.4s ease",
-  };
-
   return (
     <>
       <div
         ref={ref}
-        style={{
-          position: "fixed",
-          pointerEvents: "none",
-          zIndex: 15,
-          left: -200,
-          top: -200,
-          width: 24,
-          height: 24,
-          margin: "-12px 0 0 -12px",
-          transition: "opacity 0.3s, color 0.3s ease",
-          color: c.textColor || "#1a1a2e",
-        }}
+        className="reticle__cursor"
+        style={{ color: c.textColor || "#1a1a2e" }}
       >
         <Fingerprint size="100%" strokeWidth={1.5} color="currentColor" />
       </div>
-      <svg
-        style={{
-          position: "fixed",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          pointerEvents: "none",
-          zIndex: 14,
-        }}
-      >
+      <svg className="reticle__lines">
         <line
           ref={lineRef}
+          className="reticle__line"
           x1="0"
           y1="0"
           x2="0"
           y2="0"
           stroke={lc}
           strokeWidth={lw}
-          style={{ opacity: 0, transition: "opacity 0.3s" }}
         />
         <line
           ref={line2Ref}
+          className="reticle__line"
           x1="0"
           y1="0"
           x2="0"
           y2="0"
           stroke={lc}
           strokeWidth={lw}
-          style={{ opacity: 0, transition: "opacity 0.3s" }}
         />
       </svg>
       <div
         ref={pillRef}
-        style={{
-          ...pillStyle,
-          left: `calc(50% + ${px}px)`,
-          top: `calc(50% + ${py}px)`,
-        }}
+        className="reticle__pill"
+        style={{ left: `calc(50% + ${px}px)`, top: `calc(50% + ${py}px)` }}
       >
         {verb} to chat
       </div>
       <div
         ref={pill2Ref}
+        className="reticle__pill"
         style={{
-          ...pillStyle,
           left: `calc(50% - ${px}px)`,
           top: `calc(50% - ${py}px)`,
           transform: "translateX(-100%)",

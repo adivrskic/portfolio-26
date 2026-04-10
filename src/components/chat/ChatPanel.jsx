@@ -2,14 +2,12 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useIsMobile } from "../../hooks/useIsMobile";
 import gsap from "gsap";
 import { X } from "lucide-react";
-import { FONT_FAMILY } from "../../constants/style";
 import { SEASON_META } from "../../constants/themes";
 import { splitIntoLines } from "../../utils/text";
 import AmbientLine from "./AmbientLine";
 import UserPill from "./UserPill";
 import { TypingIndicator, SuggestionPill } from "./ChatWidgets";
-
-const F = FONT_FAMILY;
+import "./ChatPanel.css";
 
 // ── System prompt — all real info, collaboratively built ──
 const PERSONAL_CONTEXT = `
@@ -163,6 +161,9 @@ const defaultGreeting = () => {
       : "Night owl?";
   return `${g} I'm Qb — ask me anything about Adi's work, projects, or how this site was built.`;
 };
+// Module-level state to persist chat across panel open/close cycles.
+// Intentionally survives unmount so conversation isn't lost when panel closes.
+// Note: also survives HMR in dev — refresh the page to reset.
 let persistedMessages = [{ role: "assistant", text: defaultGreeting() }];
 let persistedHistory = [];
 
@@ -449,59 +450,26 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
 
   return (
     <>
-      <style>{`
-        @keyframes ambFloat0{0%,100%{transform:translateY(0)}50%{transform:translateY(-0.8px)}}
-        @keyframes ambFloat1{0%,100%{transform:translateY(0)}50%{transform:translateY(-1px)}}
-        @keyframes ambFloat2{0%,100%{transform:translateY(0)}50%{transform:translateY(-0.6px)}}
-        @keyframes ambFloat3{0%,100%{transform:translateY(0)}50%{transform:translateY(-0.9px)}}
-        @keyframes ambFloat4{0%,100%{transform:translateY(0)}50%{transform:translateY(-0.5px)}}
-        @keyframes tdot{0%,60%,100%{opacity:0.15}30%{opacity:0.5}}
-        @keyframes typingPulse{0%,100%{transform:scale(1);opacity:0.6}50%{transform:scale(1.15);opacity:1}}
-      `}</style>
       <div
         ref={panelRef}
-        style={{
-          position: "fixed",
-          top: isMobile ? 0 : 16,
-          right: isMobile ? 0 : 16,
-          bottom: isMobile ? 0 : 16,
-          left: isMobile ? 0 : "auto",
-          width: isMobile ? "100%" : "calc(50% - 24px)",
-          zIndex: 8,
-          display: "flex",
-          flexDirection: "column",
-          pointerEvents: "none",
-          cursor: "default",
-          overflow: "hidden",
-          borderRadius: isMobile ? 0 : 120,
-        }}
+        className={`chat-panel ${
+          isMobile ? "chat-panel--mobile" : "chat-panel--desktop"
+        }`}
       >
-        {/* Background — clipPath reveal like menu right panel */}
         <div
           ref={bgRef}
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: "rgba(232,232,238,0.74)",
-            backdropFilter: "blur(50px) saturate(1.15)",
-            WebkitBackdropFilter: "blur(50px) saturate(1.15)",
-            borderRadius: isMobile ? 0 : 120,
-            clipPath: "inset(0 100% 0 0)",
-            opacity: 0,
-          }}
+          className={`chat-panel__bg ${
+            isMobile ? "chat-panel__bg--mobile" : "chat-panel__bg--desktop"
+          }`}
         />
 
-        {/* Large decorative season icon — right side, partially cut off */}
         <div
           ref={headerRef}
-          style={{
-            position: "absolute",
-            top: isMobile ? "10%" : "12%",
-            right: isMobile ? "-28px" : "-375px",
-            zIndex: 0,
-            opacity: 0,
-            pointerEvents: "none",
-          }}
+          className={`chat-panel__season-icon ${
+            isMobile
+              ? "chat-panel__season-icon--mobile"
+              : "chat-panel__season-icon--desktop"
+          }`}
         >
           {(() => {
             const s = SEASON_META[activeSeason] || SEASON_META.winter;
@@ -516,41 +484,22 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
           })()}
         </div>
 
-        {/* Messages */}
-        <div
-          ref={msgsRef}
-          style={{
-            flex: 1,
-            position: "relative",
-            zIndex: 1,
-            minHeight: 0,
-            opacity: 0,
-          }}
-        >
+        <div ref={msgsRef} className="chat-panel__messages">
           <div
             ref={scrollRef}
-            style={{
-              position: "absolute",
-              inset: 0,
-              overflowY: "auto",
-              padding: isMobile ? "16px 16px" : "24px 70px",
-              display: "flex",
-              flexDirection: "column",
-              gap: 2,
-              maskImage:
-                "linear-gradient(transparent 0%, black 248px, black 100%)",
-              WebkitMaskImage:
-                "linear-gradient(transparent 0%, black 248px, black 100%)",
-            }}
+            className={`chat-panel__scroll ${
+              isMobile
+                ? "chat-panel__scroll--mobile"
+                : "chat-panel__scroll--desktop"
+            }`}
           >
-            {/* Spacer pushes content to bottom when conversation is short */}
-            <div style={{ flex: 1, minHeight: 0 }} />
+            <div className="chat-panel__spacer" />
             {messages.map((m, i) => {
               const isNew = !revealedMsgs.has(i);
               return (
                 <div key={i}>
                   {m.role === "assistant" ? (
-                    <div style={{ padding: "6px 0" }}>
+                    <div className="chat-panel__assistant-msg">
                       {splitIntoLines(m.text).map((line, li) => (
                         <AmbientLine
                           key={li}
@@ -569,54 +518,16 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
             })}
             {typing && <TypingIndicator />}
 
-            {/* Help options */}
             {showHelp && (
-              <div
-                style={{
-                  padding: "8px 0",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 4,
-                }}
-              >
-                <p
-                  style={{
-                    fontSize: 9,
-                    color: "rgba(18,18,40,0.25)",
-                    fontFamily: F,
-                    fontWeight: 300,
-                    letterSpacing: "0.1em",
-                    margin: "4px 0",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Try asking about:
-                </p>
+              <div className="chat-panel__help">
+                <p className="chat-panel__help-label">Try asking about:</p>
                 {HELP_OPTIONS.map((q, i) => (
                   <button
                     key={i}
+                    className="chat-panel__help-btn"
                     onClick={() => {
                       setShowHelp(false);
                       sendMessage(q);
-                    }}
-                    style={{
-                      textAlign: "left",
-                      padding: "6px 12px",
-                      borderRadius: 10,
-                      border: "0.5px solid rgba(18,18,40,0.04)",
-                      background: "rgba(255,255,255,0.3)",
-                      fontFamily: F,
-                      fontSize: 11,
-                      fontWeight: 300,
-                      color: "rgba(18,18,40,0.4)",
-                      cursor: "pointer",
-                      transition: "all 0.2s",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.background = "rgba(255,255,255,0.55)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.background = "rgba(255,255,255,0.3)";
                     }}
                   >
                     {q}
@@ -627,26 +538,16 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
           </div>
         </div>
 
-        {/* Suggestions + Input */}
         <div
           ref={inputAreaRef}
-          style={{
-            position: "relative",
-            zIndex: 1,
-            padding: isMobile ? "0 16px 24px" : "0 70px 80px",
-            opacity: 0,
-          }}
+          className={`chat-panel__input-area ${
+            isMobile
+              ? "chat-panel__input-area--mobile"
+              : "chat-panel__input-area--desktop"
+          }`}
         >
-          {/* Suggestion pills */}
           {showSuggestions && (
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 6,
-                marginBottom: 10,
-              }}
-            >
+            <div className="chat-panel__suggestions">
               {SUGGESTIONS.map((s, i) => (
                 <SuggestionPill
                   key={i}
@@ -661,51 +562,23 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
             </div>
           )}
 
-          {/* Input */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: "10px 18px",
-              borderRadius: 16,
-              background: "rgba(255,255,255,0.4)",
-              border: "0.5px solid rgba(18,18,40,0.04)",
-              backdropFilter: "blur(12px)",
-            }}
-          >
+          <div className="chat-panel__input-row">
             <input
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKey}
               placeholder="ask anything..."
-              style={{
-                flex: 1,
-                border: "none",
-                background: "transparent",
-                outline: "none",
-                fontFamily: F,
-                fontSize: 13,
-                fontWeight: 200,
-                color: "rgba(18,18,40,0.55)",
-                letterSpacing: "0.02em",
-              }}
+              className="chat-panel__text-input"
             />
             <button
               onClick={send}
+              className="chat-panel__send-btn"
               style={{
-                width: 28,
-                height: 28,
-                borderRadius: 8,
-                border: "none",
                 background: input.trim()
                   ? "rgba(18,18,40,0.06)"
                   : "transparent",
                 cursor: input.trim() ? "pointer" : "default",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
               }}
             >
               <svg
@@ -726,40 +599,14 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
           </div>
         </div>
 
-        {/* Close button — bottom center, matches menu style */}
         <button
           ref={closeBtnRef}
           onClick={onClose}
-          style={{
-            position: "fixed",
-            bottom: isMobile ? "auto" : 24,
-            top: isMobile ? 16 : "auto",
-            left: isMobile ? "auto" : "50vw",
-            right: isMobile ? 16 : "auto",
-            translate: isMobile ? "none" : "-50% 0",
-            width: 48,
-            height: 48,
-            borderRadius: "50%",
-            border: "0.5px solid rgba(18,18,40,0.06)",
-            background: "rgba(232,232,238,0.85)",
-            backdropFilter: "blur(20px) saturate(1.15)",
-            WebkitBackdropFilter: "blur(20px) saturate(1.15)",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            opacity: 0,
-            transform: "scale(0)",
-            boxShadow: "0 2px 16px rgba(0,0,0,0.06)",
-            zIndex: 20,
-            transition: "background 0.3s",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "rgba(232,232,238,0.95)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "rgba(232,232,238,0.85)";
-          }}
+          className={`chat-panel__close ${
+            isMobile
+              ? "chat-panel__close--mobile"
+              : "chat-panel__close--desktop"
+          }`}
         >
           <X size={18} strokeWidth={1.5} color="rgba(18,18,40,0.45)" />
         </button>

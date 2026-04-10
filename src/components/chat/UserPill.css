@@ -1,0 +1,21 @@
+.user-pill {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 0;
+  animation: ambFloat3 6.5s ease-in-out infinite;
+}
+
+.user-pill__bubble {
+  padding: 10px 20px;
+  border-radius: 20px;
+  max-width: 75%;
+  background: rgba(255, 255, 255, 0.45);
+  border: 0.5px solid rgba(18, 18, 40, 0.04);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  font-family: "Inter", -apple-system, sans-serif;
+  font-size: 18px;
+  font-weight: 200;
+  color: rgba(18, 18, 40, 0.5);
+  line-height: 1.45;
+}

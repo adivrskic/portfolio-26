@@ -8,7 +8,7 @@ import {
   DollarSign,
   Clock,
 } from "lucide-react";
-import { FONT_FAMILY, DARK_RGBA } from "../../constants/style";
+import { DARK_RGBA, BG_HEX } from "../../constants/style";
 import {
   SERVICES,
   BUDGET_LABELS,
@@ -16,13 +16,11 @@ import {
 } from "../../constants/services";
 import Field from "./Field";
 import SliderRow from "./SliderRow";
-
-const F = FONT_FAMILY;
+import "./ContactForm.css";
 
 export default function ContactForm({ compact, textColor, inputColor }) {
   const D = textColor || DARK_RGBA;
-  const IC = inputColor || "#e8e8ee";
-  // Convert input color hex to rgba prefix for opacity usage
+  const IC = inputColor || BG_HEX;
   const icR = parseInt(IC.slice(1, 3), 16) || 232;
   const icG = parseInt(IC.slice(3, 5), 16) || 232;
   const icB = parseInt(IC.slice(5, 7), 16) || 238;
@@ -48,10 +46,8 @@ export default function ContactForm({ compact, textColor, inputColor }) {
       e.email = "invalid";
     if (form.services.length === 0) e.services = true;
     if (!form.message.trim()) e.message = "required";
-    else if (form.message.trim().length < 10) e.message = "too short";
     return e;
   };
-
   const toggleService = (s) => {
     setForm((f) => ({
       ...f,
@@ -114,36 +110,25 @@ export default function ContactForm({ compact, textColor, inputColor }) {
     }
   };
 
-  // Live-clear errors as user fixes them after submit
   useEffect(() => {
     if (submitted) setErrors(validate());
   }, [form.name, form.email, form.services, form.message, submitted]);
 
-  const base = {
-    fontFamily: F,
-    fontSize: 13,
-    fontWeight: 300,
+  const inputStyle = (field, hasIcon) => ({
     color: D + "0.6)",
     background: ICR + "0.15)",
-    borderRadius: 4,
-    outline: "none",
-    width: "100%",
-    boxSizing: "border-box",
-    transition: "border 0.2s, background 0.2s",
-  };
-  const inp = (field, hasIcon) => ({
-    ...base,
     padding: hasIcon ? "12px 16px 12px 36px" : "12px 16px",
     border: `1px solid ${
       submitted && errors[field] ? "rgba(200,60,60,0.4)" : D + "0.22)"
     }`,
     paddingRight: submitted && errors[field] ? 80 : 16,
   });
-  const fi = (e) => {
+
+  const onFocus = (e) => {
     e.target.style.borderColor = D + "0.38)";
     e.target.style.background = ICR + "0.25)";
   };
-  const fo = (field) => (e) => {
+  const onBlur = (field) => (e) => {
     e.target.style.borderColor =
       submitted && errors[field] ? "rgba(200,60,60,0.4)" : D + "0.22)";
     e.target.style.background = ICR + "0.15)";
@@ -153,15 +138,7 @@ export default function ContactForm({ compact, textColor, inputColor }) {
   const sw = 1.2;
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap,
-        width: "100%",
-        maxWidth: 460,
-      }}
-    >
+    <div className="contact-form" style={{ gap }}>
       {/* Name */}
       <Field
         error={submitted && errors.name}
@@ -174,9 +151,10 @@ export default function ContactForm({ compact, textColor, inputColor }) {
           placeholder="Name *"
           value={form.name}
           onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
-          style={inp("name", true)}
-          onFocus={fi}
-          onBlur={fo("name")}
+          className="contact-form__input"
+          style={inputStyle("name", true)}
+          onFocus={onFocus}
+          onBlur={onBlur("name")}
         />
       </Field>
 
@@ -192,73 +170,39 @@ export default function ContactForm({ compact, textColor, inputColor }) {
           placeholder="Email *"
           value={form.email}
           onChange={(e) => setForm((s) => ({ ...s, email: e.target.value }))}
-          style={inp("email", true)}
-          onFocus={fi}
-          onBlur={fo("email")}
+          className="contact-form__input"
+          style={inputStyle("email", true)}
+          onFocus={onFocus}
+          onBlur={onBlur("email")}
         />
       </Field>
 
-      {/* Services — multi-select pills with icons */}
+      {/* Services */}
       <div>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 8,
-          }}
-        >
+        <div className="contact-form__section-header">
           <span
-            style={{
-              fontSize: 10,
-              color: D + "0.45)",
-              fontFamily: F,
-              fontWeight: 300,
-              letterSpacing: "0.1em",
-            }}
+            className="contact-form__section-label"
+            style={{ color: D + "0.45)" }}
           >
             INTERESTED IN *
           </span>
           {submitted && errors.services && (
-            <span
-              style={{
-                fontSize: 9,
-                fontFamily: F,
-                padding: "3px 10px",
-                borderRadius: 10,
-                background: "rgba(200,60,60,0.06)",
-                border: "0.5px solid rgba(200,60,60,0.12)",
-                color: "rgba(200,60,60,0.5)",
-                fontWeight: 400,
-                letterSpacing: "0.03em",
-              }}
-            >
-              pick at least one
-            </span>
+            <span className="contact-form__error-badge">pick at least one</span>
           )}
         </div>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <div className="contact-form__services">
           {SERVICES.map(({ label, icon: Ic }) => {
             const on = form.services.includes(label);
             return (
               <button
                 key={label}
                 onClick={() => toggleService(label)}
+                className="contact-form__service-pill"
                 style={{
-                  fontFamily: F,
-                  fontSize: 11,
                   fontWeight: on ? 400 : 300,
-                  padding: "7px 13px 7px 10px",
-                  borderRadius: 20,
                   background: on ? D + "0.10)" : "transparent",
                   border: `1px solid ${on ? D + "0.32)" : D + "0.18)"}`,
                   color: D + (on ? "0.7)" : "0.40)"),
-                  cursor: "pointer",
-                  transition: "all 0.2s",
-                  letterSpacing: "0.02em",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 5,
                 }}
                 onMouseEnter={(e) => {
                   if (!on) {
@@ -294,7 +238,7 @@ export default function ContactForm({ compact, textColor, inputColor }) {
         inputBg={IC}
       />
 
-      {/* Timeline slider — snail to rabbit */}
+      {/* Timeline slider */}
       <SliderRow
         label="TIMELINE"
         labelIcon={Clock}
@@ -309,8 +253,8 @@ export default function ContactForm({ compact, textColor, inputColor }) {
         inputBg={IC}
       />
 
-      {/* Message + char count */}
-      <div style={{ position: "relative" }}>
+      {/* Message */}
+      <div className="contact-form__textarea-wrap">
         <textarea
           placeholder="Tell me about your project... *"
           rows={compact ? 3 : 4}
@@ -319,26 +263,17 @@ export default function ContactForm({ compact, textColor, inputColor }) {
             setForm((s) => ({ ...s, message: e.target.value }));
             setCharCount(e.target.value.length);
           }}
+          className="contact-form__input contact-form__textarea"
           style={{
-            ...inp("message", false),
-            height: "auto",
+            ...inputStyle("message", false),
             minHeight: compact ? 70 : 100,
-            resize: "none",
             padding: "12px 16px",
             paddingBottom: 36,
           }}
-          onFocus={fi}
-          onBlur={fo("message")}
+          onFocus={onFocus}
+          onBlur={onBlur("message")}
         />
-        <div
-          style={{
-            position: "absolute",
-            right: 10,
-            bottom: 10,
-            width: 28,
-            height: 28,
-          }}
-        >
+        <div className="contact-form__char-ring">
           <svg
             width="28"
             height="28"
@@ -372,59 +307,19 @@ export default function ContactForm({ compact, textColor, inputColor }) {
             />
           </svg>
           <span
-            style={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 7,
-              fontFamily: F,
-              fontWeight: 300,
-              color: D + "0.35)",
-            }}
+            className="contact-form__char-count"
+            style={{ color: D + "0.35)" }}
           >
             {charCount || ""}
           </span>
         </div>
         {submitted && errors.message && (
-          <span
-            style={{
-              position: "absolute",
-              right: 12,
-              top: 10,
-              fontSize: 9,
-              fontFamily: F,
-              padding: "3px 10px",
-              borderRadius: 10,
-              background: "rgba(200,60,60,0.06)",
-              border: "0.5px solid rgba(200,60,60,0.12)",
-              color: "rgba(200,60,60,0.5)",
-              fontWeight: 400,
-              letterSpacing: "0.03em",
-              pointerEvents: "none",
-            }}
-          >
+          <span className="contact-form__error-badge contact-form__error-badge--absolute">
             {errors.message}
           </span>
         )}
         {!errors.message && form.message.trim().length >= 10 && (
-          <span
-            style={{
-              position: "absolute",
-              right: 12,
-              top: 10,
-              pointerEvents: "none",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 18,
-              height: 18,
-              borderRadius: "50%",
-              background: "rgba(40,160,100,0.08)",
-              border: "0.5px solid rgba(40,160,100,0.18)",
-            }}
-          >
+          <span className="contact-form__valid-check">
             <svg
               width="10"
               height="10"
@@ -445,25 +340,13 @@ export default function ContactForm({ compact, textColor, inputColor }) {
       <button
         onClick={submit}
         disabled={sending || sent}
+        className="contact-form__submit"
         style={{
-          ...base,
-          cursor: "pointer",
-          fontSize: 10,
-          fontWeight: 400,
-          letterSpacing: "0.15em",
-          textTransform: "uppercase",
-          textAlign: "center",
-          padding: "12px 16px",
           color: sent ? "rgba(40,160,120,0.7)" : D + "0.50)",
           background: sent ? "rgba(40,160,120,0.04)" : ICR + "0.15)",
           border: sent
             ? "1px solid rgba(40,160,120,0.25)"
             : "1px solid " + D + "0.22)",
-          transition: "all 0.3s",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 8,
         }}
         onMouseEnter={(e) => {
           if (!sent) e.currentTarget.style.background = ICR + "0.25)";
@@ -482,20 +365,7 @@ export default function ContactForm({ compact, textColor, inputColor }) {
           ? "Sending..."
           : "Send message"}
       </button>
-      {sendError && (
-        <p
-          style={{
-            fontSize: 11,
-            fontFamily: F,
-            fontWeight: 300,
-            color: "rgba(200,60,60,0.6)",
-            textAlign: "center",
-            margin: "4px 0 0",
-          }}
-        >
-          {sendError}
-        </p>
-      )}
+      {sendError && <p className="contact-form__send-error">{sendError}</p>}
     </div>
   );
 }

@@ -1,4 +1,5 @@
-import { FONT_FAMILY } from "../../constants/style";
+import { DARK_RGBA, BG_HEX } from "../../constants/style";
+import "./SliderRow.css";
 
 export default function SliderRow({
   label,
@@ -13,32 +14,14 @@ export default function SliderRow({
   tint,
   inputBg,
 }) {
-  const D = tint || "rgba(26,26,46,";
+  const D = tint || DARK_RGBA;
   const pct = ((value - min) / (max - min)) * 100;
   const activeLabel = labels ? labels[Math.round(value)] : null;
 
   return (
     <div>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 8,
-        }}
-      >
-        <span
-          style={{
-            fontSize: 10,
-            color: D + "0.45)",
-            fontFamily: FONT_FAMILY,
-            fontWeight: 300,
-            letterSpacing: "0.1em",
-            display: "flex",
-            alignItems: "center",
-            gap: 5,
-          }}
-        >
+      <div className="slider-row__header">
+        <span className="slider-row__label" style={{ color: D + "0.45)" }}>
           {LabelIcon && (
             <LabelIcon size={11} strokeWidth={1.2} color={D + "0.38)"} />
           )}
@@ -46,108 +29,53 @@ export default function SliderRow({
         </span>
         {activeLabel && (
           <span
-            style={{
-              fontSize: 11,
-              fontFamily: FONT_FAMILY,
-              fontWeight: 400,
-              color: D + "0.55)",
-              letterSpacing: "0.04em",
-            }}
+            className="slider-row__active-label"
+            style={{ color: D + "0.55)" }}
           >
             {activeLabel}
           </span>
         )}
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div className="slider-row__track-wrap">
         {leftIcon}
-        <div
-          style={{
-            flex: 1,
-            position: "relative",
-            height: 24,
-            display: "flex",
-            alignItems: "center",
-          }}
-        >
+        <div className="slider-row__track">
           <div
-            style={{
-              position: "absolute",
-              left: 0,
-              right: 0,
-              height: 3,
-              background: D + "0.15)",
-              borderRadius: 2,
-            }}
+            className="slider-row__track-bg"
+            style={{ background: D + "0.15)" }}
           />
           <div
-            style={{
-              position: "absolute",
-              left: 0,
-              height: 3,
-              borderRadius: 2,
-              width: pct + "%",
-              background: D + "0.35)",
-              transition: "width 0.1s",
-            }}
+            className="slider-row__track-fill"
+            style={{ width: pct + "%", background: D + "0.35)" }}
           />
           <input
+            className="slider-row__input"
             type="range"
             min={min}
             max={max}
             step={1}
             value={value}
             onChange={(e) => onChange(Number(e.target.value))}
-            style={{
-              position: "absolute",
-              left: 0,
-              right: 0,
-              top: 0,
-              bottom: 0,
-              width: "100%",
-              height: "100%",
-              margin: 0,
-              padding: 0,
-              opacity: 0,
-              cursor: "pointer",
-              zIndex: 2,
-            }}
           />
           <div
+            className="slider-row__thumb"
             style={{
-              position: "absolute",
               left: `calc(${pct}% - 7px)`,
-              width: 14,
-              height: 14,
-              borderRadius: "50%",
-              background: inputBg || "#e8e8ee",
+              background: inputBg || BG_HEX,
               border: "2px solid " + D + "0.40)",
-              pointerEvents: "none",
-              transition: "left 0.1s",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
             }}
           />
         </div>
         {rightIcon}
       </div>
       {labels && (
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            marginTop: 6,
-            padding: "0 2px",
-          }}
-        >
+        <div className="slider-row__labels">
           {labels.map((l, i) => (
             <span
               key={l}
+              className="slider-row__label-tick"
               style={{
-                fontSize: 10,
-                fontFamily: FONT_FAMILY,
                 fontWeight: Math.round(value) === i ? 400 : 300,
                 color: D + (Math.round(value) === i ? "0.55)" : "0.28)"),
-                transition: "color 0.15s, font-weight 0.15s",
-                letterSpacing: "0.05em",
               }}
             >
               {l}

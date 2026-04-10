@@ -47,6 +47,11 @@ export function hexToHsl(hex) {
   return [h * 360, s * 100, l * 100];
 }
 
+/**
+ * Return an rgba() prefix for a hex color, e.g. "#1a1a2e" → "rgba(26,26,46,".
+ * Callers append the alpha and closing paren: `hexToRgba(hex) + "0.5)"`.
+ * This matches the project-wide convention used by DARK_RGBA and tint props.
+ */
 export function hexToRgba(hex) {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
@@ -74,7 +79,14 @@ export function luminance(r, g, b) {
  * Sample luminance from a gradient canvas at a given pixel coordinate,
  * blending against a background color.
  */
-export function sampleLuminance(ctx, cx, cy, canvasW, canvasH, bg = { r: 232, g: 232, b: 238 }) {
+export function sampleLuminance(
+  ctx,
+  cx,
+  cy,
+  canvasW,
+  canvasH,
+  bg = { r: 232, g: 232, b: 238 }
+) {
   if (cx < 0 || cy < 0 || cx >= canvasW || cy >= canvasH) return null;
   try {
     const px = ctx.getImageData(cx, cy, 1, 1).data;

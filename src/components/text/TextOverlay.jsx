@@ -3,6 +3,7 @@ import gsap from "gsap";
 import { Fingerprint } from "lucide-react";
 import { luminance } from "../../utils/color";
 import { BG_COLOR } from "../../constants/style";
+import "./TextOverlay.css";
 
 export default function TextOverlay({
   config: c,
@@ -24,7 +25,6 @@ export default function TextOverlay({
     if (birthComplete && !revealed) setRevealed(true);
   }, [birthComplete, revealed]);
 
-  // Mark initial reveal as done after letters finish staggering
   useEffect(() => {
     if (!revealed) return;
     const t = setTimeout(() => setInitialRevealDone(true), 1500);
@@ -82,7 +82,6 @@ export default function TextOverlay({
           el.style.color = lum < 0.5 ? c.textColorLight : c.textColor;
         } catch {}
       }
-      // Sample at menu button center
       if (menuBtnRef.current) {
         const rect = menuBtnRef.current.getBoundingClientRect();
         const cx = Math.round((rect.left + rect.width / 2) * dpr);
@@ -124,35 +123,21 @@ export default function TextOverlay({
     <>
       <div
         ref={textRowRef}
-        style={{
-          position: "fixed",
-          bottom: `${c.textBottom}vh`,
-          left: 0,
-          width: "100vw",
-          display: "flex",
-          justifyContent: "center",
-          zIndex: 2,
-          pointerEvents: "none",
-        }}
+        className="text-overlay__row"
+        style={{ bottom: `${c.textBottom}vh` }}
       >
-        <div
-          aria-label={name}
-          style={{ display: "flex", alignItems: "center", lineHeight: 1 }}
-        >
+        <div className="text-overlay__name" aria-label={name}>
           {letters.map((ch, i) => (
             <span
               key={i}
               ref={setLetterRef(i)}
+              className="text-overlay__letter"
               style={{
-                display: "inline-block",
                 color: c.textColor,
                 fontSize: `clamp(14px, ${c.fontSize}vw, 48px)`,
                 fontWeight: c.fontWeight,
-                fontFamily: "'Inter',-apple-system,sans-serif",
-                textTransform: "uppercase",
                 letterSpacing: `clamp(0.1em, ${c.letterSpacing}em, 0.5em)`,
                 minWidth: ch === " " ? "0.3em" : "auto",
-                lineHeight: 1,
                 opacity: revealed ? c.textOpacity * ff : 0,
                 transform: revealed
                   ? "translateY(0)"
@@ -167,8 +152,6 @@ export default function TextOverlay({
                 }s, filter ${c.emergeDuration}s ease ${
                   (c.textRevealDelay || 0.3) + i * c.letterStagger
                 }s, color 0.3s ease`,
-                cursor: "default",
-                userSelect: "none",
               }}
               aria-hidden="true"
             >
@@ -177,42 +160,25 @@ export default function TextOverlay({
           ))}
         </div>
       </div>
-      <style>{`@keyframes taperedFloat{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-4px)}}`}</style>
       {!menuOpen && (
         <button
           ref={menuBtnRef}
+          className="text-overlay__menu-btn"
           onClick={onMenuToggle}
           onMouseEnter={() => setMenuHover(true)}
           onMouseLeave={() => setMenuHover(false)}
           aria-label="Open menu"
           style={{
-            position: "fixed",
-            bottom: 24,
-            left: "50%",
-            transform: "translateX(-50%)",
-            zIndex: 2,
             pointerEvents: revealed ? "auto" : "none",
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            padding: "14px 16px",
-            minWidth: 48,
-            minHeight: 48,
             opacity: revealed ? c.textOpacity * 0.7 * ff : 0,
             transition: `opacity 0.6s cubic-bezier(.33,1,.68,1) ${
               !initialRevealDone ? (c.menuBtnDelay || 1.3) + "s" : "0s"
             }`,
-            animation: "taperedFloat 4s ease-in-out infinite",
           }}
         >
           <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              transition: "transform 0.4s cubic-bezier(0.33,1,0.68,1)",
-              transform: menuHover ? "scale(1.08)" : "scale(1)",
-            }}
+            className="text-overlay__menu-inner"
+            style={{ transform: menuHover ? "scale(1.08)" : "scale(1)" }}
           >
             <Fingerprint
               size={24}
