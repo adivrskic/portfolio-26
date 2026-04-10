@@ -7,17 +7,20 @@ export function TypingIndicator() {
         padding: "10px 0",
         display: "flex",
         alignItems: "center",
-        animation: "typingPulse 2s ease-in-out infinite",
       }}
     >
-      <svg width="36" height="30" viewBox="0 0 36 30" fill="none">
-        <path
-          d="M5 3h26a3 3 0 013 3v14a3 3 0 01-3 3H12l-7 5.5V23H5a3 3 0 01-3-3V6a3 3 0 013-3z"
+      <svg width="40" height="28" viewBox="0 0 40 28" fill="none">
+        <rect
+          x="2"
+          y="2"
+          width="36"
+          height="24"
+          rx="12"
           fill="rgba(18,18,40,0.04)"
-          stroke="rgba(18,18,40,0.12)"
+          stroke="rgba(18,18,40,0.1)"
           strokeWidth="0.8"
         />
-        <circle cx="12" cy="13" r="1.5" fill="rgba(18,18,40,0.25)">
+        <circle cx="13" cy="14" r="2" fill="rgba(18,18,40,0.2)">
           <animate
             attributeName="opacity"
             values="0.1;0.4;0.1"
@@ -25,7 +28,7 @@ export function TypingIndicator() {
             repeatCount="indefinite"
           />
         </circle>
-        <circle cx="18" cy="13" r="1.5" fill="rgba(18,18,40,0.25)">
+        <circle cx="20" cy="14" r="2" fill="rgba(18,18,40,0.2)">
           <animate
             attributeName="opacity"
             values="0.1;0.4;0.1"
@@ -34,7 +37,7 @@ export function TypingIndicator() {
             repeatCount="indefinite"
           />
         </circle>
-        <circle cx="24" cy="13" r="1.5" fill="rgba(18,18,40,0.25)">
+        <circle cx="27" cy="14" r="2" fill="rgba(18,18,40,0.2)">
           <animate
             attributeName="opacity"
             values="0.1;0.4;0.1"

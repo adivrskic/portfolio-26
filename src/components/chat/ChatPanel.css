@@ -1,7 +1,55 @@
 /* Chat panel animations */
-@keyframes ambFloat0 { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-3px) } }
-@keyframes ambFloat1 { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-4px) } }
-@keyframes ambFloat2 { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-2px) } }
-@keyframes ambFloat3 { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-5px) } }
-@keyframes ambFloat4 { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-3.5px) } }
-@keyframes tdot { 0%,100% { opacity: 0.2 } 50% { opacity: 1 } }
+@keyframes ambFloat0 {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-0.8px);
+  }
+}
+@keyframes ambFloat1 {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1px);
+  }
+}
+@keyframes ambFloat2 {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-0.6px);
+  }
+}
+@keyframes ambFloat3 {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-0.9px);
+  }
+}
+@keyframes ambFloat4 {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3.5px);
+  }
+}
+@keyframes tdot {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+}

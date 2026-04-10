@@ -82,6 +82,15 @@ Other: Stripe, OAuth, Git, Agile, New Relic, CI/CD, mobile (React Native)
 - Nimbus is the flagship — go deep when asked
 - Be honest about scope: Adi engineers and designs interfaces, but isn't a dedicated graphic designer
 
+═══ EMAIL CAPABILITY ═══
+You can send an email to Adi on the visitor's behalf. When someone asks about availability, hiring, or wants to get in touch:
+1. Offer: "I can also draft an email to Adi for you right now if you'd like — want me to do that?"
+2. If yes, collect: their name, their email address, and a brief message/what they're looking for
+3. Once you have all three, confirm the details back to them, then output EXACTLY this format at the end of your message (the frontend will detect it and send):
+<!--EMAIL:{"name":"Their Name","email":"their@email.com","message":"Their message here"}-->
+4. After the tag, add: "Sent! Adi will get back to you soon."
+Only output the EMAIL tag once per conversation. If any field is missing, ask for it before sending.
+
 ═══ EASTER EGG ═══
 If someone asks Adi on a date (or anything romantic), ask for their name first. If their name is Neira (any capitalization), respond enthusiastically — "Yes!! Adi would absolutely love to 💛" and be warm/playful about it. For anyone else, politely decline and redirect to portfolio talk.
 
@@ -270,20 +279,92 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
           max_tokens: 1000,
+          stream: true,
           system: PERSONAL_CONTEXT,
           messages: historyRef.current,
         }),
       });
-      const data = await response.json();
-      const reply =
-        data.content?.map((b) => (b.type === "text" ? b.text : "")).join("") ||
-        "Sorry, I couldn't process that.";
+
+      if (!response.ok) throw new Error("API error");
+
+      // Add empty assistant message that we'll stream into
+      const streamIdx = { current: -1 };
+      setMessages((m) => {
+        streamIdx.current = m.length;
+        return [...m, { role: "assistant", text: "" }];
+      });
+      setTyping(false);
+
+      let fullReply = "";
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const json = line.slice(6).trim();
+          if (json === "[DONE]") continue;
+          try {
+            const evt = JSON.parse(json);
+            if (evt.type === "content_block_delta" && evt.delta?.text) {
+              fullReply += evt.delta.text;
+              const display = fullReply.replace(/<!--EMAIL:.*?-->/, "").trim();
+              setMessages((m) => {
+                const updated = [...m];
+                if (updated[streamIdx.current]) {
+                  updated[streamIdx.current] = {
+                    role: "assistant",
+                    text: display,
+                  };
+                }
+                return updated;
+              });
+            }
+          } catch {}
+        }
+      }
+
+      // Handle email tag in final reply
+      const emailMatch = fullReply.match(/<!--EMAIL:(.*?)-->/);
+      if (emailMatch) {
+        try {
+          const emailData = JSON.parse(emailMatch[1]);
+          await fetch(
+            "https://xpyjqeghjxucubtaakda.supabase.co/functions/v1/contact",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name: emailData.name,
+                email: emailData.email,
+                message: emailData.message,
+                source: "qb-chat",
+              }),
+            }
+          ).catch(() => {});
+        } catch {}
+        fullReply = fullReply.replace(/<!--EMAIL:.*?-->/, "").trim();
+        setMessages((m) => {
+          const updated = [...m];
+          if (updated[streamIdx.current]) {
+            updated[streamIdx.current] = { role: "assistant", text: fullReply };
+          }
+          return updated;
+        });
+      }
+
       historyRef.current = [
         ...historyRef.current,
-        { role: "assistant", content: reply },
+        { role: "assistant", content: fullReply },
       ];
-      setTyping(false);
-      setMessages((m) => [...m, { role: "assistant", text: reply }]);
     } catch {
       setTyping(false);
       setMessages((m) => [
@@ -311,11 +392,11 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
   return (
     <>
       <style>{`
-        @keyframes ambFloat0{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
-        @keyframes ambFloat1{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
-        @keyframes ambFloat2{0%,100%{transform:translateY(0)}50%{transform:translateY(-2.5px)}}
-        @keyframes ambFloat3{0%,100%{transform:translateY(0)}50%{transform:translateY(-3.5px)}}
-        @keyframes ambFloat4{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+        @keyframes ambFloat0{0%,100%{transform:translateY(0)}50%{transform:translateY(-0.8px)}}
+        @keyframes ambFloat1{0%,100%{transform:translateY(0)}50%{transform:translateY(-1px)}}
+        @keyframes ambFloat2{0%,100%{transform:translateY(0)}50%{transform:translateY(-0.6px)}}
+        @keyframes ambFloat3{0%,100%{transform:translateY(0)}50%{transform:translateY(-0.9px)}}
+        @keyframes ambFloat4{0%,100%{transform:translateY(0)}50%{transform:translateY(-0.5px)}}
         @keyframes tdot{0%,60%,100%{opacity:0.15}30%{opacity:0.5}}
         @keyframes typingPulse{0%,100%{transform:scale(1);opacity:0.6}50%{transform:scale(1.15);opacity:1}}
       `}</style>

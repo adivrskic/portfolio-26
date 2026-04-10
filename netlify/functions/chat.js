@@ -1,4 +1,15 @@
 export default async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+      },
+    });
+  }
+
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
       status: 405,
@@ -16,6 +27,7 @@ export default async (req) => {
 
   try {
     const body = await req.json();
+    const wantsStream = body.stream === true;
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -29,11 +41,25 @@ export default async (req) => {
         max_tokens: body.max_tokens || 1000,
         system: body.system || "",
         messages: body.messages || [],
+        stream: wantsStream,
       }),
     });
 
-    const data = await response.json();
+    if (wantsStream) {
+      // Pipe SSE stream straight through
+      return new Response(response.body, {
+        status: response.status,
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    }
 
+    // Non-streaming fallback
+    const data = await response.json();
     return new Response(JSON.stringify(data), {
       status: response.status,
       headers: {
