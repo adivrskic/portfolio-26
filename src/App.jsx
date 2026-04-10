@@ -27,6 +27,7 @@ export default function App() {
   const [showcaseOpen, setShowcaseOpen] = useState(false);
   const [showcaseTransition, setShowcaseTransition] = useState(false);
   const showcaseEverTriggered = useRef(false);
+  const [showcaseInitSection, setShowcaseInitSection] = useState(0);
   const configRef = useRef(config);
 
   useEffect(() => {
@@ -55,8 +56,9 @@ export default function App() {
     }
   }, [chatMode]);
 
-  const handleCubeShowcase = useCallback(() => {
+  const handleCubeShowcase = useCallback((section) => {
     showcaseEverTriggered.current = true;
+    setShowcaseInitSection(section || 0);
     setShowcaseTransition(true);
     setTimeout(() => {
       setShowcaseOpen(true);
@@ -83,6 +85,7 @@ export default function App() {
         open={showcaseOpen}
         onClose={handleCloseShowcase}
         config={config}
+        initialSection={showcaseInitSection}
       />
 
       <div
@@ -158,9 +161,9 @@ export default function App() {
         config={config}
         onThemeChange={handleThemeChange}
         activeSeason={activeSeason}
-        onShowcase={() => {
+        onShowcase={(section) => {
           setMenuOpen(false);
-          setTimeout(() => handleCubeShowcase(), 600);
+          setTimeout(() => handleCubeShowcase(section), 600);
         }}
       />
       <DebugPanel

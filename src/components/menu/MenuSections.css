@@ -1,0 +1,193 @@
+/* ── Menu section shared ──
+   Parent sets: --mt (menu text rgba prefix e.g. "rgba(26,26,46,")
+                --mf (menu font family)
+   Usage: color: var(--mt) 0.88)  won't work in CSS —
+   so we use --mt-r, --mt-g, --mt-b for rgb components.
+*/
+
+/* ── MenuAbout ── */
+.menu-about {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  max-width: 800px;
+}
+.menu-about__headline {
+  font-size: clamp(32px, 4vw, 52px);
+  font-weight: 200;
+  font-family: var(--mf);
+  letter-spacing: -0.01em;
+  margin: 0;
+  line-height: 1.2;
+  color: rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.88);
+}
+.menu-about__bio {
+  font-size: 15px;
+  font-family: var(--mf);
+  font-weight: 300;
+  line-height: 2;
+  margin: 0;
+  max-width: 500px;
+}
+.menu-about__bio--primary {
+  color: rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.7);
+}
+.menu-about__bio--secondary {
+  color: rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.58);
+}
+.menu-about__specs {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.menu-about__spec {
+  font-size: 11px;
+  padding: 7px 16px;
+  border-radius: 20px;
+  font-family: var(--mf);
+  font-weight: 300;
+  display: inline-block;
+  background: rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.025);
+  border: 0.5px solid rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.08);
+  color: rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.6);
+}
+
+/* ── MenuWork ── */
+.menu-work__featured {
+  border-radius: 14px;
+  border: 0.5px solid rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.08);
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: border-color 0.3s, background 0.3s;
+}
+.menu-work__featured:hover {
+  border-color: rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.18);
+  background: rgba(255, 255, 255, 0.3);
+}
+.menu-work__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.menu-work__title {
+  font-weight: 300;
+  font-family: var(--mf);
+  letter-spacing: 0.04em;
+  display: inline-block;
+  color: rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.88);
+}
+.menu-work__title--lg {
+  font-size: 20px;
+}
+.menu-work__title--sm {
+  font-size: 15px;
+  font-weight: 400;
+  color: rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.85);
+}
+.menu-work__year {
+  font-size: 10px;
+  font-family: var(--mf);
+  color: rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.4);
+}
+.menu-work__year--sm {
+  font-size: 9px;
+  color: rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.35);
+}
+.menu-work__desc {
+  font-size: 14px;
+  font-weight: 300;
+  font-family: var(--mf);
+  line-height: 1.7;
+  margin: 0 0 10px;
+  max-width: 500px;
+  color: rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.6);
+}
+.menu-work__desc--sm {
+  font-size: 12px;
+  line-height: 1.65;
+  margin: 0;
+  color: rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.55);
+}
+.menu-work__tech {
+  font-size: 10px;
+  font-family: var(--mf);
+  font-weight: 300;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.55);
+}
+.menu-work__grid {
+  display: grid;
+  gap: 10px;
+  flex: 1;
+}
+.menu-work__grid--desktop {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+.menu-work__grid--mobile {
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+.menu-work__card {
+  padding: 18px 18px 14px;
+  border-radius: 12px;
+  border: 0.5px solid rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.08);
+  cursor: pointer;
+  transition: border-color 0.3s, background 0.3s;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.menu-work__card:hover {
+  border-color: rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.18);
+  background: rgba(255, 255, 255, 0.3);
+}
+.menu-work__card-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 12px;
+  color: rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.4);
+}
+.menu-work__showcase-link {
+  margin-top: 10px;
+}
+
+/* ── MenuContact ── */
+.menu-contact {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.menu-contact__intro {
+  font-size: 15px;
+  font-family: var(--mf);
+  font-weight: 300;
+  line-height: 1.8;
+  margin: 0;
+  max-width: 440px;
+  color: rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.65);
+}
+.menu-contact__socials {
+  display: flex;
+  gap: 16px;
+  margin-top: 32px;
+}
+.menu-contact__social {
+  text-decoration: none;
+  padding: 8px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.3s, border-color 0.3s, background 0.3s;
+  color: rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.3);
+  border: 1px solid rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.1);
+}
+.menu-contact__social:hover {
+  color: rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.6);
+  border-color: rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.2);
+  background: rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.03);
+}

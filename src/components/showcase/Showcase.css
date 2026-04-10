@@ -1,0 +1,234 @@
+/* ── IntroWave ── */
+.intro-wave {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  background: #e8e8ee;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.intro-wave__fingerprint {
+  width: 48px;
+  height: 48px;
+  opacity: 0.3;
+  animation: fpPulse 2s ease-in-out infinite;
+}
+.intro-wave__ticks {
+  position: absolute;
+  right: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.intro-wave__tick {
+  position: absolute;
+  right: 0;
+  height: 2px;
+  width: 40px;
+  border-radius: 1px;
+  background: rgba(26, 26, 46, 1);
+  opacity: 0.04;
+}
+
+@keyframes fpPulse {
+  0%,
+  100% {
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* ── Showcase shared label style ── */
+.sc-label {
+  font-family: "Inter", -apple-system, sans-serif;
+  font-weight: 300;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(26, 26, 46, 1);
+}
+
+/* ── SectionProgress ── */
+.sc-progress {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 5;
+  pointer-events: none;
+}
+.sc-progress__close {
+  position: absolute;
+  right: -28px;
+  top: -115px;
+  transform: rotate(-90deg);
+  transform-origin: center center;
+  font-size: 11px;
+  color: rgba(26, 26, 46, 0.6);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  pointer-events: auto;
+  transition: color 0.3s;
+  white-space: nowrap;
+}
+.sc-progress__close:hover {
+  color: rgba(26, 26, 46, 0.85);
+}
+.sc-progress__endpoint {
+  position: absolute;
+  right: 0;
+  font-size: 8px;
+  opacity: 0;
+  transition: opacity 0.5s;
+}
+.sc-progress__endpoint--start {
+  top: -18px;
+}
+.sc-progress__endpoint--end {
+  bottom: -18px;
+}
+.sc-progress__tick {
+  position: absolute;
+  right: 0;
+  height: 2px;
+  border-radius: 1px;
+  background: rgba(26, 26, 46, 1);
+  opacity: 0.06;
+  transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.5s,
+    background-color 0.5s;
+}
+
+/* ── SettleFooter ── */
+.sc-footer {
+  position: absolute;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  z-index: 5;
+  opacity: 0;
+  transition: opacity 0.6s, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+.sc-footer__link {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 10px;
+  padding: 6px 0;
+  transition: color 0.3s;
+  display: block;
+  color: rgba(26, 26, 46, 0.3);
+}
+.sc-footer__link:hover {
+  color: rgba(26, 26, 46, 0.7);
+}
+
+/* ── ShowcaseCanvas ── */
+.showcase {
+  position: fixed;
+  inset: 0;
+  cursor: default;
+  background: #e8e8ee;
+  overflow: hidden;
+}
+.showcase--hidden {
+  z-index: -1;
+  visibility: hidden;
+  pointer-events: none;
+}
+.showcase--visible {
+  z-index: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+/* Fingerprint loader */
+.showcase__loader {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e8e8ee;
+  z-index: 10;
+  transition: opacity 0.5s ease-out;
+}
+.showcase__loader--hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+.showcase__loader--visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+.showcase__loader-icon {
+  width: 48px;
+  height: 48px;
+  animation: fpPulse 2s ease-in-out infinite;
+}
+
+/* Contact overlay */
+.showcase__contact {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(232, 232, 238, 0);
+  backdrop-filter: blur(0px) saturate(1);
+  -webkit-backdrop-filter: blur(0px) saturate(1);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    background 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    backdrop-filter 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    -webkit-backdrop-filter 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.showcase__contact--open {
+  background: rgba(232, 232, 238, 0.82);
+  backdrop-filter: blur(60px) saturate(1.2);
+  -webkit-backdrop-filter: blur(60px) saturate(1.2);
+  opacity: 1;
+  pointer-events: auto;
+}
+.showcase__contact-inner {
+  position: relative;
+  max-width: 480px;
+  width: 90%;
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: 0 20px;
+  transform: translateY(40px);
+  opacity: 0;
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.1s,
+    opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.1s;
+}
+.showcase__contact--open .showcase__contact-inner {
+  transform: translateY(0);
+  opacity: 1;
+}
+.showcase__contact-close {
+  position: sticky;
+  top: 0;
+  float: right;
+  background: none;
+  border: none;
+  font-size: 10px;
+  color: rgba(26, 26, 46, 0.3);
+  cursor: pointer;
+  transition: color 0.3s;
+  padding: 8px 0;
+  z-index: 2;
+}
+.showcase__contact-close:hover {
+  color: rgba(26, 26, 46, 0.6);
+}
