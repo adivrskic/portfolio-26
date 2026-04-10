@@ -243,6 +243,9 @@ export default function Scene({
     let sleepSmooth = 0; // 0 = awake, 1 = sleeping
     let happySmooth = 0; // 0 = normal, 1 = happy (after chat closes)
     let prevChatMode = false;
+    let blinkTimer = 0; // countdown to next blink
+    let blinkAmount = 0; // 0 = open, 1 = closed
+    let nextBlink = 2 + Math.random() * 4; // seconds until next blink
     let prevMx = 0,
       prevMy = 0;
     let glitchTimer = 0;
@@ -288,13 +291,15 @@ export default function Scene({
       surprise,
       sleep,
       colors,
-      happy
+      happy,
+      blink
     ) {
       const lx = (lookX || 0) * 12;
       const ly = (lookY || 0) * -8;
       const sp = surprise || 0;
       const sl = sleep || 0;
       const hp = happy || 0;
+      const bl = blink || 0;
       const fx = smCx + lx;
       const fy = smCy + ly;
       const eyeL = { x: fx - 30, y: fy - 18 - sp * 4 };
@@ -397,6 +402,17 @@ export default function Scene({
           sCtx.beginPath();
           sCtx.arc(eyeR.x + ox, eyeR.y + oy, 2.5, 0, Math.PI * 2);
           sCtx.fill();
+        } else if (bl > 0.3) {
+          // Blinking — short horizontal lines
+          sCtx.strokeStyle = tint;
+          sCtx.lineWidth = 3;
+          sCtx.lineCap = "round";
+          [eyeL, eyeR].forEach((eye) => {
+            sCtx.beginPath();
+            sCtx.moveTo(eye.x + ox - 7, eye.y + oy);
+            sCtx.lineTo(eye.x + ox + 7, eye.y + oy);
+            sCtx.stroke();
+          });
         } else if (dizzy < 0.15) {
           // Normal eyes
           sCtx.fillStyle = tint;
@@ -628,7 +644,8 @@ export default function Scene({
       surprise,
       sleep,
       holdProg,
-      happy
+      happy,
+      blink
     ) {
       sCtx.clearRect(0, 0, 256, 256);
       const faceAlpha = Math.max(0, 1 - morph * 2.5);
@@ -643,7 +660,8 @@ export default function Scene({
           surprise,
           sleep,
           colors,
-          happy
+          happy,
+          blink
         );
       if (waveAlpha > 0.01) drawWaveLayer(time, waveAlpha, colors);
 
@@ -718,7 +736,7 @@ export default function Scene({
       }
     }
 
-    drawCubeFace(0, 0, 0, 0, 0, null, 0, 0, 0, 0);
+    drawCubeFace(0, 0, 0, 0, 0, null, 0, 0, 0, 0, 0);
     const smileyTex = new CanvasTexture(smileyCanvas);
     smileyTex.needsUpdate = true;
     const smileyMat = new SpriteMaterial({
@@ -1188,6 +1206,14 @@ export default function Scene({
       if (prevChatMode && !chatModeRef.current) happySmooth = 1;
       prevChatMode = chatModeRef.current;
       happySmooth = Math.max(0, happySmooth - dt * 0.3); // decay over ~3s
+      // Blink
+      blinkTimer += dt;
+      if (blinkTimer >= nextBlink) {
+        blinkAmount = 1;
+        blinkTimer = 0;
+        nextBlink = 2.5 + Math.random() * 4;
+      }
+      blinkAmount = Math.max(0, blinkAmount - dt * 8); // quick open ~0.12s
       // Sleep: ramp after 15s of inactivity
       const idleTime = (performance.now() - lastActivity) / 1000;
       const sleepTarget = idleTime > 15 ? Math.min(1, (idleTime - 15) / 3) : 0;
@@ -1211,6 +1237,7 @@ export default function Scene({
       const smileyDirty =
         dizzySmooth > 0.01 ||
         happySmooth > 0.01 ||
+        blinkAmount > 0.01 ||
         Math.abs(chatMorph - (chatModeRef.current ? 1 : 0)) > 0.01 ||
         Math.abs(sleepSmooth - (sleepTarget > 0.5 ? 1 : 0)) > 0.01 ||
         holdProgress > 0 ||
@@ -1232,7 +1259,8 @@ export default function Scene({
           scZoom,
           sleepSmooth,
           holdProgress,
-          happySmooth
+          happySmooth,
+          blinkAmount
         );
         smileyTex.needsUpdate = true;
       }

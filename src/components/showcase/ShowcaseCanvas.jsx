@@ -136,9 +136,9 @@ const PROJECTS = [
     skills: ["React", "Supabase", "Claude API", "Stripe", "Vite"],
     link: "https://nimbuswebsites.com",
     images: [
-      "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=600&h=400&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600&h=400&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=600&h=400&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=400&h=270&fit=crop&q=60",
+      "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=270&fit=crop&q=60",
+      "https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=400&h=270&fit=crop&q=60",
     ],
   },
   {
@@ -150,9 +150,9 @@ const PROJECTS = [
     skills: ["React", "AI Analysis", "Slack API", "WCAG"],
     link: "https://github.com/adivrskic/xsbl",
     images: [
-      "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=600&h=400&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=600&h=400&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600&h=400&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=400&h=270&fit=crop&q=60",
+      "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=400&h=270&fit=crop&q=60",
+      "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=400&h=270&fit=crop&q=60",
     ],
   },
   {
@@ -164,9 +164,9 @@ const PROJECTS = [
     skills: ["React Native", "AI Forecasting", "Node.js", "PostgreSQL"],
     link: "https://github.com/adivrskic/nimbus-wms",
     images: [
-      "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&h=400&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=600&h=400&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1565688534245-05d6b5be184a?w=600&h=400&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&h=270&fit=crop&q=60",
+      "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=400&h=270&fit=crop&q=60",
+      "https://images.unsplash.com/photo-1565688534245-05d6b5be184a?w=400&h=270&fit=crop&q=60",
     ],
   },
   {
@@ -178,9 +178,9 @@ const PROJECTS = [
     skills: ["React", "CSS-in-JS", "Theming", "npm"],
     link: "https://github.com/adivrskic/pillow",
     images: [
-      "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&h=400&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1545235617-9465d2a55698?w=600&h=400&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&h=400&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=270&fit=crop&q=60",
+      "https://images.unsplash.com/photo-1545235617-9465d2a55698?w=400&h=270&fit=crop&q=60",
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=270&fit=crop&q=60",
     ],
   },
   {
@@ -192,9 +192,9 @@ const PROJECTS = [
     skills: ["Three.js", "WebGL", "GLSL", "Creative Coding"],
     link: "https://github.com/adivrskic",
     images: [
-      "https://images.unsplash.com/photo-1633356122102-3fe601e05bd2?w=600&h=400&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=600&h=400&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=600&h=400&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1633356122102-3fe601e05bd2?w=400&h=270&fit=crop&q=60",
+      "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=400&h=270&fit=crop&q=60",
+      "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=400&h=270&fit=crop&q=60",
     ],
   },
 ];
@@ -765,8 +765,8 @@ function ShowcaseCube() {
         ior={1.5}
         chromaticAberration={0.05}
         transmission={1}
-        samples={8}
-        resolution={512}
+        samples={4}
+        resolution={256}
         enableIdleSpin={false}
         showEdges={true}
         edgeOpacity={0.04}
@@ -784,7 +784,7 @@ function ShowcaseCube() {
 }
 
 // ── Glass cube clump at the settling zone ──
-const CLUMP_COUNT = 25;
+const CLUMP_COUNT = 15;
 const CLUMP_CUBE_SIZE = 0.6;
 
 function SettleClump() {
@@ -1054,10 +1054,38 @@ function IntroWave() {
         background: "#e8e8ee",
         display: "flex",
         alignItems: "center",
-        justifyContent: "flex-end",
+        justifyContent: "center",
         overflow: "hidden",
       }}
     >
+      {/* Fingerprint icon */}
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="#1a1a2e"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{
+          width: 48,
+          height: 48,
+          opacity: 0.3,
+          animation: "fpPulse 2s ease-in-out infinite",
+        }}
+      >
+        <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4" />
+        <path d="M14 13.12c0 2.38 0 6.38-1 8.88" />
+        <path d="M17.29 21.02c.12-.6.43-2.3.5-3.02" />
+        <path d="M2 12a10 10 0 0 1 18-6" />
+        <path d="M2 16h.01" />
+        <path d="M21.8 16c.2-2 .131-5.354 0-6" />
+        <path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2" />
+        <path d="M8.65 22c.21-.66.45-1.32.57-2" />
+        <path d="M9 6.8a6 6 0 0 1 9 5.2v2" />
+      </svg>
+      <style>{`@keyframes fpPulse { 0%, 100% { opacity: 0.15; } 50% { opacity: 0.4; } }`}</style>
+
+      {/* Wave ticks */}
       <div
         style={{
           position: "absolute",
@@ -1100,6 +1128,7 @@ export default function ShowcaseCanvas({ open, onClose, config }) {
   const [vpHeight, setVpHeight] = useState(null);
   const lastWheelRef = useRef(0);
   const [showContact, setShowContact] = useState(false);
+  const [loaderVisible, setLoaderVisible] = useState(false);
 
   // Preload all assets on mount (not on open)
   useEffect(() => {
@@ -1112,8 +1141,13 @@ export default function ShowcaseCanvas({ open, onClose, config }) {
       state.top = 0;
       closingRef.current = false;
       setVisible(true);
+      setLoaderVisible(true);
+      // Fade out loader after Canvas has had time to render
+      const t = setTimeout(() => setLoaderVisible(false), 600);
+      return () => clearTimeout(t);
     } else {
       closingRef.current = false;
+      setLoaderVisible(false);
       const t = setTimeout(() => setVisible(false), 800);
       return () => clearTimeout(t);
     }
@@ -1176,45 +1210,51 @@ export default function ShowcaseCanvas({ open, onClose, config }) {
   // Current section for footer visibility
   const isAtSettle = state.section >= state.totalSections - 1;
 
-  if (!visible) return null;
-
-  if (!preloaded) {
+  // Before preload, show loading wave when opened
+  if (!preloaded && visible) {
     return <IntroWave />;
   }
+
+  // Always render Canvas after preload (even when hidden) so WebGL context,
+  // shaders, environment map, and textures stay warm on the GPU.
+  // Only the UI overlays gate on `visible`.
+  const isShown = visible && preloaded;
 
   return (
     <div
       ref={containerRef}
-      onWheel={onWheel}
+      onWheel={isShown ? onWheel : undefined}
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 1,
+        zIndex: isShown ? 1 : -1,
         cursor: "default",
         background: "#e8e8ee",
         overflow: "hidden",
+        visibility: isShown ? "visible" : "hidden",
+        pointerEvents: isShown ? "auto" : "none",
       }}
     >
       <Canvas
-        dpr={[1, 2]}
+        dpr={[1, 1.5]}
+        frameloop={isShown ? "always" : "demand"}
         raycaster={{ enabled: false }}
         camera={{ position: [0, 0, 12], fov: 45, far: 200, near: 0.1 }}
         gl={{
           powerPreference: "high-performance",
           alpha: false,
-          antialias: true,
+          antialias: false,
         }}
         onCreated={({ gl }) => gl.setClearColor("#e8e8ee")}
       >
         <ambientLight intensity={0.5} />
         <spotLight
-          castShadow
           angle={0.3}
           penumbra={1}
           position={[0, 10, 20]}
           intensity={4}
         />
-        <Environment resolution={256}>
+        <Environment resolution={128}>
           <Lightformer
             intensity={5}
             position={[10, 5, 0]}
@@ -1227,20 +1267,67 @@ export default function ShowcaseCanvas({ open, onClose, config }) {
         </Suspense>
       </Canvas>
 
-      {/* Section progress indicator — rAF-driven, reads state.section directly */}
-      <SectionProgress
-        totalSections={TOTAL_SECTIONS}
-        themeColor={config?.gradColor1}
-        onClose={onClose}
-      />
-      <ShowcaseDebug />
+      {/* Fingerprint loading overlay */}
+      {isShown && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "#e8e8ee",
+            zIndex: 10,
+            opacity: loaderVisible ? 1 : 0,
+            transition: "opacity 0.5s ease-out",
+            pointerEvents: loaderVisible ? "auto" : "none",
+          }}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#1a1a2e"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{
+              width: 48,
+              height: 48,
+              animation: "fpPulse 2s ease-in-out infinite",
+            }}
+          >
+            <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4" />
+            <path d="M14 13.12c0 2.38 0 6.38-1 8.88" />
+            <path d="M17.29 21.02c.12-.6.43-2.3.5-3.02" />
+            <path d="M2 12a10 10 0 0 1 18-6" />
+            <path d="M2 16h.01" />
+            <path d="M21.8 16c.2-2 .131-5.354 0-6" />
+            <path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2" />
+            <path d="M8.65 22c.21-.66.45-1.32.57-2" />
+            <path d="M9 6.8a6 6 0 0 1 9 5.2v2" />
+          </svg>
+          <style>{`@keyframes fpPulse { 0%, 100% { opacity: 0.15; } 50% { opacity: 0.4; } }`}</style>
+        </div>
+      )}
 
-      {/* Settle footer — contact + exit buttons */}
-      <SettleFooter
-        onClose={onClose}
-        onContact={() => setShowContact(true)}
-        totalSections={TOTAL_SECTIONS}
-      />
+      {/* Section progress indicator — rAF-driven, reads state.section directly */}
+      {isShown && (
+        <>
+          <SectionProgress
+            totalSections={TOTAL_SECTIONS}
+            themeColor={config?.gradColor1}
+            onClose={onClose}
+          />
+          <ShowcaseDebug />
+
+          {/* Settle footer — contact + exit buttons */}
+          <SettleFooter
+            onClose={onClose}
+            onContact={() => setShowContact(true)}
+            totalSections={TOTAL_SECTIONS}
+          />
+        </>
+      )}
 
       {/* Contact panel — frosted glass overlay matching menu/chat style */}
       {showContact && (
