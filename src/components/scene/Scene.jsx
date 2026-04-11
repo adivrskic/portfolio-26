@@ -7,9 +7,7 @@ import {
   Color,
   EdgesGeometry,
   FrontSide,
-  HalfFloatType,
   IcosahedronGeometry,
-  LinearFilter,
   LineBasicMaterial,
   LineSegments,
   Mesh,
@@ -26,17 +24,13 @@ import {
   Vector2,
   Vector3,
   WebGLRenderer,
-  WebGLRenderTarget,
 } from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { getCurrentSeason } from "../../config/defaults";
 import { easeOutSoft } from "../../utils/math";
 import { sphereVertexShader } from "./shaders/sphereVertex.glsl.js";
 import { sphereFragmentShader } from "./shaders/sphereFragment.glsl.js";
-import {
-  glassVertexShader,
-  glassFragmentShader,
-} from "./shaders/glass.glsl.js";
+// Glass cube now uses MeshPhysicalMaterial with transmission (no custom shader)
 import { createCubeFaceRenderer } from "./cubeFaceRenderer";
 import { createExpressionState, updateExpressions } from "./expressionTriggers";
 
@@ -191,33 +185,19 @@ export default function Scene({
     sphere.renderOrder = 0;
     scene.add(sphere);
 
-    // ── Glass cube (two-pass refraction — proven approach) ──
-    const sceneRT = new WebGLRenderTarget(W(), H(), {
-      type: HalfFloatType,
-    });
-    let bgTex = null;
-    const glassUniforms = {
-      uSceneTex: { value: null },
-      uBgTex: { value: null },
-      uRes: { value: new Vector2(W(), H()) },
-      uRefract: { value: 0.15 },
-      uBlur: { value: 2.9 },
-      uEdgeAlpha: { value: 1.0 },
-      uFresnelPow: { value: 0.5 },
-      uSpecular: { value: 4.0 },
-      uSpecPower: { value: 120.0 },
-      uIridescence: { value: 0.0 },
-      uOpacity: { value: 0.92 },
-      uTint: { value: new Vector3(0.9, 0.92, 1.0) },
-    };
+    // ── Glass cube (MeshPhysicalMaterial with transmission) ──
     const glassGeo = new RoundedBoxGeometry(1, 1, 1, 4, 0.08);
-    const glassMat = new ShaderMaterial({
-      uniforms: glassUniforms,
-      vertexShader: glassVertexShader,
-      fragmentShader: glassFragmentShader,
+    const glassMat = new MeshPhysicalMaterial({
+      transmission: 1,
+      roughness: 0.02,
+      ior: 1.5,
+      thickness: 2.5,
       transparent: true,
-      depthWrite: false,
+      metalness: 0,
+      envMapIntensity: 1.5,
+      color: 0xffffff,
       side: FrontSide,
+      depthWrite: false,
     });
     const glassCube = new Mesh(glassGeo, glassMat);
     glassCube.renderOrder = 10;
@@ -392,7 +372,6 @@ export default function Scene({
         camera.aspect = W() / H();
         camera.updateProjectionMatrix();
         renderer.setSize(W(), H());
-        sceneRT.setSize(W(), H());
       }, 150);
     };
     window.addEventListener("resize", onResize);
@@ -903,23 +882,12 @@ export default function Scene({
           .multiplyScalar(
             bR * menuScale * clickScale * birthScaleCurve * zoomScale
           );
-        glassUniforms.uRefract.value = c.glassRefraction || 0.15;
-        glassUniforms.uBlur.value = c.glassBlur || 2.9;
-        glassUniforms.uEdgeAlpha.value = c.glassEdgeAlpha || 1;
-        glassUniforms.uFresnelPow.value = c.glassFresnelPower || 0.5;
-        glassUniforms.uSpecular.value = c.glassSpecular || 4;
-        glassUniforms.uSpecPower.value = c.glassSpecPower || 120;
-        glassUniforms.uIridescence.value = c.glassIridescence || 0;
-        glassUniforms.uOpacity.value =
-          (c.glassOpacity != null ? c.glassOpacity : 0.92) *
-          birthOpacity *
-          (1 - zoomEased);
-        glassUniforms.uTint.value.set(
-          c.glassTintR || 0.9,
-          c.glassTintG || 0.92,
-          c.glassTintB || 1
-        );
-        glassUniforms.uRes.value.set(W(), H());
+        glassMat.opacity = birthOpacity * (1 - zoomEased);
+        glassMat.roughness = c.glassRoughness || 0.02;
+        glassMat.ior = c.glassIOR || 1.5;
+        glassMat.thickness = c.glassThickness || 2.5;
+        glassMat.transmission =
+          c.glassTransmission != null ? c.glassTransmission : 1;
         glassEdgeMat.opacity = (c.glassEdgeOpacity ?? 0.12) * (1 - zoomEased);
         const halfSide = (c.glassCubeSize || 3.6) * 0.5;
         fU.uBounds.value = halfSide - 0.15;
@@ -992,23 +960,7 @@ export default function Scene({
         );
       }
 
-      // Background texture from gradient canvas
-      if (gradCanvasRef.current && !bgTex) {
-        bgTex = new CanvasTexture(gradCanvasRef.current);
-        bgTex.minFilter = LinearFilter;
-        bgTex.magFilter = LinearFilter;
-        glassUniforms.uBgTex.value = bgTex;
-      }
-      if (bgTex) bgTex.needsUpdate = true;
-
-      // Two-pass: scene to RT (no glass), then full scene to screen
-      const gVis = glassCube.visible;
-      glassCube.visible = false;
-      renderer.setRenderTarget(sceneRT);
-      renderer.render(scene, camera);
-      renderer.setRenderTarget(null);
-      glassCube.visible = gVis;
-      glassUniforms.uSceneTex.value = sceneRT.texture;
+      // Single-pass render — MeshPhysicalMaterial handles transmission internally
       renderer.render(scene, camera);
     }
     loop();
@@ -1034,8 +986,6 @@ export default function Scene({
         mc.geo.dispose();
         mc.mat.dispose();
       });
-      sceneRT.dispose();
-      if (bgTex) bgTex.dispose();
       smileyTex.dispose();
       smileyMat.dispose();
       window.removeEventListener("contact-sent", onLoveTrigger);

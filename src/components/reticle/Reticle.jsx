@@ -29,14 +29,10 @@ export default function Reticle({
   gradCanvasRef.current = gradientCanvas;
   pRef.current = proximity;
 
-  const scrollDismissed = useRef(false);
-  const holdDismissed = useRef(false);
   const scrollRef = useRef(0);
   const chatRef = useRef(false);
   scrollRef.current = scrollProgress;
   chatRef.current = chatMode;
-
-  if (showcaseTriggered) holdDismissed.current = true;
 
   useEffect(() => {
     const onMove = (e) => {
@@ -96,10 +92,8 @@ export default function Reticle({
 
       const showHint =
         p > 0.8 && !chatMode && !menuOpen && scrollRef.current < 0.01;
-      if (scrollRef.current > 0.01) scrollDismissed.current = true;
-      if (chatRef.current) holdDismissed.current = true;
 
-      const showHold = showHint && !holdDismissed.current;
+      const showHold = showHint;
       if (lineRef.current && pillRef.current) {
         if (showHold) {
           const pr = pillRef.current.getBoundingClientRect();
@@ -129,7 +123,7 @@ export default function Reticle({
           ? Math.min(1, (p - 0.8) / 0.1)
           : 0;
 
-      const showScroll = showHint && !scrollDismissed.current;
+      const showScroll = showHint;
       if (line2Ref.current && pill2Ref.current) {
         if (showScroll) {
           const pr2 = pill2Ref.current.getBoundingClientRect();

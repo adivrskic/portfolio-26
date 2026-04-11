@@ -235,7 +235,7 @@ export function ProjectSection({ project, index, s, vw, vh }) {
           </Box>
 
           {/* Description */}
-          <Box height={1.4}>
+          <Box height={2.4}>
             <FadeIn sectionY={sectionY} delay={3}>
               <Text
                 fontSize={0.22}

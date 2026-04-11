@@ -172,32 +172,60 @@ export default function ShowcaseCanvas({
   }
 
   const triggerCheckerClose = useCallback(() => {
-    // Grid on document.body — ABOVE everything (z-index 9999)
+    const container = containerRef.current;
+    const canvas = container ? container.querySelector("canvas") : null;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const cellW = w / COLS;
+    const cellH = h / ROWS;
+
+    // Downscale capture to half-res for fast encode
+    let dataURL = null;
+    if (canvas) {
+      const tmp = document.createElement("canvas");
+      const scale = 0.5;
+      tmp.width = canvas.width * scale;
+      tmp.height = canvas.height * scale;
+      const ctx = tmp.getContext("2d");
+      ctx.drawImage(canvas, 0, 0, tmp.width, tmp.height);
+      dataURL = tmp.toDataURL("image/jpeg", 0.5);
+    }
+
+    // Inject shared style once (avoids duplicating data URL 160 times)
+    const styleEl = document.createElement("style");
+    styleEl.textContent = dataURL
+      ? `.ck-cell{background-image:url(${dataURL});background-size:${w}px ${h}px;}`
+      : `.ck-cell{background:${BG_HEX};}`;
+    document.head.appendChild(styleEl);
+
     const grid = document.createElement("div");
     grid.style.cssText =
       "position:fixed;inset:0;z-index:9999;display:grid;pointer-events:none;" +
       `grid-template-columns:repeat(${COLS},1fr);grid-template-rows:repeat(${ROWS},1fr);`;
 
     const cells = [];
-    for (let i = 0; i < COLS * ROWS; i++) {
-      const cell = document.createElement("div");
-      cell.style.cssText =
-        `background:${BG_HEX};transform:scale(1);` +
-        "transition:transform 0.8s cubic-bezier(0.25,0,0.2,1);";
-      grid.appendChild(cell);
-      cells.push(cell);
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const cell = document.createElement("div");
+        cell.className = "ck-cell";
+        cell.style.cssText =
+          `background-position:${-c * cellW}px ${-r * cellH}px;` +
+          "transform:scale(1);" +
+          "transition:transform 0.8s cubic-bezier(0.25,0,0.2,1);";
+        grid.appendChild(cell);
+        cells.push(cell);
+      }
     }
 
     document.body.appendChild(grid);
     checkerGridRef.current = grid;
+    checkerGridRef.styleEl = styleEl;
 
-    // Frame 1: hide showcase behind the cells (invisible to user)
     requestAnimationFrame(() => {
       if (containerRef.current)
         containerRef.current.style.visibility = "hidden";
       setVisible(false);
 
-      // Frame 2: shrink cells — center first, edges last — reveals scene
       requestAnimationFrame(() => {
         const delays = cellDelaysRef.current;
         for (let i = 0; i < cells.length; i++) {
@@ -211,6 +239,7 @@ export default function ShowcaseCanvas({
   const clearChecker = useCallback(() => {
     if (checkerGridRef.current) {
       checkerGridRef.current.remove();
+      if (checkerGridRef.styleEl) checkerGridRef.styleEl.remove();
       checkerGridRef.current = null;
     }
   }, []);
@@ -277,19 +306,48 @@ export default function ShowcaseCanvas({
       return;
     }
 
+    const canvas = container.querySelector("canvas");
+    const w = container.offsetWidth;
+    const h = container.offsetHeight;
+    const cellW = w / COLS;
+    const cellH = h / ROWS;
+
+    // Downscale capture
+    let dataURL = null;
+    if (canvas) {
+      const tmp = document.createElement("canvas");
+      const scale = 0.5;
+      tmp.width = canvas.width * scale;
+      tmp.height = canvas.height * scale;
+      const ctx = tmp.getContext("2d");
+      ctx.drawImage(canvas, 0, 0, tmp.width, tmp.height);
+      dataURL = tmp.toDataURL("image/jpeg", 0.5);
+    }
+
+    const styleEl = document.createElement("style");
+    const cls = "sk-cell-" + Date.now();
+    styleEl.textContent = dataURL
+      ? `.${cls}{background-image:url(${dataURL});background-size:${w}px ${h}px;}`
+      : `.${cls}{background:${BG_HEX};}`;
+    document.head.appendChild(styleEl);
+
     const grid = document.createElement("div");
     grid.style.cssText =
       "position:absolute;inset:0;z-index:12;display:grid;pointer-events:none;" +
       `grid-template-columns:repeat(${COLS},1fr);grid-template-rows:repeat(${ROWS},1fr);`;
 
     const cells = [];
-    for (let i = 0; i < COLS * ROWS; i++) {
-      const cell = document.createElement("div");
-      cell.style.cssText =
-        `background:${BG_HEX};transform:scale(1);` +
-        "transition:transform 0.6s cubic-bezier(0.25,0,0.2,1);";
-      grid.appendChild(cell);
-      cells.push(cell);
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const cell = document.createElement("div");
+        cell.className = cls;
+        cell.style.cssText =
+          `background-position:${-c * cellW}px ${-r * cellH}px;` +
+          "transform:scale(1);" +
+          "transition:transform 0.6s cubic-bezier(0.25,0,0.2,1);";
+        grid.appendChild(cell);
+        cells.push(cell);
+      }
     }
 
     container.appendChild(grid);
@@ -311,6 +369,7 @@ export default function ShowcaseCanvas({
             sectionGridRef.current.remove();
             sectionGridRef.current = null;
           }
+          styleEl.remove();
           sectionTransitioning.current = false;
         }, 1600);
       });
@@ -365,6 +424,7 @@ export default function ShowcaseCanvas({
           powerPreference: "high-performance",
           alpha: false,
           antialias: false,
+          preserveDrawingBuffer: true,
         }}
         onCreated={({ gl }) => gl.setClearColor(BG_HEX)}
       >
