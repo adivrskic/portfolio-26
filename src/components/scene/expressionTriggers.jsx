@@ -104,6 +104,9 @@ export function updateExpressions(expr, ts, ctx) {
   // ── Love: set externally via event, just decay ──
   expr.love = Math.max(0, expr.love - dt * 0.3);
 
+  // ── Phew: birth complete, just decay ──
+  expr.phew = Math.max(0, expr.phew - dt * 0.25);
+
   // BUG1+4 FIX: track whether any expression is active
   const anyActive =
     expr.curious > 0.3 ||
@@ -112,7 +115,8 @@ export function updateExpressions(expr, ts, ctx) {
     expr.wink > 0.3 ||
     expr.cheeky > 0.3 ||
     expr.proud > 0.3 ||
-    expr.love > 0.3;
+    expr.love > 0.3 ||
+    expr.phew > 0.3;
 
   // BUG4 FIX: track last time an expression was active (used by Scene to delay sleep)
   if (anyActive) {

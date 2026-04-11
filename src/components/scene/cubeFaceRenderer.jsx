@@ -163,7 +163,8 @@ export function createCubeFaceRenderer(canvas) {
         X.wink || 0,
         X.startled || 0,
         X.shy || 0,
-        X.curious || 0
+        X.curious || 0,
+        X.phew || 0
       );
 
       // ════ EYES ════
@@ -336,6 +337,38 @@ export function createCubeFaceRenderer(canvas) {
         sCtx.moveTo(eyeL.x + ox - 9, eyeL.y + oy - 14);
         sCtx.lineTo(eyeL.x + ox + 9, eyeL.y + oy - 14);
         sCtx.stroke();
+      } else if ((X.phew || 0) > 0.3 && (X.phew || 0) >= exMax) {
+        // Phew — relief: one closed arc, one half-open + sweat drop
+        sCtx.strokeStyle = tint;
+        sCtx.lineWidth = 3;
+        sCtx.lineCap = "round";
+        // Left eye: closed arc (relieved)
+        sCtx.beginPath();
+        sCtx.arc(eyeL.x + ox, eyeL.y + oy + 2, 7, 1.0 * Math.PI, 2.0 * Math.PI);
+        sCtx.stroke();
+        // Right eye: half-open
+        sCtx.beginPath();
+        sCtx.arc(eyeR.x + ox, eyeR.y + oy, 6, 0, Math.PI * 2);
+        sCtx.stroke();
+        sCtx.beginPath();
+        sCtx.fillStyle = tint;
+        sCtx.arc(eyeR.x + ox, eyeR.y + oy + 1, 3, 0, Math.PI * 2);
+        sCtx.fill();
+        // Sweat drop
+        sCtx.fillStyle = tint;
+        sCtx.globalAlpha = a2 * 0.4;
+        sCtx.beginPath();
+        sCtx.ellipse(
+          eyeR.x + ox + 14,
+          eyeR.y + oy + 8 + Math.sin(time * 3) * 2,
+          2.5,
+          4,
+          0,
+          0,
+          Math.PI * 2
+        );
+        sCtx.fill();
+        sCtx.globalAlpha = a2;
       } else if (hp > 0.3) {
         sCtx.strokeStyle = tint;
         sCtx.lineWidth = 3;
@@ -460,6 +493,11 @@ export function createCubeFaceRenderer(canvas) {
         sCtx.lineWidth = 3;
         sCtx.moveTo(fx + ox - 14, fy + 6 + oy);
         sCtx.quadraticCurveTo(fx + ox, fy + 4 + oy, fx + ox + 14, fy + 2 + oy);
+      } else if ((X.phew || 0) > 0.3 && (X.phew || 0) >= exMax) {
+        // Phew — crooked exhale smile
+        sCtx.lineWidth = 3;
+        sCtx.moveTo(fx + ox - 14, fy + 4 + oy);
+        sCtx.quadraticCurveTo(fx + ox - 2, fy + 16 + oy, fx + ox + 16, fy + oy);
       } else if (hp > 0.3) {
         sCtx.lineWidth = 4;
         sCtx.arc(fx + ox, fy - 6 + oy, 32, 0.25 * Math.PI, 0.75 * Math.PI);

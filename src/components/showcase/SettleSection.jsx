@@ -7,7 +7,7 @@ import {
   RoundedBox,
 } from "@react-three/drei";
 import { Physics, RigidBody, CuboidCollider } from "@react-three/rapier";
-import { L, state, clamp, FONT_URL, N, SETTLE_START } from "./ShowcaseLayout";
+import { L, state, clamp, FONT_URL, N } from "./ShowcaseLayout";
 
 function Text(props) {
   return <DreiText font={FONT_URL} {...props} />;
@@ -156,7 +156,7 @@ export function SettleFloor({ themeColor }) {
 
   useFrame(({ camera }) => {
     const isSettle = state.section >= N + 1;
-    const camDist = Math.abs(-camera.position.y - SETTLE_START);
+    const camDist = Math.abs(-camera.position.y - (L.heroH + N * L.sectionH));
     const targetOp = isSettle ? clamp(1 - camDist / 4, 0, 1) : 0;
     opSmooth.current += (targetOp - opSmooth.current) * 0.04;
 
@@ -185,7 +185,7 @@ export function SettleFloor({ themeColor }) {
   });
 
   return (
-    <group ref={groupRef} position={[0, -SETTLE_START, -3]}>
+    <group ref={groupRef} position={[0, -(L.heroH + N * L.sectionH), -3]}>
       <mesh
         rotation-x={-Math.PI / 2}
         position={[0, floorY - 0.01, 0]}

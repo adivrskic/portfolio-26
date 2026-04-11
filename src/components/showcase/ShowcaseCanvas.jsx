@@ -1,23 +1,23 @@
 import { Suspense, useRef, useState, useEffect, useCallback } from "react";
 import { TextureLoader, Vector3, MathUtils as ThrMath } from "three";
 import { Canvas, useThree, useFrame, useLoader } from "@react-three/fiber";
-import { Environment, Lightformer, Loader } from "@react-three/drei";
+import { Environment, Lightformer } from "@react-three/drei";
 import {
   EffectComposer,
   DepthOfField,
   N8AO,
-  ToneMapping,
 } from "@react-three/postprocessing";
 import ContactForm from "../contact/ContactForm";
 import ShowcaseDebug from "../debug/ShowcaseDebug";
 
 import { SHOWCASE_PROJECTS } from "./ShowcaseProjects";
-import { L, state, FONT_URL, TOTAL_SECTIONS } from "./ShowcaseLayout";
+import { L, state, FONT_URL, TOTAL_SECTIONS, N } from "./ShowcaseLayout";
 import { CameraScroll, ProjectSection, Hero } from "./ProjectSection";
 import ShowcaseCube from "./ShowcaseCube";
 import { SettleFloor } from "./SettleSection";
 import IntroWave from "./IntroWave";
 import { SectionProgress, SettleFooter } from "./SectionProgress";
+import { BG_HEX } from "../../constants/style";
 import "./Showcase.css";
 
 // ── Eagerly preload via browser — fires at import time ──
@@ -45,8 +45,9 @@ SHOWCASE_PROJECTS.forEach((p) => {
   });
 });
 
-// ── Dynamic depth of field — shifts focus to hovered cube ──
-// state.focusZ: 0 = no hover (default), positive = front cube, negative = back cube
+// ── Dynamic depth of field ──
+// Hero + settle: normal DoF with hover sharpening
+// Project sections: no DoF effect at all
 state.focusZ = 0;
 
 function DynamicDof() {
@@ -58,35 +59,30 @@ function DynamicDof() {
   useFrame(({ camera }) => {
     if (!dofRef.current) return;
 
-    const fz = state.focusZ;
-    const onFront = fz > 0; // hovering front cube
-    const onBack = fz < 0; // hovering back cube
-    const idle = fz === 0;
+    const sec = state.section;
+    const onHeroOrSettle = sec === 0 || sec > N;
+    const hovered = state.focusZ > 0 && onHeroOrSettle;
 
-    // Front hover: focus on front, wide range, low bokeh → everything sharp
-    // Back hover: focus on back, narrow range, high bokeh → front goes blurry
-    // Idle: middle ground
-    let targetZ, targetBokeh, targetRange;
+    let targetBokeh, targetRange;
 
-    if (onFront) {
-      targetZ = fz;
-      targetBokeh = L.post.dofBokehScale * 0.3; // minimal blur
-      targetRange = L.post.dofFocusRange * 3; // wide focus = sharp everywhere
-    } else if (onBack) {
-      targetZ = fz;
-      targetBokeh = L.post.dofBokehScale * 3; // heavy blur on out-of-focus
-      targetRange = L.post.dofFocusRange * 0.3; // narrow focus = dramatic falloff
+    if (!onHeroOrSettle) {
+      // Project sections — kill the effect
+      targetBokeh = 0;
+      targetRange = 100;
+    } else if (hovered) {
+      // Hero/settle with cube hover — sharp focus
+      targetBokeh = L.post.dofBokehScale * 0.3;
+      targetRange = L.post.dofFocusRange * 3;
     } else {
-      targetZ = 0;
+      // Hero/settle idle — normal DoF
       targetBokeh = L.post.dofBokehScale;
       targetRange = L.post.dofFocusRange;
     }
 
-    smoothZ.current = ThrMath.lerp(smoothZ.current, targetZ, 0.05);
     smoothBokeh.current = ThrMath.lerp(smoothBokeh.current, targetBokeh, 0.05);
     smoothRange.current = ThrMath.lerp(smoothRange.current, targetRange, 0.05);
 
-    dofRef.current.target.set(0, camera.position.y, smoothZ.current);
+    dofRef.current.target.set(0, camera.position.y, 0);
     dofRef.current.bokehScale = smoothBokeh.current;
     dofRef.current.focusRange = smoothRange.current;
   });
@@ -111,6 +107,12 @@ function Content({ onVpHeight, themeColor }) {
   const vw = lockedRef.current?.w || viewport.width;
   const vh = lockedRef.current?.h || viewport.height;
   const s = Math.min(1, vw / 16);
+
+  // Make each section exactly one viewport tall
+  if (vh > 1) {
+    L.heroH = vh;
+    L.sectionH = vh;
+  }
 
   useEffect(() => {
     if (onVpHeight) onVpHeight(viewport.height);
@@ -151,6 +153,67 @@ export default function ShowcaseCanvas({
   const lastWheelRef = useRef(0);
   const [showContact, setShowContact] = useState(false);
   const [loaderVisible, setLoaderVisible] = useState(false);
+  const checkerGridRef = useRef(null);
+  const hasOpened = useRef(false);
+
+  const COLS = 16,
+    ROWS = 10;
+
+  const cellDelaysRef = useRef(null);
+  if (!cellDelaysRef.current) {
+    const cx = COLS / 2,
+      cy = ROWS / 2;
+    const maxR = Math.sqrt(cx * cx + cy * cy);
+    const d = [];
+    for (let r = 0; r < ROWS; r++)
+      for (let c = 0; c < COLS; c++)
+        d.push(Math.sqrt((c - cx) ** 2 + (r - cy) ** 2) / maxR);
+    cellDelaysRef.current = d;
+  }
+
+  const triggerCheckerClose = useCallback(() => {
+    // Grid on document.body — ABOVE everything (z-index 9999)
+    const grid = document.createElement("div");
+    grid.style.cssText =
+      "position:fixed;inset:0;z-index:9999;display:grid;pointer-events:none;" +
+      `grid-template-columns:repeat(${COLS},1fr);grid-template-rows:repeat(${ROWS},1fr);`;
+
+    const cells = [];
+    for (let i = 0; i < COLS * ROWS; i++) {
+      const cell = document.createElement("div");
+      cell.style.cssText =
+        `background:${BG_HEX};transform:scale(1);` +
+        "transition:transform 0.8s cubic-bezier(0.25,0,0.2,1);";
+      grid.appendChild(cell);
+      cells.push(cell);
+    }
+
+    document.body.appendChild(grid);
+    checkerGridRef.current = grid;
+
+    // Frame 1: hide showcase behind the cells (invisible to user)
+    requestAnimationFrame(() => {
+      if (containerRef.current)
+        containerRef.current.style.visibility = "hidden";
+      setVisible(false);
+
+      // Frame 2: shrink cells — center first, edges last — reveals scene
+      requestAnimationFrame(() => {
+        const delays = cellDelaysRef.current;
+        for (let i = 0; i < cells.length; i++) {
+          cells[i].style.transitionDelay = delays[i] * 1000 + "ms";
+          cells[i].style.transform = "scale(0)";
+        }
+      });
+    });
+  }, []);
+
+  const clearChecker = useCallback(() => {
+    if (checkerGridRef.current) {
+      checkerGridRef.current.remove();
+      checkerGridRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     preloadPromise.then(() => setPreloaded(true));
@@ -158,17 +221,30 @@ export default function ShowcaseCanvas({
 
   useEffect(() => {
     if (open) {
+      hasOpened.current = true;
       state.section = initialSection || 0;
       state.top = 0;
       closingRef.current = false;
+      clearChecker();
+      if (sectionGridRef.current) {
+        sectionGridRef.current.remove();
+        sectionGridRef.current = null;
+      }
+      sectionTransitioning.current = false;
+      // Reset direct DOM visibility override
+      if (containerRef.current) containerRef.current.style.visibility = "";
       setVisible(true);
       setLoaderVisible(true);
-      const t = setTimeout(() => setLoaderVisible(false), 600);
+      const t = setTimeout(() => setLoaderVisible(false), 1200);
       return () => clearTimeout(t);
     } else {
       closingRef.current = false;
       setLoaderVisible(false);
-      const t = setTimeout(() => setVisible(false), 800);
+      if (!hasOpened.current) return; // don't animate on initial mount
+      triggerCheckerClose();
+      const t = setTimeout(() => {
+        clearChecker();
+      }, 2200);
       return () => clearTimeout(t);
     }
   }, [open]);
@@ -187,25 +263,82 @@ export default function ShowcaseCanvas({
 
   const handleVpHeight = useCallback((h) => setVpHeight(h), []);
 
+  // ── Section checker transition (inside showcase) ──
+  const sectionGridRef = useRef(null);
+  const sectionTransitioning = useRef(false);
+
+  const triggerSectionTransition = useCallback((newSection) => {
+    if (sectionTransitioning.current) return;
+    sectionTransitioning.current = true;
+
+    const container = containerRef.current;
+    if (!container) {
+      sectionTransitioning.current = false;
+      return;
+    }
+
+    const grid = document.createElement("div");
+    grid.style.cssText =
+      "position:absolute;inset:0;z-index:12;display:grid;pointer-events:none;" +
+      `grid-template-columns:repeat(${COLS},1fr);grid-template-rows:repeat(${ROWS},1fr);`;
+
+    const cells = [];
+    for (let i = 0; i < COLS * ROWS; i++) {
+      const cell = document.createElement("div");
+      cell.style.cssText =
+        `background:${BG_HEX};transform:scale(1);` +
+        "transition:transform 0.6s cubic-bezier(0.25,0,0.2,1);";
+      grid.appendChild(cell);
+      cells.push(cell);
+    }
+
+    container.appendChild(grid);
+    sectionGridRef.current = grid;
+
+    requestAnimationFrame(() => {
+      state.section = newSection;
+      state.snapCamera = true;
+
+      requestAnimationFrame(() => {
+        const delays = cellDelaysRef.current;
+        for (let i = 0; i < cells.length; i++) {
+          cells[i].style.transitionDelay = delays[i] * 600 + "ms";
+          cells[i].style.transform = "scale(0)";
+        }
+
+        setTimeout(() => {
+          if (sectionGridRef.current) {
+            sectionGridRef.current.remove();
+            sectionGridRef.current = null;
+          }
+          sectionTransitioning.current = false;
+        }, 1600);
+      });
+    });
+  }, []);
+
   const onWheel = useCallback(
     (e) => {
       if (closingRef.current) return;
+      if (sectionTransitioning.current) return;
       const now = performance.now();
       if (now - lastWheelRef.current < L.anim.wheelDebounce) return;
       lastWheelRef.current = now;
 
       if (e.deltaY > 10) {
-        if (state.section < state.totalSections - 1) state.section += 1;
+        if (state.section < state.totalSections - 1) {
+          triggerSectionTransition(state.section + 1);
+        }
       } else if (e.deltaY < -10) {
         if (state.section > 0) {
-          state.section -= 1;
+          triggerSectionTransition(state.section - 1);
         } else {
           closingRef.current = true;
           onClose();
         }
       }
     },
-    [onClose]
+    [onClose, triggerSectionTransition]
   );
 
   if (!preloaded && visible) return <IntroWave />;
@@ -219,6 +352,7 @@ export default function ShowcaseCanvas({
       className={`showcase ${
         isShown ? "showcase--visible" : "showcase--hidden"
       }`}
+      style={{ "--showcase-bg": BG_HEX }}
     >
       <Canvas
         flat
@@ -232,7 +366,7 @@ export default function ShowcaseCanvas({
           alpha: false,
           antialias: false,
         }}
-        onCreated={({ gl }) => gl.setClearColor("#e8e8ee")}
+        onCreated={({ gl }) => gl.setClearColor(BG_HEX)}
       >
         <ambientLight intensity={L.light.ambientIntensity} />
         <directionalLight
@@ -268,7 +402,6 @@ export default function ShowcaseCanvas({
         <EffectComposer>
           <N8AO aoRadius={L.post.aoRadius} intensity={L.post.aoIntensity} />
           <DynamicDof />
-          <ToneMapping />
         </EffectComposer>
       </Canvas>
 
@@ -311,7 +444,7 @@ export default function ShowcaseCanvas({
             themeColor={config?.gradColor1}
             onClose={onClose}
           />
-          {/* <ShowcaseDebug /> */}
+          <ShowcaseDebug />
           <SettleFooter
             onClose={onClose}
             onContact={() => setShowContact(true)}
@@ -339,8 +472,6 @@ export default function ShowcaseCanvas({
           <ContactForm />
         </div>
       </div>
-
-      <Loader />
     </div>
   );
 }

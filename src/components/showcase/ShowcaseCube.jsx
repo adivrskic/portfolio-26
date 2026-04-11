@@ -43,13 +43,13 @@ export default function ShowcaseCube() {
         return { x: driftX, y: -state.top, scale: 0.5 };
       } else if (sec > 0 && sec <= N) {
         const projIdx = sec - 1;
-        const sectionCenterY = -(HERO_H + projIdx * SECTION_H);
+        const sectionCenterY = -(L.heroH + projIdx * L.sectionH);
         const panels = state.panels && state.panels[projIdx];
         const targetX = panels ? panels.seamX : 0;
         const targetY = sectionCenterY + (panels?.forkY || vh * 0.04);
-        return { x: targetX, y: targetY, scale: CUBE_SIZE_AT_SECTION };
+        return { x: targetX, y: targetY, scale: 0.25 };
       } else {
-        return { x: 0, y: -SETTLE_START, scale: 0.01 };
+        return { x: 0, y: -(L.heroH + N * L.sectionH), scale: 0.01 };
       }
     }
 
@@ -136,18 +136,27 @@ export default function ShowcaseCube() {
       shadowRef.current.material.opacity = 0.06 * Math.min(1, scaleRef.current);
     }
 
-    // ── Second cube — hero only, opposite direction, behind text ──
+    // ── Second cube — hero only, follows same fade as front cube ──
     if (cube2Ref.current) {
       const t = clock.elapsedTime;
-      const heroOp = atHero ? 1 : 0;
-      scale2Ref.current += (heroOp * 0.4 - scale2Ref.current) * 0.04;
+      // Match the front cube's phase — fade out/in at the same rate
+      const wantVisible =
+        atHero &&
+        (phase.current === "visible" || phase.current === "fading-in");
+      const target2 = wantVisible ? 0.6 : 0;
+      scale2Ref.current = MathUtils.lerp(
+        scale2Ref.current,
+        target2,
+        FADE_SPEED
+      );
+      if (scale2Ref.current < 0.02) scale2Ref.current = 0;
       cube2Ref.current.scale.setScalar(Math.max(0.001, scale2Ref.current));
       cube2Ref.current.visible = scale2Ref.current > 0.01;
       // Opposite drift
       const drift2X = -Math.sin(t * 0.3) * vw * 0.22;
       cube2Ref.current.position.x = drift2X;
       cube2Ref.current.position.y = atHero ? -state.top : posY.current;
-      cube2Ref.current.position.z = -2;
+      cube2Ref.current.position.z = -5;
       // Slower, opposite rotation
       cube2Ref.current.rotation.x -= 0.008;
       cube2Ref.current.rotation.y -= 0.01;
@@ -190,7 +199,8 @@ export default function ShowcaseCube() {
         showEdges={true}
         edgeOpacity={0.04}
         onPointerOver={() => {
-          state.focusZ = L.cube.z;
+          const s = state.section;
+          if (s === 0 || s > N) state.focusZ = L.cube.z;
         }}
         onPointerOut={() => {
           state.focusZ = 0;

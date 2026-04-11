@@ -93,18 +93,13 @@ export default function App() {
           position: "fixed",
           inset: 0,
           zIndex: 2,
-          transform: showcaseOpen ? "translateY(-100vh)" : "translateY(0)",
-          transition: showcaseOpen
-            ? "transform 1.4s cubic-bezier(0.45, 0, 0.15, 1)"
-            : "transform 1.4s cubic-bezier(0.45, 0, 0.15, 1) 0.3s",
           pointerEvents: fading ? "none" : "auto",
-          willChange: "transform",
         }}
       >
         <div
           style={{
             opacity: fading ? 0 : 1,
-            transition: "opacity 1.8s ease",
+            transition: fading ? "opacity 1.2s ease" : "none",
             pointerEvents: fading ? "none" : "auto",
           }}
         >
@@ -166,12 +161,12 @@ export default function App() {
           setTimeout(() => handleCubeShowcase(section), 600);
         }}
       />
-      {/* <DebugPanel
+      <DebugPanel
         config={config}
         setConfig={setConfig}
         visible={debugVisible}
         setVisible={setDebugVisible}
-      /> */}
+      />
       <PrintContent />
     </div>
   );

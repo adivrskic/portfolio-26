@@ -29,7 +29,15 @@ export function CameraScroll() {
     if (Math.abs(introOffset.current) < 0.01) introOffset.current = 0;
 
     const targetY = getSectionY(state.section);
-    lerp.current = MathUtils.lerp(lerp.current, targetY, L.anim.cameraLerp);
+
+    // Snap camera instantly for checker transitions
+    if (state.snapCamera) {
+      lerp.current = targetY;
+      state.snapCamera = false;
+    } else {
+      lerp.current = MathUtils.lerp(lerp.current, targetY, L.anim.cameraLerp);
+    }
+
     state.top = lerp.current;
     camera.position.y = -lerp.current + introOffset.current;
     camera.position.x = 0;
@@ -48,104 +56,45 @@ function Img({ url, w, h }) {
   );
 }
 
-function FadeIn({ sectionY, delay = 0, children }) {
-  const ref = useRef();
-  const op = useRef(0);
-  const started = useRef(false);
-  const timer = useRef(0);
-
-  useFrame(({ camera }, delta) => {
-    if (!ref.current) return;
-    const dist = Math.abs(camera.position.y - sectionY);
-    const visible = dist < L.anim.textVisRange;
-    if (visible && !started.current) started.current = true;
-    if (!started.current) {
-      ref.current.traverse((child) => {
-        if (child.material) {
-          child.material.opacity = 0;
-          child.material.transparent = true;
-        }
-      });
-      return;
-    }
-    timer.current += delta;
-    const active = visible && timer.current >= delay * 0.15;
-    const target = active ? 1 : 0;
-    if (!visible) {
-      timer.current = 0;
-      started.current = false;
-    }
-    op.current += (target - op.current) * 0.04;
-    const drift = (1 - op.current) * 1.2;
-    ref.current.position.y = drift;
-    ref.current.traverse((child) => {
-      if (child.material) {
-        child.material.opacity = op.current;
-        child.material.transparent = true;
-      }
-    });
-  });
-
-  return <group ref={ref}>{children}</group>;
+function FadeIn({ children }) {
+  return <group>{children}</group>;
 }
 
-function GlassCard({ sectionY, w, h }) {
-  const matRef = useRef();
-  const borderRef = useRef();
-
-  useFrame(({ camera }) => {
-    const dist = Math.abs(camera.position.y - sectionY);
-    const t = dist < 5 ? clamp(1 - (dist - 1) / 4, 0, 1) : 0;
-    if (matRef.current)
-      matRef.current.opacity +=
-        (t * L.card.bgOpacity - matRef.current.opacity) * L.card.bgFadeSpeed;
-    if (borderRef.current) {
-      borderRef.current.traverse((c) => {
-        if (c.material)
-          c.material.opacity +=
-            (t * L.card.borderOpacity - c.material.opacity) *
-            L.card.bgFadeSpeed;
-      });
-    }
-  });
-
-  const bw = 0.01;
+function GlassCard({ w, h }) {
   return (
     <group>
       <mesh position={[0, 0, -0.5]}>
         <planeGeometry args={[w, h]} />
         <meshBasicMaterial
-          ref={matRef}
           color="#ffffff"
           transparent
-          opacity={0}
+          opacity={L.card.bgOpacity}
           depthWrite={false}
         />
       </mesh>
-      <group ref={borderRef}>
-        <mesh position={[0, h / 2, -0.49]}>
-          <planeGeometry args={[w, bw]} />
-          <meshBasicMaterial color="#ffffff" transparent opacity={0} />
-        </mesh>
-        <mesh position={[0, -h / 2, -0.49]}>
-          <planeGeometry args={[w, bw]} />
-          <meshBasicMaterial color="#ffffff" transparent opacity={0} />
-        </mesh>
-        <mesh position={[-w / 2, 0, -0.49]}>
-          <planeGeometry args={[bw, h]} />
-          <meshBasicMaterial color="#ffffff" transparent opacity={0} />
-        </mesh>
-        <mesh position={[w / 2, 0, -0.49]}>
-          <planeGeometry args={[bw, h]} />
-          <meshBasicMaterial color="#ffffff" transparent opacity={0} />
-        </mesh>
+      <group>
+        {[
+          [0, h / 2, -0.49, w, 0.01],
+          [0, -h / 2, -0.49, w, 0.01],
+          [-w / 2, 0, -0.49, 0.01, h],
+          [w / 2, 0, -0.49, 0.01, h],
+        ].map(([x, y, z, bw, bh], i) => (
+          <mesh key={i} position={[x, y, z]}>
+            <planeGeometry args={[bw, bh]} />
+            <meshBasicMaterial
+              color="#ffffff"
+              transparent
+              opacity={L.card.borderOpacity}
+            />
+          </mesh>
+        ))}
       </group>
     </group>
   );
 }
 
 export function ProjectSection({ project, index, s, vw, vh }) {
-  const sectionY = -(HERO_H + index * SECTION_H);
+  const sectionY = -(L.heroH + index * L.sectionH);
 
   // Minimal padding — just clearance for the progress bar on the right
   const rightClear = vw * 0.04; // progress bar space
@@ -185,7 +134,7 @@ export function ProjectSection({ project, index, s, vw, vh }) {
 
   return (
     <group position={[cardOffsetX, sectionY, 0]}>
-      <GlassCard sectionY={sectionY} w={cardW} h={cardH} />
+      <GlassCard w={cardW} h={cardH} />
 
       <Flex
         size={[cardW, cardH, 0]}
@@ -259,7 +208,7 @@ export function ProjectSection({ project, index, s, vw, vh }) {
                 color={D}
                 anchorX="left"
                 anchorY="top"
-                fillOpacity={0.4}
+                fillOpacity={1}
               >
                 {project.tag}
               </Text>
@@ -278,7 +227,7 @@ export function ProjectSection({ project, index, s, vw, vh }) {
                 anchorY="top"
                 textAlign="left"
                 maxWidth={txtColW * 0.95}
-                fillOpacity={0.85}
+                fillOpacity={1}
               >
                 {project.title}
               </Text>
@@ -296,7 +245,7 @@ export function ProjectSection({ project, index, s, vw, vh }) {
                 anchorY="top"
                 textAlign="left"
                 maxWidth={txtColW * 0.9}
-                fillOpacity={0.5}
+                fillOpacity={0.9}
               >
                 {project.text}
               </Text>
@@ -312,7 +261,7 @@ export function ProjectSection({ project, index, s, vw, vh }) {
                 color={D}
                 anchorX="left"
                 anchorY="top"
-                fillOpacity={0.35}
+                fillOpacity={0.8}
               >
                 {project.skills.join("  ·  ")}
               </Text>
@@ -328,15 +277,15 @@ export function ProjectSection({ project, index, s, vw, vh }) {
                 color={D}
                 anchorX="left"
                 anchorY="top"
-                fillOpacity={0.3}
+                fillOpacity={0.7}
                 onClick={() => window.open(project.link, "_blank")}
                 onPointerOver={(e) => {
                   document.body.style.cursor = "pointer";
-                  e.object.material.opacity = 0.6;
+                  e.object.material.opacity = 1;
                 }}
                 onPointerOut={(e) => {
                   document.body.style.cursor = "";
-                  e.object.material.opacity = 0.3;
+                  e.object.material.opacity = 0.7;
                 }}
               >
                 {"VIEW PROJECT  \u2197"}

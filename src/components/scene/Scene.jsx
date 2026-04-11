@@ -257,6 +257,7 @@ export default function Scene({
       proud: 0, // viewed all showcase sections
       startled: 0, // first click
       shy: 0, // long hover on cube
+      phew: 0, // birth complete — "sorry I'm late"
     };
     let prevMx = 0,
       prevMy = 0;
@@ -398,6 +399,7 @@ export default function Scene({
     const clock = new Clock();
     let raf;
     let birthStart = performance.now();
+    let birthPhewFired = false;
     let lastReplayKey = 0;
     let rotAngle = 0;
     // Menu animation: smoothly move object to left + scale up
@@ -467,6 +469,11 @@ export default function Scene({
         birth = 1 - Math.pow(1 - birthT, birthEase);
       }
       if (onBirthProgress) onBirthProgress(birth);
+      // Trigger phew face when birth just completes
+      if (birthT >= 1 && !birthPhewFired) {
+        birthPhewFired = true;
+        expr.phew = 1;
+      }
       // Fly-in from behind camera, settles slightly upward
       const bR = c.sphereRadius;
       const bA = c.noiseAmp;
@@ -805,7 +812,8 @@ export default function Scene({
         expr.cheeky > 0.01 ||
         expr.proud > 0.01 ||
         expr.startled > 0.01 ||
-        expr.shy > 0.01;
+        expr.shy > 0.01 ||
+        expr.phew > 0.01;
       const smileyDirty =
         dizzySmooth > 0.01 ||
         happySmooth > 0.01 ||
@@ -848,8 +856,9 @@ export default function Scene({
       // Showcase transition: cube gently zooms toward camera and enlarges
       if (showcaseTransRef.current || showcaseOpenRef.current) {
         scZoom = Math.min(1, scZoom + dt * 0.5); // ~2s to fully zoom
-      } else {
-        scZoom = Math.max(0, scZoom - dt * 1.5);
+      } else if (scZoom > 0) {
+        // Snap back instantly — scene is revealed by checker, no time to animate
+        scZoom = 0;
       }
       // Ease the raw scZoom for smooth acceleration/deceleration
       const zoomEased =

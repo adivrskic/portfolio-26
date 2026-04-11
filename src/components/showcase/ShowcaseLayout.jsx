@@ -3,7 +3,13 @@ import { SHOWCASE_PROJECTS } from "./ShowcaseProjects";
 export const FONT_URL =
   "https://cdn.jsdelivr.net/npm/@fontsource/inter@5.1.1/files/inter-latin-300-normal.woff";
 
-export const state = { top: 0, section: 0, totalSections: 0, hoveredPanel: -1 };
+export const state = {
+  top: 0,
+  section: 0,
+  totalSections: 0,
+  hoveredPanel: -1,
+  snapCamera: false,
+};
 
 export const L = {
   sectionH: 14,
@@ -123,15 +129,29 @@ export function clamp(v, a, b) {
 }
 
 export const N = SHOWCASE_PROJECTS.length;
+// These read from L dynamically so they update when viewport sets L.heroH / L.sectionH
+export function getHeroH() {
+  return L.heroH;
+}
+export function getSectionH() {
+  return L.sectionH;
+}
+export function getSettleStart() {
+  return L.heroH + N * L.sectionH;
+}
+
+// Static aliases for initial values (used where dynamic isn't needed)
 export const SECTION_H = L.sectionH;
 export const HERO_H = L.heroH;
 export const SETTLE_START = HERO_H + N * SECTION_H;
 export const TOTAL_H = SETTLE_START + 8;
 
 export function getSectionY(idx) {
+  const hh = L.heroH;
+  const sh = L.sectionH;
   if (idx <= 0) return 0;
-  if (idx <= N) return HERO_H + (idx - 1) * SECTION_H;
-  return SETTLE_START;
+  if (idx <= N) return hh + (idx - 1) * sh;
+  return hh + N * sh;
 }
 
 export const TOTAL_SECTIONS = N + 2;
