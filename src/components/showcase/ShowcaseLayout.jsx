@@ -120,31 +120,16 @@ export const L = {
   },
 };
 
-export function ease(t) {
-  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-}
-
 export function clamp(v, a, b) {
   return Math.max(a, Math.min(b, v));
 }
 
 export const N = SHOWCASE_PROJECTS.length;
-// These read from L dynamically so they update when viewport sets L.heroH / L.sectionH
-export function getHeroH() {
-  return L.heroH;
-}
-export function getSectionH() {
-  return L.sectionH;
-}
-export function getSettleStart() {
-  return L.heroH + N * L.sectionH;
-}
 
-// Static aliases for initial values (used where dynamic isn't needed)
+// Static aliases (used where dynamic isn't needed)
 export const SECTION_H = L.sectionH;
 export const HERO_H = L.heroH;
 export const SETTLE_START = HERO_H + N * SECTION_H;
-export const TOTAL_H = SETTLE_START + 8;
 
 export function getSectionY(idx) {
   const hh = L.heroH;

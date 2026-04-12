@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { DEFAULTS, getCurrentSeason } from "./config/defaults";
-import { useIsMobile } from "./hooks/useIsMobile";
+// import { useIsMobile } from "./hooks/useIsMobile"; // uncomment when ShowcaseHTML exists
 import GradientBackground from "./components/gradient/GradientBackground";
 import Scene from "./components/scene/Scene";
 import Reticle from "./components/reticle/Reticle";
@@ -13,8 +13,9 @@ import PrintContent from "./components/print/PrintContent";
 import "./App.css";
 
 export default function App() {
-  const isMobile = useIsMobile(768);
-  const Showcase = isMobile ? ShowcaseHTML : ShowcaseCanvas;
+  // const isMobile = useIsMobile(768); // uncomment when ShowcaseHTML exists
+  // TODO: create ShowcaseHTML for a lightweight mobile fallback
+  const Showcase = ShowcaseCanvas;
   const [config, setConfig] = useState({ ...DEFAULTS });
   const [debugVisible, setDebugVisible] = useState(false);
   const [birthComplete, setBirthComplete] = useState(false);

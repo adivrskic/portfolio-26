@@ -535,5 +535,3 @@ export default function ShowcaseCanvas({
     </div>
   );
 }
-
-export { L } from "./ShowcaseLayout";
