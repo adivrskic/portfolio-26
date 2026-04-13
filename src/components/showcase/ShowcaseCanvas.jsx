@@ -1,4 +1,11 @@
-import { Suspense, useRef, useState, useEffect, useCallback } from "react";
+import {
+  Suspense,
+  useRef,
+  useState,
+  useEffect,
+  useCallback,
+  lazy,
+} from "react";
 import { TextureLoader, Vector3, MathUtils as ThrMath } from "three";
 import { Canvas, useThree, useFrame, useLoader } from "@react-three/fiber";
 import { Environment, Lightformer } from "@react-three/drei";
@@ -8,7 +15,11 @@ import {
   N8AO,
 } from "@react-three/postprocessing";
 import ContactForm from "../contact/ContactForm";
-import ShowcaseDebug from "../debug/ShowcaseDebug";
+
+// Dev-only: ~750 lines of showcase debug UI stripped from production bundle
+const ShowcaseDebug = import.meta.env.DEV
+  ? lazy(() => import("../debug/ShowcaseDebug"))
+  : null;
 
 import { SHOWCASE_PROJECTS } from "./ShowcaseProjects";
 import { L, state, FONT_URL, TOTAL_SECTIONS, N } from "./ShowcaseLayout";
@@ -504,7 +515,11 @@ export default function ShowcaseCanvas({
             themeColor={config?.gradColor1}
             onClose={onClose}
           />
-          <ShowcaseDebug />
+          {ShowcaseDebug && (
+            <Suspense fallback={null}>
+              <ShowcaseDebug />
+            </Suspense>
+          )}
           <SettleFooter
             onClose={onClose}
             onContact={() => setShowContact(true)}

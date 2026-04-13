@@ -13,7 +13,6 @@ import {
   Mesh,
   MeshPhysicalMaterial,
   PerspectiveCamera,
-  Plane,
   Quaternion,
   Raycaster,
   Scene as THREEScene,
@@ -27,7 +26,6 @@ import {
 } from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { getCurrentSeason } from "../../config/defaults";
-import { easeOutSoft } from "../../utils/math";
 import { sphereVertexShader } from "./shaders/sphereVertex.glsl.js";
 import { sphereFragmentShader } from "./shaders/sphereFragment.glsl.js";
 // Glass cube now uses MeshPhysicalMaterial with transmission (no custom shader)
@@ -183,6 +181,7 @@ export default function Scene({
       })
     );
     sphere.renderOrder = 0;
+    sphere.visible = false; // sphere is replaced by glass cube — kept only for disposal
     scene.add(sphere);
 
     // ── Glass cube (MeshPhysicalMaterial with transmission) ──
@@ -271,14 +270,16 @@ export default function Scene({
     const cubeQuat = new Quaternion();
     const angVel = new Vector3(0, 0, 0); // angular velocity in world space
 
-    // ── No scroll — shatter/helix removed ──
-    const scrollProg = 0;
-    const mouse = new Vector2(-999, -999),
-      mouseWorld = new Vector3(),
-      mouseSmooth = new Vector3();
+    const mouse = new Vector2(-999, -999);
     let lastActivity = performance.now();
     const raycaster = new Raycaster(),
       mSp = new Sphere(new Vector3(), 1);
+    // ── Reusable math objects — avoids per-frame allocations in the render loop ──
+    const _screenPos = new Vector3();
+    const _axis = new Vector3();
+    const _dq = new Quaternion();
+    const _testMouse = new Vector2();
+    const _testHit = new Vector3();
     const onMM = (e) => {
       mouse.x = (e.clientX / W()) * 2 - 1;
       mouse.y = -(e.clientY / H()) * 2 + 1;
@@ -306,8 +307,8 @@ export default function Scene({
     const testCubeHit = (e) => {
       const mx = (e.clientX / W()) * 2 - 1,
         my = -(e.clientY / H()) * 2 + 1;
-      raycaster.setFromCamera(new Vector2(mx, my), camera);
-      return raycaster.ray.intersectSphere(mSp, new Vector3());
+      raycaster.setFromCamera(_testMouse.set(mx, my), camera);
+      return raycaster.ray.intersectSphere(mSp, _testHit);
     };
     const onDown = (e) => {
       lastActivity = performance.now();
@@ -455,8 +456,6 @@ export default function Scene({
       }
       // Fly-in from behind camera, settles slightly upward
       const bR = c.sphereRadius;
-      const bA = c.noiseAmp;
-      const bM = c.mouseStrength * birth;
       const birthYDist = c.birthFloatDist ?? 1.2;
       const birthY = -birthYDist * (1 - birth);
       const birthZDist = c.birthFlyInDist ?? 7;
@@ -512,23 +511,17 @@ export default function Scene({
         }
       }
 
-      sphere.rotation.y = rotAngle;
-      sphere.rotation.x =
-        Math.sin(el * (c.birthTiltSpeed || 0.2)) *
-        (c.birthTiltAmp || 0.04) *
-        birth;
-
-      // Proximity reporting — project sphere to screen, measure distance from mouse
+      // Proximity reporting — project cube to screen, measure distance from mouse
       let cubeProx = 0;
       if (birth > 0.5 && onCubeProximityRef.current) {
-        const screenPos = sphere.position.clone().project(camera);
-        const dx = screenPos.x - mouse.x,
-          dy = screenPos.y - mouse.y;
+        _screenPos.copy(glassCube.position).project(camera);
+        const dx = _screenPos.x - mouse.x,
+          dy = _screenPos.y - mouse.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         cubeProx = Math.max(0, 1 - dist / (c.reticleRange || 1.2));
         onCubeProximityRef.current(cubeProx);
-        // Update sphere for click detection
-        mSp.set(sphere.position, bR * (c.shapeScale || 1) * menuScale * 1.3);
+        // Update bounding sphere for click detection
+        mSp.set(glassCube.position, bR * (c.shapeScale || 1) * menuScale * 1.3);
       }
 
       // ── Position animation: damped spring ──
@@ -827,9 +820,9 @@ export default function Scene({
       }
 
       if (avLen > 0.0001) {
-        const axis = angVel.clone().normalize();
-        const dq = new Quaternion().setFromAxisAngle(axis, avLen * dt);
-        cubeQuat.premultiply(dq);
+        _axis.copy(angVel).normalize();
+        _dq.setFromAxisAngle(_axis, avLen * dt);
+        cubeQuat.premultiply(_dq);
         cubeQuat.normalize();
       }
       // Showcase transition: cube gently zooms toward camera and enlarges
@@ -856,7 +849,6 @@ export default function Scene({
       const py = baseY * (1 - zoomEased * 0.4);
       const pz = baseZ + zoomZ;
 
-      sphere.position.set(px, py, pz);
       glassCube.position.set(px, py, pz);
 
       // Glass cube — hidden when fully zoomed into showcase
@@ -889,75 +881,6 @@ export default function Scene({
         glassMat.transmission =
           c.glassTransmission != null ? c.glassTransmission : 1;
         glassEdgeMat.opacity = (c.glassEdgeOpacity ?? 0.12) * (1 - zoomEased);
-        const halfSide = (c.glassCubeSize || 3.6) * 0.5;
-        fU.uBounds.value = halfSide - 0.15;
-      }
-
-      // Sphere — hidden, particles replace it
-      sphere.visible = false;
-      sphere.scale.setScalar(bR * (c.shapeScale || 1) * menuScale * clickScale);
-      fU.uTime.value = el;
-      fU.uScrollProgress.value = scrollProg;
-      fU.uShape.value = 0;
-      fU.uMeshAlpha.value = birthOpacity;
-      fU.uTetraScale.value = c.tetraScale;
-      fU.uCubeScale.value = c.cubeScale;
-      fU.uShapeTiltX.value = c.shapeTiltX || 0;
-      fU.uShapeTiltY.value = c.shapeTiltY || 0;
-      fU.uGC1.value.set(c.gradColor1 || "#1a0a3e");
-      fU.uGC2.value.set(c.gradColor2 || "#d41878");
-      fU.uGC3.value.set(c.gradColor3 || "#08b4a8");
-      fU.uGC4.value.set(c.gradColor4 || "#f5a623");
-      fU.uNoiseFreq.value = c.noiseFreq;
-      fU.uNoiseAmp.value = bA;
-      fU.uNoiseSpeed.value = c.noiseSpeed;
-      fU.uNoiseOctaves.value = c.noiseOctaves;
-      fU.uNoiseLac.value = c.noiseLacunarity;
-      fU.uNoisePers.value = c.noisePersistence;
-      fU.uSpikeSharp.value = c.spikeSharpness;
-      fU.uNoiseWarp.value = c.noiseWarp;
-      fU.uMouseStrength.value = bM;
-      fU.uMouseRadius.value = c.mouseRadius;
-      fU.uMouseFalloff.value = c.mouseFalloff;
-      fU.uMouseNoiseBoost.value = c.mouseNoiseBoost;
-      fU.uMouseNoiseFreq.value = c.mouseNoiseFreq;
-      fU.uMouseAttract.value = c.mouseAttract;
-      fU.uBaseBrightStart.value = c.baseBrightStart;
-      fU.uBaseBrightEnd.value = c.baseBrightEnd;
-      fU.uRoughness.value = c.roughness;
-      fU.uMetallic.value = c.metallic;
-      fU.uSpecularIntensity.value = c.specularIntensity;
-      fU.uFresnelPower.value = c.fresnelPower;
-      fU.uFresnelIntensity.value = c.fresnelIntensity;
-      fU.uIridescence.value = c.iridescence;
-      fU.uEnvReflect.value = c.envReflect;
-      fU.uEnvBrightness.value = c.envBrightness;
-      fU.uAoStrength.value = c.aoStrength;
-      fU.uAoRange.value = c.aoRange;
-      fU.uRimStrength.value = c.rimStrength;
-      fU.uRimColor.value.set(c.rimColor);
-      fU.uAmbientIntensity.value = c.ambientIntensity;
-      fU.uLight1Pos.value.set(c.light1X, c.light1Y, c.light1Z);
-      fU.uLight1Int.value = c.light1Intensity;
-      fU.uLight2Pos.value.set(c.light2X, c.light2Y, c.light2Z);
-      fU.uLight2Int.value = c.light2Intensity;
-      fU.uLight3Pos.value.set(c.light3X, c.light3Y, c.light3Z);
-      fU.uLight3Int.value = c.light3Intensity;
-      fU.uWaveformMix.value = 0;
-      fU.uWaveTime.value = el;
-      if (birth > 0.95) {
-        raycaster.setFromCamera(mouse, camera);
-        mSp.set(sphere.position, bR * 1.5);
-        const hit = new Vector3();
-        if (raycaster.ray.intersectSphere(mSp, hit)) mouseWorld.copy(hit);
-        else {
-          const pl = new Plane(new Vector3(0, 0, 1), 0);
-          raycaster.ray.intersectPlane(pl, mouseWorld);
-        }
-        mouseSmooth.lerp(mouseWorld, 0.08);
-        fU.uMouseWorld.value.copy(
-          mouseSmooth.clone().sub(sphere.position).divideScalar(bR)
-        );
       }
 
       // Single-pass render — MeshPhysicalMaterial handles transmission internally

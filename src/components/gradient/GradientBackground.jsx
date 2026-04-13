@@ -196,8 +196,13 @@ export default function GradientBackground({
     glitterRef.current = { trail: glitterTrail, head: glitterHead };
 
     let raf;
+    let skipFrame = false;
     function tick() {
       raf = requestAnimationFrame(tick);
+      // Throttle to ~30fps — blobs and glitter don't need 60fps fidelity
+      skipFrame = !skipFrame;
+      if (skipFrame) return;
+
       const cc = configRef.current;
 
       smooth.x += (mouse.x - smooth.x) * (cc.brushSmoothing || 0.12);

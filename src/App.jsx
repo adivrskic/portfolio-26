@@ -1,4 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  lazy,
+  Suspense,
+} from "react";
 import { DEFAULTS, getCurrentSeason } from "./config/defaults";
 // import { useIsMobile } from "./hooks/useIsMobile"; // uncomment when ShowcaseHTML exists
 import GradientBackground from "./components/gradient/GradientBackground";
@@ -7,15 +14,23 @@ import Reticle from "./components/reticle/Reticle";
 import TextOverlay from "./components/text/TextOverlay";
 import MenuOverlay from "./components/menu/MenuOverlay";
 import ChatPanel from "./components/chat/ChatPanel";
-import DebugPanel from "./components/debug/DebugPanel";
-import ShowcaseCanvas from "./components/showcase/ShowcaseCanvas";
 import PrintContent from "./components/print/PrintContent";
 import "./App.css";
 
+// Dev-only: ~1,100 lines of debug UI stripped from production bundle
+const DebugPanel = import.meta.env.DEV
+  ? lazy(() => import("./components/debug/DebugPanel"))
+  : null;
+
+// Lazy-loaded: defers entire R3F ecosystem (fiber, drei, postprocessing,
+// rapier, flex) until the user triggers the showcase via cube hold.
+// The 3.2s transition animation gives ample time for the chunk to load.
+const ShowcaseCanvas = lazy(() =>
+  import("./components/showcase/ShowcaseCanvas")
+);
+
 export default function App() {
   // const isMobile = useIsMobile(768); // uncomment when ShowcaseHTML exists
-  // TODO: create ShowcaseHTML for a lightweight mobile fallback
-  const Showcase = ShowcaseCanvas;
   const [config, setConfig] = useState({ ...DEFAULTS });
   const [debugVisible, setDebugVisible] = useState(false);
   const [birthComplete, setBirthComplete] = useState(false);
@@ -27,8 +42,10 @@ export default function App() {
   const [activeSeason, setActiveSeason] = useState(getCurrentSeason);
   const [showcaseOpen, setShowcaseOpen] = useState(false);
   const [showcaseTransition, setShowcaseTransition] = useState(false);
+  const [showcaseMounted, setShowcaseMounted] = useState(false);
   const showcaseEverTriggered = useRef(false);
   const [showcaseInitSection, setShowcaseInitSection] = useState(0);
+  const showcaseUnmountTimer = useRef(null);
   const configRef = useRef(config);
 
   useEffect(() => {
@@ -60,6 +77,12 @@ export default function App() {
   const handleCubeShowcase = useCallback((section) => {
     showcaseEverTriggered.current = true;
     setShowcaseInitSection(section || 0);
+    // Mount immediately — chunk starts loading during the 3.2s transition
+    if (showcaseUnmountTimer.current) {
+      clearTimeout(showcaseUnmountTimer.current);
+      showcaseUnmountTimer.current = null;
+    }
+    setShowcaseMounted(true);
     setShowcaseTransition(true);
     setTimeout(() => {
       setShowcaseOpen(true);
@@ -69,6 +92,11 @@ export default function App() {
 
   const handleCloseShowcase = useCallback(() => {
     setShowcaseOpen(false);
+    // Keep mounted for 2.5s so the checker-grid close animation can finish
+    showcaseUnmountTimer.current = setTimeout(() => {
+      setShowcaseMounted(false);
+      showcaseUnmountTimer.current = null;
+    }, 2500);
   }, []);
 
   const handleCubeProximity = useCallback((p) => setCubeProximity(p), []);
@@ -82,12 +110,16 @@ export default function App() {
 
   return (
     <div className={`app-root${chatMode ? "" : " hide-cursor"}`}>
-      <Showcase
-        open={showcaseOpen}
-        onClose={handleCloseShowcase}
-        config={config}
-        initialSection={showcaseInitSection}
-      />
+      {showcaseMounted && (
+        <Suspense fallback={null}>
+          <ShowcaseCanvas
+            open={showcaseOpen}
+            onClose={handleCloseShowcase}
+            config={config}
+            initialSection={showcaseInitSection}
+          />
+        </Suspense>
+      )}
 
       <div
         style={{
@@ -162,12 +194,16 @@ export default function App() {
           setTimeout(() => handleCubeShowcase(section), 600);
         }}
       />
-      <DebugPanel
-        config={config}
-        setConfig={setConfig}
-        visible={debugVisible}
-        setVisible={setDebugVisible}
-      />
+      {DebugPanel && (
+        <Suspense fallback={null}>
+          <DebugPanel
+            config={config}
+            setConfig={setConfig}
+            visible={debugVisible}
+            setVisible={setDebugVisible}
+          />
+        </Suspense>
+      )}
       <PrintContent />
     </div>
   );

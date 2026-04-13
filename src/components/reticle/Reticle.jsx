@@ -46,9 +46,13 @@ export default function Reticle({
 
     let raf;
     let frame = 0;
+    let skipFrame = false;
 
     function tick() {
       raf = requestAnimationFrame(tick);
+      // Throttle to ~30fps — proximity smoothing and pill updates are gradual
+      skipFrame = !skipFrame;
+      if (skipFrame) return;
       const smoothing = c.reticleSmoothing || 0.08;
       smoothP.current += (pRef.current - smoothP.current) * smoothing;
       const p = Math.max(0, Math.min(1, smoothP.current));
