@@ -200,6 +200,10 @@ export function createCubeFaceRenderer(canvas) {
       }
       const domVal = domName ? Math.min(1, X[domName] || 0) : 0;
 
+      // Sharp crossfade: narrow overlap zone (~200ms) instead of full 0-1 range
+      // Prevents seeing two ghost faces at once
+      const blend = Math.min(1, Math.max(0, (domVal - 0.15) / 0.2));
+
       // #J — Idle eye drift
       const dX = X._driftX || 0;
       const dY = X._driftY || 0;
@@ -310,11 +314,11 @@ export function createCubeFaceRenderer(canvas) {
         });
       } else {
         // #2 — Expression blending: default base + expression overlay
-        defaultEyes(1 - domVal);
+        defaultEyes(1 - blend);
 
-        if (domVal > 0.01 && domName) {
+        if (blend > 0.01 && domName) {
           sCtx.save();
-          sCtx.globalAlpha = a2 * domVal;
+          sCtx.globalAlpha = a2 * blend;
           if (domName === "love") {
             sCtx.fillStyle = tint;
             [eyeL, eyeR].forEach((eye) => {
@@ -428,7 +432,7 @@ export function createCubeFaceRenderer(canvas) {
               sCtx.arc(eye.x + ox + shyOff, eye.y + oy + 2, 6, 0, Math.PI * 2);
               sCtx.fill();
             });
-            sCtx.globalAlpha = a2 * domVal * 0.15;
+            sCtx.globalAlpha = a2 * blend * 0.15;
             sCtx.fillStyle = "rgba(255,120,120,1)";
             sCtx.beginPath();
             sCtx.ellipse(
@@ -497,7 +501,7 @@ export function createCubeFaceRenderer(canvas) {
             sCtx.arc(eyeR.x + ox, eyeR.y + oy + 1, 3, 0, Math.PI * 2);
             sCtx.fill();
             sCtx.fillStyle = tint;
-            sCtx.globalAlpha = a2 * domVal * 0.4;
+            sCtx.globalAlpha = a2 * blend * 0.4;
             sCtx.beginPath();
             sCtx.ellipse(
               eyeR.x + ox + 14,
@@ -555,11 +559,11 @@ export function createCubeFaceRenderer(canvas) {
         sCtx.stroke();
       } else {
         // #2 — Blend: default mouth base + expression mouth overlay
-        defaultMouth(1 - domVal);
+        defaultMouth(1 - blend);
 
-        if (domVal > 0.01 && domName) {
+        if (blend > 0.01 && domName) {
           sCtx.save();
-          sCtx.globalAlpha = a2 * domVal;
+          sCtx.globalAlpha = a2 * blend;
           sCtx.strokeStyle = tint;
           sCtx.lineCap = "round";
           sCtx.beginPath();
@@ -575,7 +579,7 @@ export function createCubeFaceRenderer(canvas) {
             sCtx.stroke();
             sCtx.beginPath();
             sCtx.fillStyle = tint;
-            sCtx.globalAlpha = a2 * domVal * 0.35;
+            sCtx.globalAlpha = a2 * blend * 0.35;
             sCtx.ellipse(fx + ox, fy + 24 + oy, 10, 8, 0, 0, Math.PI);
             sCtx.fill();
             sCtx.beginPath();
@@ -704,7 +708,7 @@ export function createCubeFaceRenderer(canvas) {
   waveGlowCv.height = 256;
   let waveGlowColor = "";
 
-  function drawWaveLayer(time, alpha, colors, lookX, lookY) {
+  function drawWaveLayer(time, alpha, colors) {
     sCtx.save();
     sCtx.globalAlpha = alpha;
 
@@ -730,24 +734,9 @@ export function createCubeFaceRenderer(canvas) {
     }
     sCtx.drawImage(waveGlowCv, 0, 0);
 
-    // ── Eyes above the bars ──
-    const lx = (lookX || 0) * 8;
-    const ly = (lookY || 0) * -5;
-    const eyeY = smCy - 38;
-    const eyeSpacing = 22;
-    const eyeSize = 7;
-    const fc = cols[0];
-    sCtx.fillStyle = `rgba(${fc.r},${fc.g},${fc.b},0.85)`;
-    sCtx.beginPath();
-    sCtx.arc(smCx - eyeSpacing + lx, eyeY + ly, eyeSize, 0, Math.PI * 2);
-    sCtx.fill();
-    sCtx.beginPath();
-    sCtx.arc(smCx + eyeSpacing + lx, eyeY + ly, eyeSize, 0, Math.PI * 2);
-    sCtx.fill();
-
-    // ── Bars (mouth) ──
-    const totalW = 110;
-    const barW = totalW / BAR_COUNT - 2;
+    // ── Bars ──
+    const totalW = 100;
+    const barW = totalW / BAR_COUNT - 4;
     const startX = smCx - totalW / 2;
 
     for (let i = 0; i < BAR_COUNT; i++) {
@@ -761,17 +750,17 @@ export function createCubeFaceRenderer(canvas) {
       const h3 = Math.cos(time * barSpeeds[i] * 0.5 + i);
       const height = (h1 * 0.5 + h2 * 0.3 + h3 * 0.2) * 55 + 8;
       const x = startX + (totalW / BAR_COUNT) * i;
-      const barY = smCy - height / 2 + 10;
+      const barY = smCy - height / 2;
       const r = barW / 2;
 
-      // Soft glow behind bar (replaces shadowBlur)
-      sCtx.fillStyle = `rgba(${col.r},${col.g},${col.b},0.08)`;
+      // Soft glow behind bar
+      sCtx.fillStyle = `rgba(${col.r},${col.g},${col.b},0.06)`;
       sCtx.beginPath();
-      sCtx.roundRect(x - 3, barY - 3, barW + 6, height + 6, r + 3);
+      sCtx.roundRect(x - 2, barY - 2, barW + 4, height + 4, r + 2);
       sCtx.fill();
 
       // Main bar
-      sCtx.fillStyle = `rgba(${col.r},${col.g},${col.b},0.7)`;
+      sCtx.fillStyle = `rgba(${col.r},${col.g},${col.b},0.6)`;
       sCtx.beginPath();
       sCtx.roundRect(x, barY, barW, height, r);
       sCtx.fill();
@@ -812,7 +801,7 @@ export function createCubeFaceRenderer(canvas) {
         blink,
         ex
       );
-    if (waveAlpha > 0.01) drawWaveLayer(time, waveAlpha, colors, lookX, lookY);
+    if (waveAlpha > 0.01) drawWaveLayer(time, waveAlpha, colors);
     // Gold sparkles persist across both face and wave modes
     drawGoldSparkles(time, colors);
 

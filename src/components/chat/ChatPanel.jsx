@@ -176,7 +176,6 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
   const [typing, setTyping] = useState(false);
   const [streamingText, setStreamingText] = useState(null);
   const [showHelp, setShowHelp] = useState(false);
-  const [revealedMsgs, setRevealedMsgs] = useState(new Set([0]));
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
   const historyRef = useRef(persistedHistory);
@@ -319,13 +318,6 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
         behavior: "smooth",
       });
   }, [messages, typing, streamingText]);
-  useEffect(() => {
-    const t = setTimeout(
-      () => setRevealedMsgs(new Set(messages.map((_, i) => i))),
-      50
-    );
-    return () => clearTimeout(t);
-  }, [messages]);
 
   const sendMessage = useCallback(
     async (text) => {
@@ -506,31 +498,27 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
             }`}
           >
             <div className="chat-panel__spacer" />
-            {messages.map((m, i) => {
-              const isNew = !revealedMsgs.has(i);
-              return (
-                <div key={i}>
-                  {m.role === "assistant" ? (
-                    <div className="chat-panel__assistant-msg">
-                      {(() => {
-                        const lines = splitIntoLines(m.text);
-                        return lines.map((line, li) => (
-                          <AmbientLine
-                            key={li}
-                            text={line}
-                            index={li}
-                            total={lines.length}
-                            isNew={isNew}
-                          />
-                        ));
-                      })()}
-                    </div>
-                  ) : (
-                    <UserPill text={m.text} />
-                  )}
-                </div>
-              );
-            })}
+            {messages.map((m, i) => (
+              <div key={i}>
+                {m.role === "assistant" ? (
+                  <div className="chat-panel__assistant-msg">
+                    {(() => {
+                      const lines = splitIntoLines(m.text);
+                      return lines.map((line, li) => (
+                        <AmbientLine
+                          key={li}
+                          text={line}
+                          index={li}
+                          total={lines.length}
+                        />
+                      ));
+                    })()}
+                  </div>
+                ) : (
+                  <UserPill text={m.text} />
+                )}
+              </div>
+            ))}
             {streamingText != null && streamingText.length > 0 && (
               <div className="chat-panel__assistant-msg">
                 {(() => {
@@ -541,7 +529,6 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
                       text={line}
                       index={li}
                       total={lines.length}
-                      isNew={false}
                     />
                   ));
                 })()}

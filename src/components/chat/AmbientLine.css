@@ -1,0 +1,18 @@
+.ambient-line {
+  font-family: "Inter", -apple-system, sans-serif;
+  font-weight: 200;
+  letter-spacing: 0.01em;
+  line-height: 1.45;
+  padding: 2px 0;
+}
+
+@keyframes ambLineIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
