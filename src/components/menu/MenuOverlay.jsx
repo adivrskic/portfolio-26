@@ -8,6 +8,7 @@ import { FONT_FAMILY } from "../../constants/style";
 
 const F = FONT_FAMILY;
 import { THEMES } from "../../constants/themes";
+import { checkerReveal, checkerDissolve } from "../../utils/checkerTransition";
 import "./MenuOverlay.css";
 import ThemeCard from "./ThemeCard";
 import MenuAbout from "./MenuAbout";
@@ -35,6 +36,7 @@ export default function MenuOverlay({
   const stgRef = useRef(null);
   const tlRef = useRef(null);
   const sectionTlRef = useRef(null);
+  const checkerRef = useRef(null);
   const elRefs = useRef([]);
   const ir = (i) => (el) => {
     elRefs.current[i] = el;
@@ -79,63 +81,100 @@ export default function MenuOverlay({
       const nmr = nameRightRef.current;
       const els = elRefs.current.filter(Boolean);
       if (tlRef.current) tlRef.current.kill();
-      const tl = gsap.timeline({ onReverseComplete: () => setMounted(false) });
-      tlRef.current = tl;
+      if (checkerRef.current) {
+        checkerRef.current();
+        checkerRef.current = null;
+      }
+
+      const panelBg = `rgba(232,232,238,${c.menuBgOpacity ?? 0.85})`;
+      const panelBlurPx = c.menuBlur ?? 28;
+      const panelBlur = `blur(${panelBlurPx}px) saturate(1.15)`;
+
       if (open) {
-        tl.set(p, { visibility: "visible", pointerEvents: "auto" });
-        if (lp)
-          tl.fromTo(
-            lp,
-            { clipPath: "inset(0 0 0 100%)" },
-            {
-              clipPath: "inset(0 0 0 0%)",
-              duration: 0.9,
-              ease: "power3.inOut",
-            },
-            0
-          );
-        if (rp)
-          tl.fromTo(
-            rp,
-            { clipPath: "inset(0 100% 0 0)" },
-            {
-              clipPath: "inset(0 0% 0 0)",
-              duration: 0.9,
-              ease: "power3.inOut",
-            },
-            0.08
-          );
-        if (cb)
-          tl.fromTo(
-            cb,
-            { scale: 0, opacity: 0 },
-            { scale: 1, opacity: 1, duration: 0.5, ease: "back.out(2)" },
-            0.6
-          );
-        if (nm)
-          tl.fromTo(
-            nm,
-            { opacity: 0, y: -10, scale: 0.97 },
-            { opacity: 1, y: 0, scale: 1, duration: 0.9, ease: "power2.out" },
-            0.5
-          );
-        if (nmr)
-          tl.fromTo(
-            nmr,
-            { opacity: 0, y: -10, scale: 0.97 },
-            { opacity: 1, y: 0, scale: 1, duration: 0.9, ease: "power2.out" },
-            0.5
-          );
-        els.forEach((el, i) => {
-          tl.fromTo(
-            el,
-            { opacity: 0, y: 16 },
-            { opacity: 1, y: 0, duration: 0.8, ease: "power2.out" },
-            0.55 + i * 0.12
-          );
+        gsap.set(p, { visibility: "visible", pointerEvents: "auto" });
+        [lp, rp].forEach((panel) => {
+          if (!panel) return;
+          panel.style.background = "transparent";
+          panel.style.backdropFilter = "none";
+          panel.style.WebkitBackdropFilter = "none";
+          gsap.set(panel, { opacity: 1, clipPath: "none" });
         });
-        tl.call(() => animateContentIn(), [], 0.8);
+        if (cb) gsap.set(cb, { scale: 0, opacity: 0 });
+        if (nm) gsap.set(nm, { opacity: 0, y: -10 });
+        if (nmr) gsap.set(nmr, { opacity: 0, y: -10 });
+        els.forEach((el) => gsap.set(el, { opacity: 0, y: 16 }));
+
+        const cleanups = [];
+        let done = 0;
+        const totalPanels = (lp ? 1 : 0) + (rp ? 1 : 0);
+        const onPanelDone = () => {
+          if (++done < totalPanels) return;
+          checkerRef.current = null;
+          // Swap tiles for real panel bg (seamless)
+          cleanups.forEach((fn) => fn());
+          [lp, rp].forEach((panel) => {
+            if (!panel) return;
+            panel.style.background = panelBg;
+            panel.style.backdropFilter = panelBlur;
+            panel.style.WebkitBackdropFilter = panelBlur;
+          });
+        };
+
+        if (lp) {
+          const ck = checkerReveal(lp, {
+            color: panelBg,
+            blur: panelBlurPx,
+            maxDelay: 250,
+            onComplete: onPanelDone,
+          });
+          cleanups.push(ck.cleanup);
+        }
+        if (rp) {
+          const ck = checkerReveal(rp, {
+            color: panelBg,
+            blur: panelBlurPx,
+            maxDelay: 250,
+            onComplete: onPanelDone,
+          });
+          cleanups.push(ck.cleanup);
+        }
+        checkerRef.current = () => cleanups.forEach((fn) => fn());
+
+        // Content fades in overlapping the last tiles
+        setTimeout(() => {
+          const tl = gsap.timeline();
+          tlRef.current = tl;
+          if (cb)
+            tl.to(
+              cb,
+              { scale: 1, opacity: 1, duration: 0.35, ease: "back.out(2)" },
+              0
+            );
+          if (nm)
+            tl.to(
+              nm,
+              { opacity: 1, y: 0, scale: 1, duration: 0.4, ease: "power2.out" },
+              0
+            );
+          if (nmr)
+            tl.to(
+              nmr,
+              { opacity: 1, y: 0, scale: 1, duration: 0.4, ease: "power2.out" },
+              0
+            );
+          els.forEach((el, i) => {
+            tl.to(
+              el,
+              { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" },
+              0.04 + i * 0.06
+            );
+          });
+          tl.call(() => animateContentIn(), [], 0.25);
+        }, 450);
       } else {
+        // Fade out content
+        const tl = gsap.timeline();
+        tlRef.current = tl;
         if (stgRef.current) {
           const kids = stgRef.current.querySelectorAll("[data-stg]");
           tl.to(
@@ -144,7 +183,7 @@ export default function MenuOverlay({
               opacity: 0,
               y: -8,
               duration: 0.15,
-              stagger: 0.015,
+              stagger: 0.01,
               ease: "power2.in",
             },
             0
@@ -154,60 +193,60 @@ export default function MenuOverlay({
           tl.to(
             el,
             { opacity: 0, y: -8, duration: 0.15, ease: "power2.in" },
-            0.04 + i * 0.015
+            0.02 + i * 0.01
           );
         });
         if (nm)
-          tl.to(
-            nm,
-            {
-              opacity: 0,
-              y: -6,
-              scale: 0.98,
-              duration: 0.15,
-              ease: "power2.in",
-            },
-            0.02
-          );
+          tl.to(nm, { opacity: 0, duration: 0.15, ease: "power2.in" }, 0.02);
         if (nmr)
-          tl.to(
-            nmr,
-            {
-              opacity: 0,
-              y: -6,
-              scale: 0.98,
-              duration: 0.15,
-              ease: "power2.in",
-            },
-            0.02
-          );
+          tl.to(nmr, { opacity: 0, duration: 0.15, ease: "power2.in" }, 0.02);
         if (cb)
           tl.to(
             cb,
-            { scale: 0, opacity: 0, duration: 0.2, ease: "power2.in" },
-            0.05
+            { scale: 0, opacity: 0, duration: 0.15, ease: "power2.in" },
+            0
           );
-        if (lp)
-          tl.to(
-            lp,
-            {
-              clipPath: "inset(0 0 0 100%)",
-              duration: 0.55,
-              ease: "power3.inOut",
-            },
-            0.15
-          );
-        if (rp)
-          tl.to(
-            rp,
-            {
-              clipPath: "inset(0 100% 0 0)",
-              duration: 0.55,
-              ease: "power3.inOut",
-            },
-            0.18
-          );
-        tl.set(p, { visibility: "hidden", pointerEvents: "none" });
+        // Glass tiles appear, panel bg strips, tiles dissolve out
+        tl.call(
+          () => {
+            const cleanups = [];
+            let done = 0;
+            const totalPanels = (lp ? 1 : 0) + (rp ? 1 : 0);
+            const onPanelDone = () => {
+              if (++done < totalPanels) return;
+              checkerRef.current = null;
+              gsap.set(p, { visibility: "hidden", pointerEvents: "none" });
+              setMounted(false);
+            };
+            if (lp) {
+              const ck = checkerDissolve(lp, {
+                color: panelBg,
+                blur: panelBlurPx,
+                maxDelay: 250,
+                onComplete: onPanelDone,
+              });
+              cleanups.push(ck.cleanup);
+            }
+            if (rp) {
+              const ck = checkerDissolve(rp, {
+                color: panelBg,
+                blur: panelBlurPx,
+                maxDelay: 250,
+                onComplete: onPanelDone,
+              });
+              cleanups.push(ck.cleanup);
+            }
+            [lp, rp].forEach((panel) => {
+              if (!panel) return;
+              panel.style.background = "transparent";
+              panel.style.backdropFilter = "none";
+              panel.style.WebkitBackdropFilter = "none";
+            });
+            checkerRef.current = () => cleanups.forEach((fn) => fn());
+          },
+          [],
+          0.2
+        );
       }
     });
     return () => cancelAnimationFrame(frame);

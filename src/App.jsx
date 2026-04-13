@@ -194,7 +194,7 @@ export default function App() {
           setTimeout(() => handleCubeShowcase(section), 600);
         }}
       />
-      {DebugPanel && (
+      {/* {DebugPanel && (
         <Suspense fallback={null}>
           <DebugPanel
             config={config}
@@ -203,7 +203,7 @@ export default function App() {
             setVisible={setDebugVisible}
           />
         </Suspense>
-      )}
+      )} */}
       <PrintContent />
     </div>
   );

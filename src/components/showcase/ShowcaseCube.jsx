@@ -45,7 +45,11 @@ export default function ShowcaseCube() {
         const projIdx = sec - 1;
         const sectionCenterY = -(L.heroH + projIdx * L.sectionH);
         const panels = state.panels && state.panels[projIdx];
-        const targetX = panels ? panels.seamX : 0;
+        // L.cube.centerX tweaks the horizontal centering (viewport-relative, flips for alternating layouts)
+        const flipSign = projIdx % 2 === 1 ? -1 : 1;
+        const targetX = panels
+          ? panels.seamX + L.cube.centerX * vw * flipSign
+          : 0;
         const targetY = sectionCenterY + (panels?.forkY || vh * 0.04);
         return { x: targetX, y: targetY, scale: 0.25 };
       } else {

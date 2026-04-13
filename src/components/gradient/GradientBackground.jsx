@@ -18,6 +18,7 @@ export default function GradientBackground({
   configRef.current = c;
   const blobsRef = useRef(null);
   const glitterRef = useRef([]);
+  const blobTexDirtyRef = useRef(false);
 
   useEffect(() => {
     if (onCanvasReady && canvasRef.current) onCanvasReady(canvasRef.current);
@@ -39,6 +40,7 @@ export default function GradientBackground({
       blob.sat = Math.min(100, tc[1] + rand(-8, 8));
       blob.lit = Math.min(80, Math.max(25, tc[2] + rand(-8, 8)));
     });
+    blobTexDirtyRef.current = true;
   }, [c.gradColor1, c.gradColor2, c.gradColor3, c.gradColor4]);
 
   useEffect(() => {
@@ -173,8 +175,52 @@ export default function GradientBackground({
     }
     blobsRef.current = blobs;
 
+    // ── Pre-rendered blob textures ──
+    // Each blob gets a small offscreen canvas with its radial gradient baked in.
+    // Per frame we drawImage with transforms (GPU-accelerated) instead of
+    // calling createRadialGradient + addColorStop + rgba string interpolation.
+    const BLOB_TEX_SIZE = 128;
+    const blobTextures = blobs.map(() => {
+      const cv = document.createElement("canvas");
+      cv.width = BLOB_TEX_SIZE;
+      cv.height = BLOB_TEX_SIZE;
+      return cv;
+    });
+
+    function renderBlobTexture(idx) {
+      const blob = blobs[idx];
+      const cv = blobTextures[idx];
+      const btx = cv.getContext("2d");
+      const cx = BLOB_TEX_SIZE / 2;
+      const hue = (blob.baseHue + blob.hueVar + blob._hueOsc + 360) % 360;
+      const [r, g, b] = hslToRgb(hue, blob.sat, blob.lit);
+      // Skip if color hasn't actually changed
+      if (r === blob._texR && g === blob._texG && b === blob._texB) return;
+      btx.clearRect(0, 0, BLOB_TEX_SIZE, BLOB_TEX_SIZE);
+      const grad = btx.createRadialGradient(cx, cx, 0, cx, cx, cx);
+      grad.addColorStop(0, `rgba(${r},${g},${b},${blob.alpha})`);
+      grad.addColorStop(0.3, `rgba(${r},${g},${b},${blob.alpha * 0.6})`);
+      grad.addColorStop(0.6, `rgba(${r},${g},${b},${blob.alpha * 0.15})`);
+      grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+      btx.fillStyle = grad;
+      btx.fillRect(0, 0, BLOB_TEX_SIZE, BLOB_TEX_SIZE);
+      blob._texR = r;
+      blob._texG = g;
+      blob._texB = b;
+    }
+
+    // Initial texture render
+    blobs.forEach((blob) => {
+      blob._hueOsc = 0;
+      blob._texR = -1;
+      blob._texG = -1;
+      blob._texB = -1;
+    });
+    blobs.forEach((_, i) => renderBlobTexture(i));
+    let blobTexFrame = 0;
+
     // Glitter trail system (for gold theme) — spawns at cursor, drifts outward, fades
-    const GLITTER_MAX = 800; // pool ceiling, actual count from config
+    const GLITTER_MAX = 300;
     const glitterTrail = [];
     for (let i = 0; i < GLITTER_MAX; i++) {
       glitterTrail.push({
@@ -193,7 +239,126 @@ export default function GradientBackground({
       });
     }
     let glitterHead = 0;
+    let glitterAlive = 0; // fast path — skip rendering when 0
     glitterRef.current = { trail: glitterTrail, head: glitterHead };
+
+    // ── Pre-rendered gold particle textures ──
+    // Replaces per-particle canvas path ops (save/translate/rotate/beginPath/
+    // quadraticCurveTo/fill/restore) with a single drawImage per particle.
+    const GOLD_TONES = [
+      [255, 215, 0],
+      [255, 200, 80],
+      [255, 230, 120],
+      [255, 252, 230],
+      [218, 165, 32],
+    ];
+    const PTEX = 64;
+    const PTEX_HALF = PTEX / 2;
+
+    function makeParticleCanvas() {
+      const cv = document.createElement("canvas");
+      cv.width = PTEX;
+      cv.height = PTEX;
+      return cv;
+    }
+
+    // Star shape (shape 0) — per tone
+    const starTextures = GOLD_TONES.map(([r, g, b]) => {
+      const cv = makeParticleCanvas();
+      const pc = cv.getContext("2d");
+      const arm = PTEX_HALF * 0.85;
+      const w = PTEX_HALF * 0.06;
+      pc.fillStyle = `rgb(${r},${g},${b})`;
+      pc.beginPath();
+      pc.moveTo(PTEX_HALF - arm, PTEX_HALF);
+      pc.quadraticCurveTo(PTEX_HALF, PTEX_HALF - w, PTEX_HALF + arm, PTEX_HALF);
+      pc.quadraticCurveTo(PTEX_HALF, PTEX_HALF + w, PTEX_HALF - arm, PTEX_HALF);
+      pc.fill();
+      pc.beginPath();
+      pc.moveTo(PTEX_HALF, PTEX_HALF - arm);
+      pc.quadraticCurveTo(PTEX_HALF - w, PTEX_HALF, PTEX_HALF, PTEX_HALF + arm);
+      pc.quadraticCurveTo(PTEX_HALF + w, PTEX_HALF, PTEX_HALF, PTEX_HALF - arm);
+      pc.fill();
+      pc.beginPath();
+      pc.arc(PTEX_HALF, PTEX_HALF, PTEX_HALF * 0.12, 0, Math.PI * 2);
+      pc.fillStyle = "rgba(255,255,240,0.9)";
+      pc.fill();
+      return cv;
+    });
+
+    // Diamond shape (shape 1) — per tone
+    const diamondTextures = GOLD_TONES.map(([r, g, b]) => {
+      const cv = makeParticleCanvas();
+      const pc = cv.getContext("2d");
+      const d = PTEX_HALF * 0.85;
+      pc.fillStyle = `rgb(${r},${g},${b})`;
+      pc.beginPath();
+      pc.moveTo(PTEX_HALF, PTEX_HALF - d);
+      pc.lineTo(PTEX_HALF + d * 0.35, PTEX_HALF);
+      pc.lineTo(PTEX_HALF, PTEX_HALF + d);
+      pc.lineTo(PTEX_HALF - d * 0.35, PTEX_HALF);
+      pc.closePath();
+      pc.fill();
+      return cv;
+    });
+
+    // Glow dot (shape 2) — per tone (replaces per-particle createRadialGradient)
+    const glowTextures = GOLD_TONES.map(([r, g, b]) => {
+      const cv = makeParticleCanvas();
+      const pc = cv.getContext("2d");
+      const grd = pc.createRadialGradient(
+        PTEX_HALF,
+        PTEX_HALF,
+        0,
+        PTEX_HALF,
+        PTEX_HALF,
+        PTEX_HALF
+      );
+      grd.addColorStop(0, `rgb(${r},${g},${b})`);
+      grd.addColorStop(0.4, `rgba(${r},${g},${b},0.35)`);
+      grd.addColorStop(1, `rgba(${r},${g},${b},0)`);
+      pc.fillStyle = grd;
+      pc.fillRect(0, 0, PTEX, PTEX);
+      return cv;
+    });
+
+    // Halo texture — single warm glow (replaces per-particle createRadialGradient)
+    const haloTex = (() => {
+      const cv = makeParticleCanvas();
+      const pc = cv.getContext("2d");
+      const grd = pc.createRadialGradient(
+        PTEX_HALF,
+        PTEX_HALF,
+        0,
+        PTEX_HALF,
+        PTEX_HALF,
+        PTEX_HALF
+      );
+      grd.addColorStop(0, "rgba(255,230,150,1)");
+      grd.addColorStop(1, "rgba(255,215,0,0)");
+      pc.fillStyle = grd;
+      pc.fillRect(0, 0, PTEX, PTEX);
+      return cv;
+    })();
+
+    // Cursor glow texture — golden aura
+    const GLOW_TEX = 128;
+    const cursorGlowTex = (() => {
+      const cv = document.createElement("canvas");
+      cv.width = GLOW_TEX;
+      cv.height = GLOW_TEX;
+      const pc = cv.getContext("2d");
+      const cx = GLOW_TEX / 2;
+      const grd = pc.createRadialGradient(cx, cx, 0, cx, cx, cx);
+      grd.addColorStop(0, "rgba(255,220,100,0.15)");
+      grd.addColorStop(0.4, "rgba(255,200,50,0.06)");
+      grd.addColorStop(1, "rgba(255,180,0,0)");
+      pc.fillStyle = grd;
+      pc.fillRect(0, 0, GLOW_TEX, GLOW_TEX);
+      return cv;
+    })();
+
+    const shapeLookup = [starTextures, diamondTextures, glowTextures];
 
     let raf;
     let skipFrame = false;
@@ -266,7 +431,7 @@ export default function GradientBackground({
       prevX = smooth.x;
       prevY = smooth.y;
 
-      // ── Blob gradients ──
+      // ── Blob gradients (texture-cached) ──
       const time = performance.now() * 0.001 * (cc.gradSpeed || 0.07);
       const rawTime = performance.now() * 0.001;
       const dim = Math.max(W, H);
@@ -275,67 +440,60 @@ export default function GradientBackground({
       ctx.fillStyle = "#080810";
       ctx.fillRect(0, 0, W, H);
 
+      // Update blob textures periodically for hue oscillation (~3×/sec at 30fps)
+      // or immediately when theme changes (blobTexDirtyRef)
+      blobTexFrame++;
+      const refreshTex = blobTexDirtyRef.current || blobTexFrame % 10 === 0;
+      if (blobTexDirtyRef.current) blobTexDirtyRef.current = false;
+
       ctx.globalCompositeOperation = "screen";
       const currentBlobs = blobsRef.current || [];
-      for (const blob of currentBlobs) {
+      for (let i = 0; i < currentBlobs.length; i++) {
+        const blob = currentBlobs[i];
         const bx =
           W * (blob.x + Math.sin(time * blob.spdX + blob.phX) * blob.ampX);
         const by =
           H * (blob.y + Math.cos(time * blob.spdY + blob.phY) * blob.ampY);
         const br = dim * blob.r;
-        const hue =
-          (blob.baseHue +
-            blob.hueVar +
-            Math.sin(rawTime * blob.hueOscSpeed) * blob.hueOscAmp +
-            360) %
-          360;
-        const [r, g, b] = hslToRgb(hue, blob.sat, blob.lit);
         const rot = blob.rotation + rawTime * blob.rotSpeed;
+
+        if (refreshTex) {
+          blob._hueOsc = Math.sin(rawTime * blob.hueOscSpeed) * blob.hueOscAmp;
+          renderBlobTexture(i);
+        }
 
         ctx.save();
         ctx.translate(bx, by);
         ctx.rotate(rot);
         ctx.scale(blob.scaleX, blob.scaleY);
-        const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, br);
-        grad.addColorStop(0, `rgba(${r},${g},${b},${blob.alpha})`);
-        grad.addColorStop(0.3, `rgba(${r},${g},${b},${blob.alpha * 0.6})`);
-        grad.addColorStop(0.6, `rgba(${r},${g},${b},${blob.alpha * 0.15})`);
-        grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
-        ctx.fillStyle = grad;
-        ctx.fillRect(-br, -br, br * 2, br * 2);
+        ctx.drawImage(blobTextures[i], -br, -br, br * 2, br * 2);
         ctx.restore();
       }
 
-      // ── Gold glitter trail — spawns at cursor, stays in place, fades out ──
+      // ── Gold glitter trail — texture-cached rendering ──
       const isGold = (cc.gradColor1 || "").toLowerCase() === "#b8860b";
       if (!IS_MOBILE && isGold && glitterRef.current) {
         const gt = glitterRef.current;
         const trail = gt.trail;
-        const GOLD_TONES = [
-          [255, 215, 0],
-          [255, 200, 80],
-          [255, 230, 120],
-          [255, 252, 230],
-          [218, 165, 32],
-        ];
 
-        // Spawn new particles along cursor path — config-driven
+        // Spawn new particles along cursor path
         const gSpread = cc.glitterSpread || 24;
         const gSzMin = cc.glitterSizeMin || 0.4;
         const gSzMax = cc.glitterSizeMax || 2.0;
-        const gLifeMin = cc.glitterLifetimeMin || 3;
-        const gLifeMax = cc.glitterLifetimeMax || 8;
+        const gLifeMin = cc.glitterLifetimeMin || 4;
+        const gLifeMax = cc.glitterLifetimeMax || 10;
         const gDriftMin = cc.glitterDriftMin || 8;
         const gDriftMax = cc.glitterDriftMax || 25;
-        const gSpawnMax = cc.glitterSpawnRate || 20;
-        const gPoolMax = cc.glitterCount || 600;
+        const gSpawnMax = cc.glitterSpawnRate || 12;
+        const gPoolMax = Math.min(cc.glitterCount || 200, GLITTER_MAX);
         const gFadeExp = cc.glitterFadeExp || 0.8;
 
         if (cursorActive && cursorMoved > 0.5) {
           const spawnCount = Math.min(gSpawnMax, Math.ceil(cursorMoved));
           for (let s = 0; s < spawnCount; s++) {
             const t = s / spawnCount;
-            const p = trail[gt.head % Math.min(trail.length, gPoolMax)];
+            const p = trail[gt.head % gPoolMax];
+            if (!p.alive) glitterAlive++;
             p.x =
               smooth.x - cursorDx * (1 - t) + (Math.random() - 0.5) * gSpread;
             p.y =
@@ -356,7 +514,8 @@ export default function GradientBackground({
 
         // Ambient sparkles when cursor is still
         if (cursorActive && Math.random() < (cc.glitterIdleRate || 0.5)) {
-          const p = trail[gt.head % Math.min(trail.length, gPoolMax)];
+          const p = trail[gt.head % gPoolMax];
+          if (!p.alive) glitterAlive++;
           p.x = smooth.x + (Math.random() - 0.5) * gSpread * 1.6;
           p.y = smooth.y + (Math.random() - 0.5) * gSpread * 1.6;
           p.alive = true;
@@ -372,116 +531,73 @@ export default function GradientBackground({
           gt.head++;
         }
 
-        // Render all alive particles
-        for (const p of trail) {
-          if (!p.alive) continue;
-          const age = rawTime - p.birth;
-          if (age > p.lifetime) {
-            p.alive = false;
-            continue;
+        // Render alive particles using pre-rendered textures
+        if (glitterAlive > 0) {
+          const limit = Math.min(trail.length, gPoolMax);
+          for (let i = 0; i < limit; i++) {
+            const p = trail[i];
+            if (!p.alive) continue;
+            const age = rawTime - p.birth;
+            if (age > p.lifetime) {
+              p.alive = false;
+              glitterAlive--;
+              continue;
+            }
+
+            const drift = age * (p.driftSpeed || 0);
+            const px = p.x + Math.cos(p.driftAngle || 0) * drift;
+            const py = p.y + Math.sin(p.driftAngle || 0) * drift;
+
+            const life = age / p.lifetime;
+            const fade =
+              life < 0.05 ? life / 0.05 : Math.pow(1 - life, gFadeExp);
+            const sparkle = Math.pow(
+              Math.sin(rawTime * p.speed + p.phase) * 0.5 + 0.5,
+              2.5
+            );
+            const a = fade * (0.3 + sparkle * 0.7);
+            if (a < 0.02) continue;
+
+            const sz = p.size * (0.5 + sparkle * 0.5) * (0.7 + fade * 0.3);
+            const tex = shapeLookup[p.shape % 3][p.tone % 5];
+            const drawR = sz * 2;
+
+            if (p.shape === 0 || p.shape === 1) {
+              // Star/diamond — needs rotation
+              ctx.save();
+              ctx.globalAlpha = a;
+              ctx.translate(px, py);
+              ctx.rotate(p.phase + rawTime * (p.shape === 0 ? 0.15 : 0.3));
+              ctx.drawImage(tex, -drawR, -drawR, drawR * 2, drawR * 2);
+              ctx.restore();
+            } else {
+              // Glow dot — no rotation needed
+              ctx.globalAlpha = a;
+              ctx.drawImage(tex, px - drawR, py - drawR, drawR * 2, drawR * 2);
+            }
+
+            // Halo on bright particles
+            if (a > 0.5) {
+              const hR = sz * 3;
+              ctx.globalAlpha = (a - 0.5) * 0.15;
+              ctx.drawImage(haloTex, px - hR, py - hR, hR * 2, hR * 2);
+            }
           }
-
-          // Outward drift from spawn point
-          const drift = age * (p.driftSpeed || 0);
-          const px = p.x + Math.cos(p.driftAngle || 0) * drift;
-          const py = p.y + Math.sin(p.driftAngle || 0) * drift;
-
-          // Slow fade: quick flash in, very gradual fade out
-          const life = age / p.lifetime;
-          const fade = life < 0.05 ? life / 0.05 : Math.pow(1 - life, gFadeExp);
-          const sparkle = Math.pow(
-            Math.sin(rawTime * p.speed + p.phase) * 0.5 + 0.5,
-            2.5
-          );
-          const a = fade * (0.3 + sparkle * 0.7);
-          if (a < 0.02) continue;
-
-          const [gr, gg, gb] = GOLD_TONES[p.tone % GOLD_TONES.length];
-          const sz = p.size * (0.5 + sparkle * 0.5) * (0.7 + fade * 0.3);
-
-          if (p.shape === 0) {
-            // 4-point star
-            const armLen = sz * 2;
-            const armW = sz * 0.15;
-            ctx.save();
-            ctx.translate(px, py);
-            ctx.rotate(p.phase + rawTime * 0.15);
-            ctx.fillStyle = `rgba(${gr},${gg},${gb},${a})`;
-            ctx.beginPath();
-            ctx.moveTo(-armLen, 0);
-            ctx.quadraticCurveTo(0, -armW, armLen, 0);
-            ctx.quadraticCurveTo(0, armW, -armLen, 0);
-            ctx.fill();
-            ctx.beginPath();
-            ctx.moveTo(0, -armLen);
-            ctx.quadraticCurveTo(-armW, 0, 0, armLen);
-            ctx.quadraticCurveTo(armW, 0, 0, -armLen);
-            ctx.fill();
-            ctx.beginPath();
-            ctx.arc(0, 0, sz * 0.3, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(255,255,240,${a * 0.9})`;
-            ctx.fill();
-            ctx.restore();
-          } else if (p.shape === 1) {
-            // Diamond
-            ctx.save();
-            ctx.translate(px, py);
-            ctx.rotate(p.phase + rawTime * 0.3);
-            const ds = sz * 1.2;
-            ctx.fillStyle = `rgba(${gr},${gg},${gb},${a * 0.9})`;
-            ctx.beginPath();
-            ctx.moveTo(0, -ds);
-            ctx.lineTo(ds * 0.35, 0);
-            ctx.lineTo(0, ds);
-            ctx.lineTo(-ds * 0.35, 0);
-            ctx.closePath();
-            ctx.fill();
-            ctx.restore();
-          } else {
-            // Soft glow dot
-            const grd = ctx.createRadialGradient(px, py, 0, px, py, sz * 1.8);
-            grd.addColorStop(0, `rgba(${gr},${gg},${gb},${a})`);
-            grd.addColorStop(0.4, `rgba(${gr},${gg},${gb},${a * 0.35})`);
-            grd.addColorStop(1, `rgba(${gr},${gg},${gb},0)`);
-            ctx.fillStyle = grd;
-            ctx.fillRect(px - sz * 1.8, py - sz * 1.8, sz * 3.6, sz * 3.6);
-          }
-
-          // Subtle halo on bright particles
-          if (a > 0.5) {
-            const hR = sz * 3;
-            const hGrd = ctx.createRadialGradient(px, py, 0, px, py, hR);
-            hGrd.addColorStop(0, `rgba(255,230,150,${(a - 0.5) * 0.15})`);
-            hGrd.addColorStop(1, `rgba(255,215,0,0)`);
-            ctx.fillStyle = hGrd;
-            ctx.fillRect(px - hR, py - hR, hR * 2, hR * 2);
-          }
+          ctx.globalAlpha = 1;
         }
 
-        // ── Warm cursor glow — always visible while brushing in gold ──
+        // Warm cursor glow — pre-rendered texture
         if (cursorActive) {
-          // Soft golden aura around cursor
           const glowR = 50 + Math.sin(rawTime * 2) * 10;
-          const cGrd = ctx.createRadialGradient(
-            smooth.x,
-            smooth.y,
-            0,
-            smooth.x,
-            smooth.y,
-            glowR
-          );
-          cGrd.addColorStop(0, "rgba(255,220,100,0.15)");
-          cGrd.addColorStop(0.4, "rgba(255,200,50,0.06)");
-          cGrd.addColorStop(1, "rgba(255,180,0,0)");
-          ctx.fillStyle = cGrd;
-          ctx.fillRect(
+          ctx.drawImage(
+            cursorGlowTex,
             smooth.x - glowR,
             smooth.y - glowR,
             glowR * 2,
             glowR * 2
           );
 
-          // Orbiting sparkle ring
+          // Orbiting sparkle ring — using star texture
           for (let i = 0; i < 8; i++) {
             const ang = (i / 8) * Math.PI * 2 + rawTime * 1.8;
             const orbitR = 18 + Math.sin(rawTime * 3 + i * 1.2) * 8;
@@ -490,24 +606,16 @@ export default function GradientBackground({
             const sp = Math.pow(Math.sin(rawTime * 5 + i * 1.6) * 0.5 + 0.5, 2);
             if (sp < 0.15) continue;
             const ssz = 1 + sp * 2;
-            // Star shape for orbiters
-            ctx.save();
-            ctx.translate(sx, sy);
-            ctx.fillStyle = `rgba(255,248,200,${sp * 0.85})`;
-            const al = ssz * 2;
-            const aw = ssz * 0.15;
-            ctx.beginPath();
-            ctx.moveTo(-al, 0);
-            ctx.quadraticCurveTo(0, -aw, al, 0);
-            ctx.quadraticCurveTo(0, aw, -al, 0);
-            ctx.fill();
-            ctx.beginPath();
-            ctx.moveTo(0, -al);
-            ctx.quadraticCurveTo(-aw, 0, 0, al);
-            ctx.quadraticCurveTo(aw, 0, 0, -al);
-            ctx.fill();
-            ctx.restore();
+            ctx.globalAlpha = sp * 0.85;
+            ctx.drawImage(
+              starTextures[0],
+              sx - ssz * 2,
+              sy - ssz * 2,
+              ssz * 4,
+              ssz * 4
+            );
           }
+          ctx.globalAlpha = 1;
         }
       }
 

@@ -7,6 +7,7 @@ import { splitIntoLines } from "../../utils/text";
 import AmbientLine from "./AmbientLine";
 import UserPill from "./UserPill";
 import { TypingIndicator, SuggestionPill } from "./ChatWidgets";
+import { checkerReveal, checkerDissolve } from "../../utils/checkerTransition";
 import "./ChatPanel.css";
 
 // ── System prompt — all real info, collaboratively built ──
@@ -173,6 +174,7 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
   const [messages, setMessages] = useState(persistedMessages);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
+  const [streamingText, setStreamingText] = useState(null);
   const [showHelp, setShowHelp] = useState(false);
   const [revealedMsgs, setRevealedMsgs] = useState(new Set([0]));
   const scrollRef = useRef(null);
@@ -191,6 +193,7 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
   const inputAreaRef = useRef(null);
   const closeBtnRef = useRef(null);
   const tlRef = useRef(null);
+  const checkerRef = useRef(null);
   const [active, setActive] = useState(false);
 
   useEffect(() => {
@@ -203,57 +206,74 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
     if (!bg || !panel) return;
 
     if (tlRef.current) tlRef.current.kill();
-    const tl = gsap.timeline();
-    tlRef.current = tl;
+    if (checkerRef.current) {
+      checkerRef.current();
+      checkerRef.current = null;
+    }
 
     if (open) {
       setActive(true);
-      tl.set(panel, { pointerEvents: "auto" });
-      tl.fromTo(
-        bg,
-        { clipPath: "inset(0 100% 0 0)", opacity: 0 },
-        {
-          clipPath: "inset(0 0% 0 0)",
-          opacity: 1,
-          duration: 0.9,
-          ease: "power3.inOut",
+      panel.style.pointerEvents = "auto";
+      gsap.set(bg, { opacity: 0 });
+      if (hdr) gsap.set(hdr, { opacity: 0, y: 10 });
+      if (msgs) gsap.set(msgs, { opacity: 0, y: 12 });
+      if (inp) gsap.set(inp, { opacity: 0, y: 14 });
+      if (cb) gsap.set(cb, { scale: 0, opacity: 0 });
+
+      const checker = checkerReveal(panel, {
+        color: "rgba(232,232,238,0.74)",
+        blur: 50,
+        maxDelay: 250,
+        onComplete: () => {
+          // Tiles done — swap to real bg (seamless, identical look)
+          checkerRef.current = null;
+          bg.style.removeProperty("backdrop-filter");
+          bg.style.removeProperty("-webkit-backdrop-filter");
+          bg.style.removeProperty("background");
+          gsap.set(bg, { opacity: 1 });
+          checker.cleanup();
         },
-        0
-      );
-      if (hdr)
-        tl.fromTo(
-          hdr,
-          { opacity: 0, y: 10 },
-          { opacity: 1, y: 0, duration: 0.7, ease: "power2.out" },
-          0.5
-        );
-      if (msgs)
-        tl.fromTo(
-          msgs,
-          { opacity: 0, y: 12 },
-          { opacity: 1, y: 0, duration: 0.7, ease: "power2.out" },
-          0.6
-        );
-      if (inp)
-        tl.fromTo(
-          inp,
-          { opacity: 0, y: 14 },
-          { opacity: 1, y: 0, duration: 0.7, ease: "power2.out" },
-          0.7
-        );
-      if (cb)
-        tl.fromTo(
-          cb,
-          { scale: 0, opacity: 0 },
-          { scale: 1, opacity: 1, duration: 0.5, ease: "back.out(2)" },
-          0.6
-        );
-      tl.call(() => inputRef.current?.focus(), [], 1.2);
+      });
+      checkerRef.current = checker.cleanup;
+
+      // Content fades in overlapping the last tiles (starts 450ms in)
+      setTimeout(() => {
+        const tl = gsap.timeline();
+        tlRef.current = tl;
+        if (hdr)
+          tl.to(
+            hdr,
+            { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" },
+            0
+          );
+        if (msgs)
+          tl.to(
+            msgs,
+            { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" },
+            0.06
+          );
+        if (inp)
+          tl.to(
+            inp,
+            { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" },
+            0.12
+          );
+        if (cb)
+          tl.to(
+            cb,
+            { scale: 1, opacity: 1, duration: 0.35, ease: "back.out(2)" },
+            0.08
+          );
+        tl.call(() => inputRef.current?.focus(), [], 0.4);
+      }, 450);
     } else {
+      // Fade out content
+      const tl = gsap.timeline();
+      tlRef.current = tl;
       if (cb)
         tl.to(
           cb,
-          { scale: 0, opacity: 0, duration: 0.2, ease: "power2.in" },
+          { scale: 0, opacity: 0, duration: 0.15, ease: "power2.in" },
           0
         );
       if (inp)
@@ -270,18 +290,26 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
           { opacity: 0, y: -6, duration: 0.15, ease: "power2.in" },
           0.06
         );
-      tl.to(
-        bg,
-        {
-          clipPath: "inset(0 100% 0 0)",
-          opacity: 0,
-          duration: 0.55,
-          ease: "power3.inOut",
+      // Glass tiles appear covering the panel, then bg hides, then tiles dissolve
+      tl.call(
+        () => {
+          const checker = checkerDissolve(panel, {
+            color: "rgba(232,232,238,0.74)",
+            blur: 50,
+            maxDelay: 250,
+            onComplete: () => {
+              checkerRef.current = null;
+              panel.style.pointerEvents = "none";
+              setActive(false);
+            },
+          });
+          // Tiles are at scale 1 covering panel — hide bg behind them
+          gsap.set(bg, { opacity: 0 });
+          checkerRef.current = checker.cleanup;
         },
-        0.12
+        [],
+        0.2
       );
-      tl.set(panel, { pointerEvents: "none" });
-      tl.call(() => setActive(false));
     }
   }, [open]);
   useEffect(() => {
@@ -290,7 +318,7 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
         top: scrollRef.current.scrollHeight,
         behavior: "smooth",
       });
-  }, [messages, typing]);
+  }, [messages, typing, streamingText]);
   useEffect(() => {
     const t = setTimeout(
       () => setRevealedMsgs(new Set(messages.map((_, i) => i))),
@@ -334,13 +362,10 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
 
         if (!response.ok) throw new Error("API error");
 
-        // Add empty assistant message that we'll stream into
-        const streamIdx = { current: -1 };
-        setMessages((m) => {
-          streamIdx.current = m.length;
-          return [...m, { role: "assistant", text: "" }];
-        });
+        // Stream into isolated state — only the streaming bubble re-renders,
+        // not the entire message list
         setTyping(false);
+        setStreamingText("");
 
         let fullReply = "";
         const reader = response.body.getReader();
@@ -366,16 +391,7 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
                 const display = fullReply
                   .replace(/<!--EMAIL:.*?-->/, "")
                   .trim();
-                setMessages((m) => {
-                  const updated = [...m];
-                  if (updated[streamIdx.current]) {
-                    updated[streamIdx.current] = {
-                      role: "assistant",
-                      text: display,
-                    };
-                  }
-                  return updated;
-                });
+                setStreamingText(display);
               }
             } catch (e) {
               console.warn("SSE parse error:", e);
@@ -406,17 +422,11 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
             console.warn("Email tag parse error:", e);
           }
           fullReply = fullReply.replace(/<!--EMAIL:.*?-->/, "").trim();
-          setMessages((m) => {
-            const updated = [...m];
-            if (updated[streamIdx.current]) {
-              updated[streamIdx.current] = {
-                role: "assistant",
-                text: fullReply,
-              };
-            }
-            return updated;
-          });
         }
+
+        // Streaming complete — commit final message to array (single re-render)
+        setStreamingText(null);
+        setMessages((m) => [...m, { role: "assistant", text: fullReply }]);
 
         historyRef.current = [
           ...historyRef.current,
@@ -424,6 +434,7 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
         ];
       } catch {
         setTyping(false);
+        setStreamingText(null);
         setMessages((m) => [
           ...m,
           {
@@ -446,7 +457,8 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
     }
   };
 
-  const showSuggestions = messages.length <= 3 && !typing;
+  const showSuggestions =
+    messages.length <= 3 && !typing && streamingText == null;
 
   return (
     <>
@@ -500,15 +512,18 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
                 <div key={i}>
                   {m.role === "assistant" ? (
                     <div className="chat-panel__assistant-msg">
-                      {splitIntoLines(m.text).map((line, li) => (
-                        <AmbientLine
-                          key={li}
-                          text={line}
-                          index={li}
-                          total={splitIntoLines(m.text).length}
-                          isNew={isNew}
-                        />
-                      ))}
+                      {(() => {
+                        const lines = splitIntoLines(m.text);
+                        return lines.map((line, li) => (
+                          <AmbientLine
+                            key={li}
+                            text={line}
+                            index={li}
+                            total={lines.length}
+                            isNew={isNew}
+                          />
+                        ));
+                      })()}
                     </div>
                   ) : (
                     <UserPill text={m.text} />
@@ -516,6 +531,22 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
                 </div>
               );
             })}
+            {streamingText != null && streamingText.length > 0 && (
+              <div className="chat-panel__assistant-msg">
+                {(() => {
+                  const lines = splitIntoLines(streamingText);
+                  return lines.map((line, li) => (
+                    <AmbientLine
+                      key={li}
+                      text={line}
+                      index={li}
+                      total={lines.length}
+                      isNew={false}
+                    />
+                  ));
+                })()}
+              </div>
+            )}
             {typing && <TypingIndicator />}
 
             {showHelp && (

@@ -47,6 +47,8 @@ export default function Reticle({
     let raf;
     let frame = 0;
     let skipFrame = false;
+    let lastSampleX = -1;
+    let lastSampleY = -1;
 
     function tick() {
       raf = requestAnimationFrame(tick);
@@ -67,29 +69,39 @@ export default function Reticle({
         ref.current.style.margin = -size / 2 + "px 0 0 " + -size / 2 + "px";
         ref.current.style.opacity = chatMode || menuOpen ? 0 : opacity;
 
-        if (++frame % 3 === 0 && gradCanvasRef.current) {
+        // Sample luminance for adaptive cursor color.
+        // Only read back pixels when: enough frames have passed AND
+        // the cursor moved enough to be over a different gradient region.
+        if (++frame % 5 === 0 && gradCanvasRef.current) {
           const dpr = Math.min(window.devicePixelRatio, 2);
           const cx = Math.round(mouseRef.current.x * dpr);
           const cy = Math.round(mouseRef.current.y * dpr);
-          const gc = gradCanvasRef.current;
-          if (cx >= 0 && cy >= 0 && cx < gc.width && cy < gc.height) {
-            try {
-              const ctx = gc.getContext("2d", { willReadFrequently: true });
-              const lum = sampleLuminance(
-                ctx,
-                cx,
-                cy,
-                gc.width,
-                gc.height,
-                BG_COLOR
-              );
-              if (lum !== null) {
-                ref.current.style.color =
-                  lum < 0.5
-                    ? c.textColorLight || "#ffffff"
-                    : c.textColor || "#1a1a2e";
-              }
-            } catch {}
+          const dx = cx - lastSampleX;
+          const dy = cy - lastSampleY;
+          if (dx * dx + dy * dy > 400) {
+            // ~20px movement threshold
+            lastSampleX = cx;
+            lastSampleY = cy;
+            const gc = gradCanvasRef.current;
+            if (cx >= 0 && cy >= 0 && cx < gc.width && cy < gc.height) {
+              try {
+                const ctx = gc.getContext("2d", { willReadFrequently: true });
+                const lum = sampleLuminance(
+                  ctx,
+                  cx,
+                  cy,
+                  gc.width,
+                  gc.height,
+                  BG_COLOR
+                );
+                if (lum !== null) {
+                  ref.current.style.color =
+                    lum < 0.5
+                      ? c.textColorLight || "#ffffff"
+                      : c.textColor || "#1a1a2e";
+                }
+              } catch {}
+            }
           }
         }
       }

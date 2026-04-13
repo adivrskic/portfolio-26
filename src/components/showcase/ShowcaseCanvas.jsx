@@ -515,11 +515,11 @@ export default function ShowcaseCanvas({
             themeColor={config?.gradColor1}
             onClose={onClose}
           />
-          {ShowcaseDebug && (
+          {/* {ShowcaseDebug && (
             <Suspense fallback={null}>
               <ShowcaseDebug />
             </Suspense>
-          )}
+          )} */}
           <SettleFooter
             onClose={onClose}
             onContact={() => setShowContact(true)}

@@ -139,43 +139,44 @@ export default function ContactForm({ compact, textColor, inputColor }) {
 
   return (
     <div className="contact-form" style={{ gap }}>
-      {/* Name */}
-      <Field
-        error={submitted && errors.name}
-        valid={!errors.name && form.name.trim().length > 0}
-        icon={User}
-        tint={D}
-      >
-        <input
-          type="text"
-          placeholder="Name *"
-          value={form.name}
-          onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
-          className="contact-form__input"
-          style={inputStyle("name", true)}
-          onFocus={onFocus}
-          onBlur={onBlur("name")}
-        />
-      </Field>
+      {/* Name + Email on one line */}
+      <div className="contact-form__row">
+        <Field
+          error={submitted && errors.name}
+          valid={!errors.name && form.name.trim().length > 0}
+          icon={User}
+          tint={D}
+        >
+          <input
+            type="text"
+            placeholder="Name *"
+            value={form.name}
+            onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
+            className="contact-form__input"
+            style={inputStyle("name", true)}
+            onFocus={onFocus}
+            onBlur={onBlur("name")}
+          />
+        </Field>
 
-      {/* Email */}
-      <Field
-        error={submitted && errors.email}
-        valid={!errors.email && form.email.trim().length > 0}
-        icon={Mail}
-        tint={D}
-      >
-        <input
-          type="email"
-          placeholder="Email *"
-          value={form.email}
-          onChange={(e) => setForm((s) => ({ ...s, email: e.target.value }))}
-          className="contact-form__input"
-          style={inputStyle("email", true)}
-          onFocus={onFocus}
-          onBlur={onBlur("email")}
-        />
-      </Field>
+        <Field
+          error={submitted && errors.email}
+          valid={!errors.email && form.email.trim().length > 0}
+          icon={Mail}
+          tint={D}
+        >
+          <input
+            type="email"
+            placeholder="Email *"
+            value={form.email}
+            onChange={(e) => setForm((s) => ({ ...s, email: e.target.value }))}
+            className="contact-form__input"
+            style={inputStyle("email", true)}
+            onFocus={onFocus}
+            onBlur={onBlur("email")}
+          />
+        </Field>
+      </div>
 
       {/* Services */}
       <div>
@@ -267,8 +268,6 @@ export default function ContactForm({ compact, textColor, inputColor }) {
           style={{
             ...inputStyle("message", false),
             minHeight: compact ? 70 : 100,
-            padding: "12px 16px",
-            paddingBottom: 36,
           }}
           onFocus={onFocus}
           onBlur={onBlur("message")}

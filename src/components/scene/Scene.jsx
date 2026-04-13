@@ -184,20 +184,33 @@ export default function Scene({
     sphere.visible = false; // sphere is replaced by glass cube — kept only for disposal
     scene.add(sphere);
 
-    // ── Glass cube (MeshPhysicalMaterial with transmission) ──
+    // ── Glass cube ──
+    // Mobile: skip transmission (renders scene twice internally). Use a lightweight
+    // transparent material that looks 80% as good at half the GPU cost.
     const glassGeo = new RoundedBoxGeometry(1, 1, 1, 4, 0.08);
-    const glassMat = new MeshPhysicalMaterial({
-      transmission: 1,
-      roughness: 0.02,
-      ior: 1.5,
-      thickness: 2.5,
-      transparent: true,
-      metalness: 0,
-      envMapIntensity: 1.5,
-      color: 0xffffff,
-      side: FrontSide,
-      depthWrite: false,
-    });
+    const glassMat = isMobile
+      ? new MeshPhysicalMaterial({
+          transparent: true,
+          opacity: 0.15,
+          roughness: 0.05,
+          metalness: 0.1,
+          envMapIntensity: 1.5,
+          color: 0xffffff,
+          side: FrontSide,
+          depthWrite: false,
+        })
+      : new MeshPhysicalMaterial({
+          transmission: 1,
+          roughness: 0.02,
+          ior: 1.5,
+          thickness: 2.5,
+          transparent: true,
+          metalness: 0,
+          envMapIntensity: 1.5,
+          color: 0xffffff,
+          side: FrontSide,
+          depthWrite: false,
+        });
     const glassCube = new Mesh(glassGeo, glassMat);
     glassCube.renderOrder = 10;
     scene.add(glassCube);
@@ -378,6 +391,7 @@ export default function Scene({
     window.addEventListener("resize", onResize);
     const clock = new Clock();
     let raf;
+    let goldSparkleFrame = 0;
     let birthStart = performance.now();
     let birthPhewFired = false;
     let lastReplayKey = 0;
@@ -546,17 +560,26 @@ export default function Scene({
             4,
             cr * cubeSize
           );
-          const m = new MeshPhysicalMaterial({
-            transmission: 0.92,
-            roughness: 0.05,
-            ior: 1.5,
-            thickness: 1.2,
-            transparent: true,
-            opacity: 0,
-            metalness: 0,
-            envMapIntensity: 1.2,
-            color: 0xffffff,
-          });
+          const m = isMobile
+            ? new MeshPhysicalMaterial({
+                transparent: true,
+                opacity: 0,
+                roughness: 0.05,
+                metalness: 0.1,
+                envMapIntensity: 1.2,
+                color: 0xffffff,
+              })
+            : new MeshPhysicalMaterial({
+                transmission: 0.92,
+                roughness: 0.05,
+                ior: 1.5,
+                thickness: 1.2,
+                transparent: true,
+                opacity: 0,
+                metalness: 0,
+                envMapIntensity: 1.2,
+                color: 0xffffff,
+              });
           const edgeGeo = new EdgesGeometry(g);
           const lineMat = new LineBasicMaterial({
             color: 0xffffff,
@@ -606,7 +629,7 @@ export default function Scene({
         const t = Math.max(0, age - delay);
         const entrance = Math.min(1, t / 1.0); // slower entrance
         const ease = entrance * entrance * (3 - 2 * entrance);
-        const targetOp = mOpen ? 0.88 * ease : 0;
+        const targetOp = mOpen ? (isMobile ? 0.12 : 0.88) * ease : 0;
         const targetLineOp = mOpen ? 0.1 * ease : 0;
         const targetS = mOpen ? ease : 0;
         mc.mat.opacity += (targetOp - mc.mat.opacity) * 2.5 * dt;
@@ -770,13 +793,22 @@ export default function Scene({
         c.gradColor3,
         c.gradColor4,
       ];
+      // Hold progress for loading circle — only starts after the click
+      // threshold (150ms) so quick taps never flash the ring.
+      const holdElapsed = performance.now() - holdStartTime;
+      const holdDeadZone = 150; // matches click threshold in onUp
       const holdProgress =
-        isHolding && !holdFired
-          ? Math.max(0, Math.min(1, (performance.now() - holdStartTime) / 600))
+        isHolding && !holdFired && holdElapsed > holdDeadZone
+          ? Math.max(
+              0,
+              Math.min(1, (holdElapsed - holdDeadZone) / (600 - holdDeadZone))
+            )
           : 0;
 
       // #16 — skip smiley redraw when nothing is changing
       const isGold = (c.gradColor1 || "").toLowerCase() === "#b8860b";
+      // Gold sparkles animate slowly — redraw every 3 frames, not every frame
+      const goldNeedsRedraw = isGold && ++goldSparkleFrame % 3 === 0;
       const exprActive =
         expr.curious > 0.01 ||
         expr.wink > 0.01 ||
@@ -795,7 +827,7 @@ export default function Scene({
         Math.abs(sleepSmooth - (sleepTarget > 0.5 ? 1 : 0)) > 0.01 ||
         holdProgress > 0 ||
         scZoom > 0.01 ||
-        isGold ||
+        goldNeedsRedraw ||
         Math.abs(safeMx - (prevMx || 0)) > 0.001 ||
         Math.abs(safeMy - (prevMy || 0)) > 0.001;
       prevMx = safeMx;
@@ -874,12 +906,18 @@ export default function Scene({
           .multiplyScalar(
             bR * menuScale * clickScale * birthScaleCurve * zoomScale
           );
-        glassMat.opacity = birthOpacity * (1 - zoomEased);
+        // Desktop: opacity is a secondary fade over the transmission effect
+        // Mobile: opacity IS the glass effect — cap at 0.15 to stay translucent
+        glassMat.opacity = isMobile
+          ? 0.15 * birthOpacity * (1 - zoomEased)
+          : birthOpacity * (1 - zoomEased);
         glassMat.roughness = c.glassRoughness || 0.02;
-        glassMat.ior = c.glassIOR || 1.5;
-        glassMat.thickness = c.glassThickness || 2.5;
-        glassMat.transmission =
-          c.glassTransmission != null ? c.glassTransmission : 1;
+        if (!isMobile) {
+          glassMat.ior = c.glassIOR || 1.5;
+          glassMat.thickness = c.glassThickness || 2.5;
+          glassMat.transmission =
+            c.glassTransmission != null ? c.glassTransmission : 1;
+        }
         glassEdgeMat.opacity = (c.glassEdgeOpacity ?? 0.12) * (1 - zoomEased);
       }
 

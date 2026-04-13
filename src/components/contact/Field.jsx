@@ -7,7 +7,7 @@ export default function Field({ children, error, valid, icon: Icon, tint }) {
     <div className="field">
       {Icon && (
         <span className="field__icon">
-          <Icon size={13} strokeWidth={1.2} color={D + "0.38)"} />
+          <Icon size={16} strokeWidth={1.2} color={D + "0.38)"} />
         </span>
       )}
       {children}

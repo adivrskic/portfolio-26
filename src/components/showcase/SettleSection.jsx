@@ -29,6 +29,8 @@ const CHAR_W = {
   C: 0.58,
 };
 
+// ── Perspective letter positions ──
+// Letters spread horizontally with individual offsets for perspective depth.
 function getLetterPositions(vw) {
   const fontSize = vw * 0.12;
   const spacing = 1 - 0.03;
@@ -37,11 +39,38 @@ function getLetterPositions(vw) {
   for (let i = 0; i < LETTERS.length; i++) {
     const ch = LETTERS[i];
     const w = (CHAR_W[ch] || 0.5) * fontSize * spacing;
-    if (ch !== " ") positions.push({ x: x + w / 2, char: ch });
+    if (ch !== " ") {
+      positions.push({ x: x + w / 2, char: ch, idx: positions.length });
+    }
     x += w;
   }
   const offset = x / 2;
   for (const p of positions) p.x -= offset;
+  return positions;
+}
+
+// ── Pyramid cube layout ──
+// 8 cubes in a perspective pyramid: wide base close to camera, apex further back.
+// Each row steps up in Y and back in Z for natural depth.
+const PYRAMID = [
+  { count: 4, rowY: 0, rowZ: 0 },
+  { count: 3, rowY: 1, rowZ: -0.7 },
+  { count: 1, rowY: 2, rowZ: -1.4 },
+];
+
+function getPyramidPositions(baseY, baseZ, spacing) {
+  const positions = [];
+  for (const row of PYRAMID) {
+    const totalW = (row.count - 1) * spacing;
+    const startX = -totalW / 2;
+    for (let i = 0; i < row.count; i++) {
+      positions.push([
+        startX + i * spacing,
+        baseY + row.rowY * (CUBE_SIZE + 0.08),
+        baseZ + row.rowZ,
+      ]);
+    }
+  }
   return positions;
 }
 
@@ -65,7 +94,6 @@ function PhysicsCube({ position, opSmooth, mouseRef }) {
     const dz = pos.z - m.z;
     const dist = Math.sqrt(dx * dx + dz * dz);
 
-    // Read from L.physics for live debug tuning
     const pr = L.physics.pushRadius;
     if (dist < pr && dist > 0.01) {
       const pen = 1 - dist / pr;
@@ -149,9 +177,10 @@ export function SettleFloor({ themeColor }) {
     [themeColor]
   );
 
+  // Pyramid positions instead of a flat row
   const cubePositions = useMemo(
-    () => letterPos.map((lp) => [lp.x, cubeY, cubeZ]),
-    [letterPos, cubeY, cubeZ]
+    () => getPyramidPositions(cubeY, cubeZ, CUBE_SIZE * 1.05),
+    [cubeY, cubeZ]
   );
 
   useFrame(({ camera }) => {
@@ -184,8 +213,13 @@ export function SettleFloor({ themeColor }) {
     mouseRef.current.active = isSettle;
   });
 
+  const fontSize = vw * 0.12;
+  const letterCount = letterPos.length;
+  const midIdx = (letterCount - 1) / 2;
+
   return (
     <group ref={groupRef} position={[0, -(L.heroH + N * L.sectionH), -3]}>
+      {/* ── Floor plane ── */}
       <mesh
         rotation-x={-Math.PI / 2}
         position={[0, floorY - 0.01, 0]}
@@ -201,6 +235,7 @@ export function SettleFloor({ themeColor }) {
         />
       </mesh>
 
+      {/* ── Ground accent line ── */}
       <mesh position={[0, floorY + 0.005, cubeZ]}>
         <planeGeometry args={[vw * 1.2, 0.012]} />
         <meshBasicMaterial
@@ -211,24 +246,62 @@ export function SettleFloor({ themeColor }) {
         />
       </mesh>
 
-      <group ref={textRef}>
-        <group position={[-vw * 0.22, floorY, -1]} rotation={[0, 0.12, 0]}>
-          <Text
-            position={[0, 0, 0]}
-            fontSize={vw * 0.14}
-            lineHeight={1}
-            letterSpacing={-0.04}
-            anchorX="left"
-            anchorY="bottom"
-            textAlign="left"
-            maxWidth={vw * 0.95}
-            color="#1a1a2e"
-          >
-            ADI{"\n"}VRSKIC
-          </Text>
-        </group>
+      {/* ── Perspective text ──
+          Letters laid out side by side (not stacked) on a tilted plane.
+          Each letter gets a subtle Z-push and Y-rotation based on distance
+          from center, creating a gentle arc that recedes into depth. */}
+      <group
+        ref={textRef}
+        position={[0, floorY, -1.5]}
+        rotation={[-0.32, 0, 0]}
+      >
+        {letterPos.map((lp, i) => {
+          // Normalized distance from center: -0.5 … +0.5
+          const fromCenter = (lp.idx - midIdx) / letterCount;
+          return (
+            <Text
+              key={i}
+              position={[
+                lp.x,
+                0,
+                // Push edge letters further back for curved depth
+                Math.abs(fromCenter) * 1.8,
+              ]}
+              // Splay each letter outward from center
+              rotation={[0, fromCenter * -0.18, 0]}
+              fontSize={fontSize}
+              letterSpacing={-0.04}
+              anchorX="center"
+              anchorY="bottom"
+              color="#1a1a2e"
+            >
+              {lp.char}
+            </Text>
+          );
+        })}
       </group>
 
+      {/* ── Realistic lighting ──
+          Three-point setup local to the settle scene for dimensional cubes. */}
+      {/* Key light — warm, upper right, hard shadows */}
+      <spotLight
+        position={[6, 8, 8]}
+        intensity={3}
+        angle={0.6}
+        penumbra={0.7}
+        color="#fff5e0"
+        castShadow
+        shadow-mapSize={[512, 512]}
+        shadow-bias={-0.0002}
+      />
+      {/* Fill — cool blue from left, no shadows */}
+      <pointLight position={[-5, 4, 5]} intensity={1.2} color="#c8daf0" />
+      {/* Rim / back light — edge definition against the background */}
+      <pointLight position={[0, 3, -4]} intensity={0.8} color="#e0e0ff" />
+
+      {/* ── Pyramid cube stack ──
+          4-3-1 formation. Base row closest to camera (z=cubeZ),
+          each row steps up (Y) and further back (Z). */}
       <Physics gravity={[0, L.physics.gravity, 0]} colliders={false}>
         <RigidBody
           type="fixed"

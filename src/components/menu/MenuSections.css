@@ -28,7 +28,6 @@
   font-weight: 300;
   line-height: 2;
   margin: 0;
-  max-width: 500px;
 }
 .menu-about__bio--primary {
   color: rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.7);
