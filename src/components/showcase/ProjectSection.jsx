@@ -66,9 +66,9 @@ function GlassCard({ w, h }) {
       <mesh position={[0, 0, -0.5]}>
         <planeGeometry args={[w, h]} />
         <meshBasicMaterial
-          color="#ffffff"
+          color="#e8e8ee"
           transparent
-          opacity={L.card.bgOpacity}
+          opacity={1}
           depthWrite={false}
         />
       </mesh>
@@ -82,7 +82,7 @@ function GlassCard({ w, h }) {
           <mesh key={i} position={[x, y, z]}>
             <planeGeometry args={[bw, bh]} />
             <meshBasicMaterial
-              color="#ffffff"
+              color="#e8e8ee"
               transparent
               opacity={L.card.borderOpacity}
             />

@@ -33,10 +33,16 @@ export function SettleFooter({ onClose, onContact, totalSections }) {
   );
 }
 
-export function SectionProgress({ totalSections, themeColor, onClose }) {
+export function SectionProgress({
+  totalSections,
+  themeColor,
+  onClose,
+  onJump,
+}) {
   const ticksRef = useRef([]);
   const startRef = useRef();
   const endRef = useRef();
+  const numRefs = useRef([]);
 
   const TICKS_PER = 8;
   const TICK_SPACING = 8;
@@ -45,6 +51,8 @@ export function SectionProgress({ totalSections, themeColor, onClose }) {
   const BASE_W = 6;
   const MAX_W = 48;
   const totalH = TOTAL_TICKS * TICK_SPACING;
+  // Project sections: 1 through totalSections-2 (skip hero=0 and settle=last)
+  const projectCount = Math.max(0, totalSections - 2);
 
   useEffect(() => {
     let raf;
@@ -70,6 +78,13 @@ export function SectionProgress({ totalSections, themeColor, onClose }) {
         el.style.backgroundColor =
           gauss > 0.15 ? `rgba(${themeRgb},1)` : "rgba(26,26,46,1)";
       }
+      // Highlight the active number
+      for (let p = 0; p < projectCount; p++) {
+        const el = numRefs.current[p];
+        if (!el) continue;
+        const isActive = sec === p + 1;
+        el.style.opacity = isActive ? "0.7" : "0.15";
+      }
       if (startRef.current)
         startRef.current.style.opacity = sec === 0 ? "0.3" : "0";
       if (endRef.current)
@@ -77,7 +92,7 @@ export function SectionProgress({ totalSections, themeColor, onClose }) {
     }
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [totalSections, themeColor]);
+  }, [totalSections, themeColor, projectCount]);
 
   return (
     <div className="sc-progress" style={{ height: totalH }}>
@@ -101,6 +116,25 @@ export function SectionProgress({ totalSections, themeColor, onClose }) {
           style={{ top: i * TICK_SPACING, width: BASE_W, height: TICK_H }}
         />
       ))}
+
+      {/* Numbered jump buttons beneath the tick bar */}
+      <div className="sc-progress__nums">
+        {Array.from({ length: projectCount }, (_, p) => {
+          const sectionIdx = p + 1;
+          return (
+            <button
+              key={`num-${p}`}
+              ref={(el) => {
+                numRefs.current[p] = el;
+              }}
+              className="sc-progress__num"
+              onClick={() => onJump && onJump(sectionIdx)}
+            >
+              {String(p + 1).padStart(2, "0")}
+            </button>
+          );
+        })}
+      </div>
 
       <div
         ref={endRef}

@@ -1,11 +1,4 @@
-import {
-  Suspense,
-  useRef,
-  useState,
-  useEffect,
-  useCallback,
-  lazy,
-} from "react";
+import { Suspense, useRef, useState, useEffect, useCallback } from "react";
 import { TextureLoader, Vector3, MathUtils as ThrMath } from "three";
 import { Canvas, useThree, useFrame, useLoader } from "@react-three/fiber";
 import { Environment, Lightformer } from "@react-three/drei";
@@ -15,11 +8,7 @@ import {
   N8AO,
 } from "@react-three/postprocessing";
 import ContactForm from "../contact/ContactForm";
-
-// Dev-only: ~750 lines of showcase debug UI stripped from production bundle
-const ShowcaseDebug = import.meta.env.DEV
-  ? lazy(() => import("../debug/ShowcaseDebug"))
-  : null;
+import ShowcaseDebug from "../debug/ShowcaseDebug";
 
 import { SHOWCASE_PROJECTS } from "./ShowcaseProjects";
 import { L, state, FONT_URL, TOTAL_SECTIONS, N } from "./ShowcaseLayout";
@@ -81,17 +70,17 @@ function DynamicDof() {
       targetBokeh = 0;
       targetRange = 100;
     } else if (hovered) {
-      // Hero/settle with cube hover — sharp focus
-      targetBokeh = L.post.dofBokehScale * 0.3;
-      targetRange = L.post.dofFocusRange * 3;
+      // Hero/settle with cube hover — eliminate blur for sharp cube view
+      targetBokeh = 0;
+      targetRange = 100;
     } else {
       // Hero/settle idle — normal DoF
       targetBokeh = L.post.dofBokehScale;
       targetRange = L.post.dofFocusRange;
     }
 
-    smoothBokeh.current = ThrMath.lerp(smoothBokeh.current, targetBokeh, 0.05);
-    smoothRange.current = ThrMath.lerp(smoothRange.current, targetRange, 0.05);
+    smoothBokeh.current = ThrMath.lerp(smoothBokeh.current, targetBokeh, 0.1);
+    smoothRange.current = ThrMath.lerp(smoothRange.current, targetRange, 0.1);
 
     dofRef.current.target.set(0, camera.position.y, 0);
     dofRef.current.bokehScale = smoothBokeh.current;
@@ -184,28 +173,20 @@ export default function ShowcaseCanvas({
 
   const triggerCheckerClose = useCallback(() => {
     const container = containerRef.current;
-    const canvas = container ? container.querySelector("canvas") : null;
     const w = window.innerWidth;
     const h = window.innerHeight;
     const cellW = w / COLS;
     const cellH = h / ROWS;
 
-    // Downscale capture to half-res for fast encode
-    let dataURL = null;
-    if (canvas) {
-      const tmp = document.createElement("canvas");
-      const scale = 0.5;
-      tmp.width = canvas.width * scale;
-      tmp.height = canvas.height * scale;
-      const ctx = tmp.getContext("2d");
-      ctx.drawImage(canvas, 0, 0, tmp.width, tmp.height);
-      dataURL = tmp.toDataURL("image/jpeg", 0.5);
-    }
+    // Use pre-made screenshot for the current section
+    const curSec = state.section;
+    const imgIdx = String(curSec).padStart(2, "0");
+    const imgUrl =
+      curSec >= 1 && curSec <= N ? `/projects/${imgIdx}.PNG` : null;
 
-    // Inject shared style once (avoids duplicating data URL 160 times)
     const styleEl = document.createElement("style");
-    styleEl.textContent = dataURL
-      ? `.ck-cell{background-image:url(${dataURL});background-size:${w}px ${h}px;}`
+    styleEl.textContent = imgUrl
+      ? `.ck-cell{background-image:url(${imgUrl});background-size:${w}px ${h}px;}`
       : `.ck-cell{background:${BG_HEX};}`;
     document.head.appendChild(styleEl);
 
@@ -275,7 +256,7 @@ export default function ShowcaseCanvas({
       if (containerRef.current) containerRef.current.style.visibility = "";
       setVisible(true);
       setLoaderVisible(true);
-      const t = setTimeout(() => setLoaderVisible(false), 1200);
+      const t = setTimeout(() => setLoaderVisible(false), 600);
       return () => clearTimeout(t);
     } else {
       closingRef.current = false;
@@ -317,28 +298,21 @@ export default function ShowcaseCanvas({
       return;
     }
 
-    const canvas = container.querySelector("canvas");
     const w = container.offsetWidth;
     const h = container.offsetHeight;
     const cellW = w / COLS;
     const cellH = h / ROWS;
 
-    // Downscale capture
-    let dataURL = null;
-    if (canvas) {
-      const tmp = document.createElement("canvas");
-      const scale = 0.5;
-      tmp.width = canvas.width * scale;
-      tmp.height = canvas.height * scale;
-      const ctx = tmp.getContext("2d");
-      ctx.drawImage(canvas, 0, 0, tmp.width, tmp.height);
-      dataURL = tmp.toDataURL("image/jpeg", 0.5);
-    }
+    // Use pre-made screenshot for the current section (before transition)
+    const curSec = state.section;
+    const imgIdx = String(curSec).padStart(2, "0");
+    const imgUrl =
+      curSec >= 1 && curSec <= N ? `/projects/${imgIdx}.PNG` : null;
 
     const styleEl = document.createElement("style");
     const cls = "sk-cell-" + Date.now();
-    styleEl.textContent = dataURL
-      ? `.${cls}{background-image:url(${dataURL});background-size:${w}px ${h}px;}`
+    styleEl.textContent = imgUrl
+      ? `.${cls}{background-image:url(${imgUrl});background-size:${w}px ${h}px;}`
       : `.${cls}{background:${BG_HEX};}`;
     document.head.appendChild(styleEl);
 
@@ -411,7 +385,7 @@ export default function ShowcaseCanvas({
     [onClose, triggerSectionTransition]
   );
 
-  if (!preloaded && visible) return <IntroWave />;
+  if (!preloaded && visible) return <IntroWave config={config} />;
 
   const isShown = visible && preloaded;
 
@@ -422,7 +396,12 @@ export default function ShowcaseCanvas({
       className={`showcase ${
         isShown ? "showcase--visible" : "showcase--hidden"
       }`}
-      style={{ "--showcase-bg": BG_HEX }}
+      style={{
+        "--showcase-bg": BG_HEX,
+        "--gc1": config?.gradColor1 || "#1a1a2e",
+        "--gc2": config?.gradColor2 || "#2a2a4e",
+        "--gc3": config?.gradColor3 || "#3a3a6e",
+      }}
     >
       <Canvas
         flat
@@ -489,20 +468,58 @@ export default function ShowcaseCanvas({
             className="showcase__loader-icon"
             viewBox="0 0 24 24"
             fill="none"
-            stroke="#1a1a2e"
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
           >
-            <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4" />
-            <path d="M14 13.12c0 2.38 0 6.38-1 8.88" />
-            <path d="M17.29 21.02c.12-.6.43-2.3.5-3.02" />
-            <path d="M2 12a10 10 0 0 1 18-6" />
-            <path d="M2 16h.01" />
-            <path d="M21.8 16c.2-2 .131-5.354 0-6" />
-            <path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2" />
-            <path d="M8.65 22c.21-.66.45-1.32.57-2" />
-            <path d="M9 6.8a6 6 0 0 1 9 5.2v2" />
+            <defs>
+              <linearGradient id="fp-grad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="var(--gc1, #1a1a2e)" />
+                <stop offset="50%" stopColor="var(--gc2, #2a2a4e)" />
+                <stop offset="100%" stopColor="var(--gc3, #3a3a6e)" />
+              </linearGradient>
+            </defs>
+            <path
+              className="fp-line fp-line--0"
+              pathLength="1"
+              d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"
+            />
+            <path
+              className="fp-line fp-line--1"
+              pathLength="1"
+              d="M14 13.12c0 2.38 0 6.38-1 8.88"
+            />
+            <path
+              className="fp-line fp-line--2"
+              pathLength="1"
+              d="M17.29 21.02c.12-.6.43-2.3.5-3.02"
+            />
+            <path
+              className="fp-line fp-line--3"
+              pathLength="1"
+              d="M2 12a10 10 0 0 1 18-6"
+            />
+            <path className="fp-line fp-line--4" pathLength="1" d="M2 16h.01" />
+            <path
+              className="fp-line fp-line--5"
+              pathLength="1"
+              d="M21.8 16c.2-2 .131-5.354 0-6"
+            />
+            <path
+              className="fp-line fp-line--6"
+              pathLength="1"
+              d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2"
+            />
+            <path
+              className="fp-line fp-line--7"
+              pathLength="1"
+              d="M8.65 22c.21-.66.45-1.32.57-2"
+            />
+            <path
+              className="fp-line fp-line--8"
+              pathLength="1"
+              d="M9 6.8a6 6 0 0 1 9 5.2v2"
+            />
           </svg>
         </div>
       )}
@@ -514,12 +531,8 @@ export default function ShowcaseCanvas({
             totalSections={TOTAL_SECTIONS}
             themeColor={config?.gradColor1}
             onClose={onClose}
+            onJump={triggerSectionTransition}
           />
-          {/* {ShowcaseDebug && (
-            <Suspense fallback={null}>
-              <ShowcaseDebug />
-            </Suspense>
-          )} */}
           <SettleFooter
             onClose={onClose}
             onContact={() => setShowContact(true)}
@@ -550,3 +563,5 @@ export default function ShowcaseCanvas({
     </div>
   );
 }
+
+export { L } from "./ShowcaseLayout";

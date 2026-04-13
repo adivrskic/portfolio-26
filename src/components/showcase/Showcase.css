@@ -12,8 +12,51 @@
 .intro-wave__fingerprint {
   width: 48px;
   height: 48px;
-  opacity: 0.3;
-  animation: fpPulse 2s ease-in-out infinite;
+}
+
+/* ── Apple-style fingerprint fill animation ── */
+.fp-line {
+  stroke: url(#fp-grad-intro);
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: fpDraw 0.8s ease-out forwards;
+}
+/* Showcase loader uses its own gradient ID */
+.showcase__loader-icon .fp-line {
+  stroke: url(#fp-grad);
+}
+.fp-line--0 {
+  animation-delay: 0s;
+}
+.fp-line--1 {
+  animation-delay: 0.06s;
+}
+.fp-line--2 {
+  animation-delay: 0.12s;
+}
+.fp-line--3 {
+  animation-delay: 0.18s;
+}
+.fp-line--4 {
+  animation-delay: 0.24s;
+}
+.fp-line--5 {
+  animation-delay: 0.3s;
+}
+.fp-line--6 {
+  animation-delay: 0.36s;
+}
+.fp-line--7 {
+  animation-delay: 0.42s;
+}
+.fp-line--8 {
+  animation-delay: 0.48s;
+}
+
+@keyframes fpDraw {
+  to {
+    stroke-dashoffset: 0;
+  }
 }
 .intro-wave__ticks {
   position: absolute;
@@ -29,16 +72,6 @@
   border-radius: 1px;
   background: rgba(26, 26, 46, 1);
   opacity: 0.04;
-}
-
-@keyframes fpPulse {
-  0%,
-  100% {
-    opacity: 0.15;
-  }
-  50% {
-    opacity: 0.4;
-  }
 }
 
 /* ── Showcase shared label style ── */
@@ -100,6 +133,32 @@
   opacity: 0.06;
   transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.5s,
     background-color 0.5s;
+}
+.sc-progress__nums {
+  position: absolute;
+  right: -4px;
+  bottom: -200px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  pointer-events: auto;
+  gap: 12px;
+}
+.sc-progress__num {
+  font-family: "Inter", -apple-system, sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  color: rgba(26, 26, 46, 1);
+  opacity: 0.35;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.3s;
+  white-space: nowrap;
+}
+.sc-progress__num:hover {
+  opacity: 0.5 !important;
 }
 
 /* ── SettleFooter ── */
@@ -172,7 +231,6 @@
 .showcase__loader-icon {
   width: 48px;
   height: 48px;
-  animation: fpPulse 2s ease-in-out infinite;
 }
 
 /* Contact overlay */

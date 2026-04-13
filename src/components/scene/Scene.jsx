@@ -191,22 +191,28 @@ export default function Scene({
     const glassMat = isMobile
       ? new MeshPhysicalMaterial({
           transparent: true,
-          opacity: 0.15,
-          roughness: 0.05,
-          metalness: 0.1,
-          envMapIntensity: 1.5,
+          opacity: 0.18,
+          roughness: 0.02,
+          metalness: 0.05,
+          envMapIntensity: 2.0,
+          clearcoat: 1,
+          clearcoatRoughness: 0.05,
           color: 0xffffff,
           side: FrontSide,
           depthWrite: false,
         })
       : new MeshPhysicalMaterial({
           transmission: 1,
-          roughness: 0.02,
-          ior: 1.5,
-          thickness: 2.5,
+          roughness: 0,
+          ior: 1.8,
+          thickness: 3.5,
           transparent: true,
           metalness: 0,
-          envMapIntensity: 1.5,
+          envMapIntensity: 2.0,
+          specularIntensity: 1,
+          specularColor: 0xffffff,
+          clearcoat: 0.3,
+          clearcoatRoughness: 0,
           color: 0xffffff,
           side: FrontSide,
           depthWrite: false,
@@ -214,16 +220,6 @@ export default function Scene({
     const glassCube = new Mesh(glassGeo, glassMat);
     glassCube.renderOrder = 10;
     scene.add(glassCube);
-
-    const glassEdgeGeo = new EdgesGeometry(glassGeo);
-    const glassEdgeMat = new LineBasicMaterial({
-      color: 0xffffff,
-      transparent: true,
-      opacity: 0.12,
-    });
-    const glassEdges = new LineSegments(glassEdgeGeo, glassEdgeMat);
-    glassEdges.renderOrder = 11;
-    glassCube.add(glassEdges);
 
     // ── Glowing smiley / audio wave inside the cube ──
     const smileyCanvas = document.createElement("canvas");
@@ -237,9 +233,10 @@ export default function Scene({
     let sleepSmooth = 0; // 0 = awake, 1 = sleeping
     let happySmooth = 0; // 0 = normal, 1 = happy (after chat closes)
     let prevChatMode = false;
-    let blinkTimer = 0; // countdown to next blink
+    let blinkTimer = 0;
     let blinkAmount = 0; // 0 = open, 1 = closed
-    let nextBlink = 2 + Math.random() * 4; // seconds until next blink
+    let nextBlink = 2 + Math.random() * 4;
+    let doubleBlink = 0; // countdown for second blink (0 = none pending)
     // ── New expressions ──
     let expr = {
       curious: 0, // near-hover without click
@@ -747,6 +744,9 @@ export default function Scene({
       prevChatMode = chatModeRef.current;
       happySmooth = Math.max(0, happySmooth - dt * 0.3); // decay over ~3s
       // ── Expression triggers (extracted to expressionTriggers.js) ──
+      // Safe mouse coords (0,0 if cursor hasn't entered yet)
+      const safeMx = mouse.x < -900 ? 0 : mouse.x;
+      const safeMy = mouse.y < -900 ? 0 : mouse.y;
       const { anyActive: exprShowing } = updateExpressions(
         expr,
         exprTriggerState,
@@ -759,22 +759,38 @@ export default function Scene({
           angVelY: angVel.y,
           showcaseOpen: showcaseOpenRef.current,
           now: performance.now(),
+          lookX: safeMx,
+          lookY: safeMy,
         }
       );
+      // #K — Use smoothed look-at from expression state
+      const smoothMx = exprTriggerState.smoothLookX;
+      const smoothMy = exprTriggerState.smoothLookY;
 
-      // Blink — BUG1 FIX: reset timer while any expression is showing
-      if (exprShowing || happySmooth > 0.3 || sleepSmooth > 0.3) {
+      // Blink — natural timing: ~300ms close-to-open, occasional double-blink
+      if (exprShowing || sleepSmooth > 0.3) {
+        // Suppress new blinks during expressions/sleep, but let current blink finish
         blinkTimer = 0;
-        blinkAmount = Math.max(0, blinkAmount - dt * 8);
       } else {
         blinkTimer += dt;
         if (blinkTimer >= nextBlink) {
           blinkAmount = 1;
           blinkTimer = 0;
           nextBlink = 2.5 + Math.random() * 4;
+          // 15% chance of double-blink
+          if (Math.random() < 0.15) doubleBlink = 0.25;
         }
-        blinkAmount = Math.max(0, blinkAmount - dt * 8);
       }
+      // Double-blink countdown
+      if (doubleBlink > 0) {
+        doubleBlink -= dt;
+        if (doubleBlink <= 0 && blinkAmount < 0.2) {
+          blinkAmount = 1;
+          doubleBlink = 0;
+        }
+      }
+      // Decay: ~300ms to fully reopen (dt * 3.5)
+      blinkAmount = Math.max(0, blinkAmount - dt * 3.5);
 
       // Sleep — BUG4 FIX: use max of lastActivity and lastExpressionTime
       const effectiveLastActive = Math.max(
@@ -783,16 +799,19 @@ export default function Scene({
       );
       const idleTime = (performance.now() - effectiveLastActive) / 1000;
       const sleepTarget = idleTime > 15 ? Math.min(1, (idleTime - 15) / 3) : 0;
-      sleepSmooth += (sleepTarget - sleepSmooth) * 2 * dt;
-      // Safe mouse coords (0,0 if cursor hasn't entered yet)
-      const safeMx = mouse.x < -900 ? 0 : mouse.x;
-      const safeMy = mouse.y < -900 ? 0 : mouse.y;
+      // Fast wake: if an expression fires while sleeping, snap awake quickly
+      const sleepLerp = exprShowing && sleepSmooth > 0.2 ? 8 : 2;
+      sleepSmooth += (sleepTarget - sleepSmooth) * sleepLerp * dt;
       const themeColors = [
         c.gradColor1,
         c.gradColor2,
         c.gradColor3,
         c.gradColor4,
       ];
+      // Pass idle micro-expression state through expr object for renderer
+      expr._driftX = exprTriggerState.eyeDriftX;
+      expr._driftY = exprTriggerState.eyeDriftY;
+      expr._mouthVar = exprTriggerState.mouthVar;
       // Hold progress for loading circle — only starts after the click
       // threshold (150ms) so quick taps never flash the ring.
       const holdElapsed = performance.now() - holdStartTime;
@@ -828,17 +847,17 @@ export default function Scene({
         holdProgress > 0 ||
         scZoom > 0.01 ||
         goldNeedsRedraw ||
-        Math.abs(safeMx - (prevMx || 0)) > 0.001 ||
-        Math.abs(safeMy - (prevMy || 0)) > 0.001;
-      prevMx = safeMx;
-      prevMy = safeMy;
+        Math.abs(smoothMx - (prevMx || 0)) > 0.01 ||
+        Math.abs(smoothMy - (prevMy || 0)) > 0.01;
+      prevMx = smoothMx;
+      prevMy = smoothMy;
 
       if (smileyDirty) {
         drawCubeFace(
           dizzySmooth,
           el,
-          safeMx,
-          safeMy,
+          smoothMx,
+          smoothMy,
           chatMorph,
           themeColors,
           scZoom,
@@ -886,7 +905,6 @@ export default function Scene({
       // Glass cube — hidden when fully zoomed into showcase
       const cubeVisible = zoomEased < 0.99;
       glassCube.visible = cubeVisible;
-      glassEdges.visible = cubeVisible;
 
       {
         const cr = c.glassCornerRadius || 0.08;
@@ -895,9 +913,6 @@ export default function Scene({
           const newGeo = new RoundedBoxGeometry(1, 1, 1, 4, cr);
           glassCube.geometry.dispose();
           glassCube.geometry = newGeo;
-          const newEdgeGeo = new EdgesGeometry(newGeo);
-          glassEdges.geometry.dispose();
-          glassEdges.geometry = newEdgeGeo;
         }
         glassCube.quaternion.copy(cubeQuat);
         const gSize = c.glassCubeSize || 3.6;
@@ -909,16 +924,15 @@ export default function Scene({
         // Desktop: opacity is a secondary fade over the transmission effect
         // Mobile: opacity IS the glass effect — cap at 0.15 to stay translucent
         glassMat.opacity = isMobile
-          ? 0.15 * birthOpacity * (1 - zoomEased)
+          ? 0.18 * birthOpacity * (1 - zoomEased)
           : birthOpacity * (1 - zoomEased);
-        glassMat.roughness = c.glassRoughness || 0.02;
+        glassMat.roughness = c.glassRoughness || 0;
         if (!isMobile) {
-          glassMat.ior = c.glassIOR || 1.5;
-          glassMat.thickness = c.glassThickness || 2.5;
+          glassMat.ior = c.glassIOR || 1.8;
+          glassMat.thickness = c.glassThickness || 3.5;
           glassMat.transmission =
             c.glassTransmission != null ? c.glassTransmission : 1;
         }
-        glassEdgeMat.opacity = (c.glassEdgeOpacity ?? 0.12) * (1 - zoomEased);
       }
 
       // Single-pass render — MeshPhysicalMaterial handles transmission internally
@@ -940,8 +954,6 @@ export default function Scene({
       sphereGeo.dispose();
       glassGeo.dispose();
       glassMat.dispose();
-      glassEdgeGeo.dispose();
-      glassEdgeMat.dispose();
       menuCubes.forEach((mc) => {
         scene.remove(mc.mesh);
         mc.geo.dispose();

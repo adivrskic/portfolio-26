@@ -18,7 +18,7 @@ export function createCubeFaceRenderer(canvas) {
   let glitchOffset = 0;
   let glitchSlice = -1;
 
-  // Gold theme sparkles
+  // Gold theme sparkles — pre-rendered to avoid per-frame shadowBlur
   const SPARKLE_COUNT = 24;
   const sparkles = Array.from({ length: SPARKLE_COUNT }, () => ({
     x: (Math.random() - 0.5) * 200,
@@ -37,6 +37,36 @@ export function createCubeFaceRenderer(canvas) {
     [255, 240, 160],
   ];
 
+  // Pre-render one sparkle texture per tone (star shape + baked glow)
+  const SPTEX = 32;
+  const sparkleTextures = GOLD_TONES.map(([r, g, b]) => {
+    const cv = document.createElement("canvas");
+    cv.width = SPTEX;
+    cv.height = SPTEX;
+    const pc = cv.getContext("2d");
+    const cx = SPTEX / 2;
+    // Soft glow background (replaces shadowBlur)
+    const grd = pc.createRadialGradient(cx, cx, 0, cx, cx, cx);
+    grd.addColorStop(0, `rgba(${r},${g},${b},0.5)`);
+    grd.addColorStop(0.4, `rgba(${r},${g},${b},0.15)`);
+    grd.addColorStop(1, `rgba(${r},${g},${b},0)`);
+    pc.fillStyle = grd;
+    pc.fillRect(0, 0, SPTEX, SPTEX);
+    // Star shape
+    pc.fillStyle = `rgb(${r},${g},${b})`;
+    pc.beginPath();
+    const sz = cx * 0.55;
+    for (let p = 0; p < 4; p++) {
+      const a = (p / 4) * Math.PI * 2;
+      const a2 = a + Math.PI / 4;
+      pc.lineTo(cx + Math.cos(a) * sz * 2.5, cx + Math.sin(a) * sz * 2.5);
+      pc.lineTo(cx + Math.cos(a2) * sz * 0.6, cx + Math.sin(a2) * sz * 0.6);
+    }
+    pc.closePath();
+    pc.fill();
+    return cv;
+  });
+
   function drawGoldSparkles(time, colors) {
     const isGold = (colors?.[0] || "").toLowerCase() === "#b8860b";
     if (!isGold) return;
@@ -47,26 +77,19 @@ export function createCubeFaceRenderer(canvas) {
       if (sparkAlpha < 0.05) continue;
       const sx = smCx + ((sp.x + sp.driftX * time * 30) % 180) - 90;
       const sy = smCy + ((sp.y + sp.driftY * time * 30 + 200) % 200) - 100;
-      const tone = GOLD_TONES[sp.tone];
+      const sz = sp.size * (0.6 + twinkle * 0.4);
+      const drawSz = sz * 3;
       sCtx.save();
       sCtx.globalAlpha = sparkAlpha;
-      sCtx.fillStyle = `rgb(${tone[0]},${tone[1]},${tone[2]})`;
-      sCtx.shadowColor = `rgba(${tone[0]},${tone[1]},${tone[2]},0.6)`;
-      sCtx.shadowBlur = 4 + twinkle * 4;
-      const sz = sp.size * (0.6 + twinkle * 0.4);
-      const rot = time * 0.5 + sp.phase;
       sCtx.translate(sx, sy);
-      sCtx.rotate(rot);
-      sCtx.beginPath();
-      for (let p = 0; p < 4; p++) {
-        const a = (p / 4) * Math.PI * 2;
-        const a2 = a + Math.PI / 4;
-        sCtx.lineTo(Math.cos(a) * sz * 2.5, Math.sin(a) * sz * 2.5);
-        sCtx.lineTo(Math.cos(a2) * sz * 0.6, Math.sin(a2) * sz * 0.6);
-      }
-      sCtx.closePath();
-      sCtx.fill();
-      sCtx.shadowBlur = 0;
+      sCtx.rotate(time * 0.5 + sp.phase);
+      sCtx.drawImage(
+        sparkleTextures[sp.tone],
+        -drawSz,
+        -drawSz,
+        drawSz * 2,
+        drawSz * 2
+      );
       sCtx.restore();
     }
   }
@@ -155,233 +178,74 @@ export function createCubeFaceRenderer(canvas) {
 
       const eyeR_size = 8 + sp * 4;
 
-      // ── Pick dominant new expression ──
-      const exMax = Math.max(
-        X.love || 0,
-        X.proud || 0,
-        X.cheeky || 0,
-        X.wink || 0,
-        X.startled || 0,
-        X.shy || 0,
-        X.curious || 0,
-        X.phew || 0
-      );
+      // #G — Weighted expression priority
+      const WEIGHTS = {
+        love: 10,
+        startled: 9,
+        shy: 8,
+        cheeky: 7,
+        proud: 6,
+        wink: 5,
+        phew: 4,
+        curious: 3,
+      };
+      let domName = null,
+        domScore = 0;
+      for (const n in WEIGHTS) {
+        const sc = (X[n] || 0) * WEIGHTS[n];
+        if (sc > domScore) {
+          domScore = sc;
+          domName = n;
+        }
+      }
+      const domVal = domName ? Math.min(1, X[domName] || 0) : 0;
+
+      // #J — Idle eye drift
+      const dX = X._driftX || 0;
+      const dY = X._driftY || 0;
+      const mVar = X._mouthVar || 0;
+
+      // ── Helper: draw default eyes ──
+      function defaultEyes(eAlpha) {
+        if (eAlpha < 0.01) return;
+        sCtx.save();
+        sCtx.globalAlpha = a2 * eAlpha;
+        sCtx.fillStyle = tint;
+        sCtx.beginPath();
+        sCtx.arc(eyeL.x + ox + dX, eyeL.y + oy + dY, eyeR_size, 0, Math.PI * 2);
+        sCtx.fill();
+        sCtx.beginPath();
+        sCtx.arc(eyeR.x + ox + dX, eyeR.y + oy + dY, eyeR_size, 0, Math.PI * 2);
+        sCtx.fill();
+        sCtx.restore();
+      }
+
+      // ── Helper: draw default mouth ──
+      function defaultMouth(mAlpha) {
+        if (mAlpha < 0.01) return;
+        sCtx.save();
+        sCtx.globalAlpha = a2 * mAlpha;
+        sCtx.strokeStyle = tint;
+        sCtx.lineCap = "round";
+        sCtx.lineWidth = 3.5;
+        sCtx.beginPath();
+        // Idle mouth variation — subtle curvature shift
+        const mRadius = 26 + mVar * 4;
+        sCtx.arc(fx + ox, fy + 2 + oy, mRadius, 0.25 * Math.PI, 0.75 * Math.PI);
+        sCtx.stroke();
+        sCtx.restore();
+      }
 
       // ════ EYES ════
-      if ((X.love || 0) > 0.3 && (X.love || 0) >= exMax) {
-        // Love — heart eyes
-        sCtx.fillStyle = tint;
-        [eyeL, eyeR].forEach((eye) => {
-          const hx = eye.x + ox,
-            hy = eye.y + oy - 2;
-          const hs = 8;
-          sCtx.beginPath();
-          sCtx.moveTo(hx, hy + hs * 0.4);
-          sCtx.bezierCurveTo(
-            hx,
-            hy - hs * 0.5,
-            hx - hs,
-            hy - hs * 0.5,
-            hx - hs,
-            hy + hs * 0.1
-          );
-          sCtx.bezierCurveTo(hx - hs, hy + hs * 0.6, hx, hy + hs, hx, hy + hs);
-          sCtx.bezierCurveTo(
-            hx,
-            hy + hs,
-            hx + hs,
-            hy + hs * 0.6,
-            hx + hs,
-            hy + hs * 0.1
-          );
-          sCtx.bezierCurveTo(
-            hx + hs,
-            hy - hs * 0.5,
-            hx,
-            hy - hs * 0.5,
-            hx,
-            hy + hs * 0.4
-          );
-          sCtx.fill();
-        });
-      } else if ((X.proud || 0) > 0.3 && (X.proud || 0) >= exMax) {
-        // Proud — confident closed arcs + sparkle
+      // Special states override everything (blink, sleep, dizzy, surprise, happy)
+      if (bl > 0.3) {
         sCtx.strokeStyle = tint;
         sCtx.lineWidth = 3;
         sCtx.lineCap = "round";
         [eyeL, eyeR].forEach((eye) => {
           sCtx.beginPath();
-          sCtx.arc(eye.x + ox, eye.y + oy, 8, 1.1 * Math.PI, 1.9 * Math.PI);
-          sCtx.stroke();
-        });
-        // Tiny sparkle near right eye
-        const skx = eyeR.x + ox + 14,
-          sky = eyeR.y + oy - 10;
-        sCtx.strokeStyle = tint;
-        sCtx.lineWidth = 1.5;
-        const skLen = 4;
-        for (let i = 0; i < 4; i++) {
-          const a = (i / 4) * Math.PI * 2 + time * 2;
-          sCtx.beginPath();
-          sCtx.moveTo(skx + Math.cos(a) * 1, sky + Math.sin(a) * 1);
-          sCtx.lineTo(skx + Math.cos(a) * skLen, sky + Math.sin(a) * skLen);
-          sCtx.stroke();
-        }
-      } else if ((X.cheeky || 0) > 0.3 && (X.cheeky || 0) >= exMax) {
-        // Cheeky — squinty narrow eyes
-        sCtx.strokeStyle = tint;
-        sCtx.lineWidth = 3;
-        sCtx.lineCap = "round";
-        [eyeL, eyeR].forEach((eye) => {
-          sCtx.beginPath();
-          sCtx.moveTo(eye.x + ox - 8, eye.y + oy + 1);
-          sCtx.quadraticCurveTo(
-            eye.x + ox,
-            eye.y + oy - 4,
-            eye.x + ox + 8,
-            eye.y + oy + 1
-          );
-          sCtx.stroke();
-        });
-      } else if ((X.wink || 0) > 0.3 && (X.wink || 0) >= exMax) {
-        // Wink — left eye closed arc, right eye open dot
-        sCtx.strokeStyle = tint;
-        sCtx.lineWidth = 3;
-        sCtx.lineCap = "round";
-        sCtx.beginPath();
-        sCtx.arc(
-          eyeL.x + ox,
-          eyeL.y + oy + 2,
-          7,
-          1.15 * Math.PI,
-          1.85 * Math.PI
-        );
-        sCtx.stroke();
-        sCtx.fillStyle = tint;
-        sCtx.beginPath();
-        sCtx.arc(eyeR.x + ox, eyeR.y + oy, 8, 0, Math.PI * 2);
-        sCtx.fill();
-      } else if ((X.startled || 0) > 0.3 && (X.startled || 0) >= exMax) {
-        // Startled — extra wide circle eyes with small pupils
-        sCtx.strokeStyle = tint;
-        sCtx.lineWidth = 2.5;
-        [eyeL, eyeR].forEach((eye) => {
-          sCtx.beginPath();
-          sCtx.arc(eye.x + ox, eye.y + oy - 3, 12, 0, Math.PI * 2);
-          sCtx.stroke();
-          sCtx.fillStyle = tint;
-          sCtx.beginPath();
-          sCtx.arc(eye.x + ox, eye.y + oy - 3, 2, 0, Math.PI * 2);
-          sCtx.fill();
-        });
-      } else if ((X.shy || 0) > 0.3 && (X.shy || 0) >= exMax) {
-        // Shy — eyes looking away (offset), blush circles
-        sCtx.fillStyle = tint;
-        const shyOff = -6;
-        sCtx.beginPath();
-        sCtx.arc(eyeL.x + ox + shyOff, eyeL.y + oy + 2, 6, 0, Math.PI * 2);
-        sCtx.fill();
-        sCtx.beginPath();
-        sCtx.arc(eyeR.x + ox + shyOff, eyeR.y + oy + 2, 6, 0, Math.PI * 2);
-        sCtx.fill();
-        // Blush
-        sCtx.globalAlpha = a2 * 0.15;
-        sCtx.fillStyle = "rgba(255,120,120,1)";
-        sCtx.beginPath();
-        sCtx.ellipse(
-          eyeL.x + ox - 4,
-          eyeL.y + oy + 16,
-          12,
-          6,
-          0,
-          0,
-          Math.PI * 2
-        );
-        sCtx.fill();
-        sCtx.beginPath();
-        sCtx.ellipse(
-          eyeR.x + ox + 4,
-          eyeR.y + oy + 16,
-          12,
-          6,
-          0,
-          0,
-          Math.PI * 2
-        );
-        sCtx.fill();
-        sCtx.globalAlpha = a2;
-      } else if ((X.curious || 0) > 0.3 && (X.curious || 0) >= exMax) {
-        // Curious — normal eyes but one eyebrow raised
-        sCtx.fillStyle = tint;
-        sCtx.beginPath();
-        sCtx.arc(eyeL.x + ox, eyeL.y + oy, 8, 0, Math.PI * 2);
-        sCtx.fill();
-        sCtx.beginPath();
-        sCtx.arc(eyeR.x + ox, eyeR.y + oy, 8, 0, Math.PI * 2);
-        sCtx.fill();
-        // Raised eyebrow on right
-        sCtx.strokeStyle = tint;
-        sCtx.lineWidth = 2.5;
-        sCtx.lineCap = "round";
-        sCtx.beginPath();
-        sCtx.arc(
-          eyeR.x + ox,
-          eyeR.y + oy - 16,
-          10,
-          1.1 * Math.PI,
-          1.9 * Math.PI
-        );
-        sCtx.stroke();
-        // Flat eyebrow on left
-        sCtx.beginPath();
-        sCtx.moveTo(eyeL.x + ox - 9, eyeL.y + oy - 14);
-        sCtx.lineTo(eyeL.x + ox + 9, eyeL.y + oy - 14);
-        sCtx.stroke();
-      } else if ((X.phew || 0) > 0.3 && (X.phew || 0) >= exMax) {
-        // Phew — relief: one closed arc, one half-open + sweat drop
-        sCtx.strokeStyle = tint;
-        sCtx.lineWidth = 3;
-        sCtx.lineCap = "round";
-        // Left eye: closed arc (relieved)
-        sCtx.beginPath();
-        sCtx.arc(eyeL.x + ox, eyeL.y + oy + 2, 7, 1.0 * Math.PI, 2.0 * Math.PI);
-        sCtx.stroke();
-        // Right eye: half-open
-        sCtx.beginPath();
-        sCtx.arc(eyeR.x + ox, eyeR.y + oy, 6, 0, Math.PI * 2);
-        sCtx.stroke();
-        sCtx.beginPath();
-        sCtx.fillStyle = tint;
-        sCtx.arc(eyeR.x + ox, eyeR.y + oy + 1, 3, 0, Math.PI * 2);
-        sCtx.fill();
-        // Sweat drop
-        sCtx.fillStyle = tint;
-        sCtx.globalAlpha = a2 * 0.4;
-        sCtx.beginPath();
-        sCtx.ellipse(
-          eyeR.x + ox + 14,
-          eyeR.y + oy + 8 + Math.sin(time * 3) * 2,
-          2.5,
-          4,
-          0,
-          0,
-          Math.PI * 2
-        );
-        sCtx.fill();
-        sCtx.globalAlpha = a2;
-      } else if (hp > 0.3) {
-        sCtx.strokeStyle = tint;
-        sCtx.lineWidth = 3;
-        sCtx.lineCap = "round";
-        [eyeL, eyeR].forEach((eye) => {
-          sCtx.beginPath();
-          sCtx.arc(
-            eye.x + ox,
-            eye.y + oy + 2,
-            8,
-            1.15 * Math.PI,
-            1.85 * Math.PI
-          );
+          sCtx.moveTo(eye.x + ox - 7, eye.y + oy);
+          sCtx.lineTo(eye.x + ox + 7, eye.y + oy);
           sCtx.stroke();
         });
       } else if (sl > 0.3) {
@@ -402,38 +266,16 @@ export function createCubeFaceRenderer(canvas) {
       } else if (sp > 0.3) {
         sCtx.strokeStyle = tint;
         sCtx.lineWidth = 2.5 + sp;
-        sCtx.beginPath();
-        sCtx.arc(eyeL.x + ox, eyeL.y + oy, eyeR_size, 0, Math.PI * 2);
-        sCtx.stroke();
-        sCtx.beginPath();
-        sCtx.arc(eyeR.x + ox, eyeR.y + oy, eyeR_size, 0, Math.PI * 2);
-        sCtx.stroke();
-        sCtx.fillStyle = tint;
-        sCtx.beginPath();
-        sCtx.arc(eyeL.x + ox, eyeL.y + oy, 2.5, 0, Math.PI * 2);
-        sCtx.fill();
-        sCtx.beginPath();
-        sCtx.arc(eyeR.x + ox, eyeR.y + oy, 2.5, 0, Math.PI * 2);
-        sCtx.fill();
-      } else if (bl > 0.3) {
-        sCtx.strokeStyle = tint;
-        sCtx.lineWidth = 3;
-        sCtx.lineCap = "round";
         [eyeL, eyeR].forEach((eye) => {
           sCtx.beginPath();
-          sCtx.moveTo(eye.x + ox - 7, eye.y + oy);
-          sCtx.lineTo(eye.x + ox + 7, eye.y + oy);
+          sCtx.arc(eye.x + ox, eye.y + oy, eyeR_size, 0, Math.PI * 2);
           sCtx.stroke();
+          sCtx.fillStyle = tint;
+          sCtx.beginPath();
+          sCtx.arc(eye.x + ox, eye.y + oy, 2.5, 0, Math.PI * 2);
+          sCtx.fill();
         });
-      } else if (dizzy < 0.15) {
-        sCtx.fillStyle = tint;
-        sCtx.beginPath();
-        sCtx.arc(eyeL.x + ox, eyeL.y + oy, eyeR_size, 0, Math.PI * 2);
-        sCtx.fill();
-        sCtx.beginPath();
-        sCtx.arc(eyeR.x + ox, eyeR.y + oy, eyeR_size, 0, Math.PI * 2);
-        sCtx.fill();
-      } else {
+      } else if (dizzy >= 0.15) {
         sCtx.strokeStyle = tint;
         sCtx.lineWidth = 2.5;
         sCtx.lineCap = "round";
@@ -451,84 +293,337 @@ export function createCubeFaceRenderer(canvas) {
           }
           sCtx.stroke();
         });
+      } else if (hp > 0.3) {
+        sCtx.strokeStyle = tint;
+        sCtx.lineWidth = 3;
+        sCtx.lineCap = "round";
+        [eyeL, eyeR].forEach((eye) => {
+          sCtx.beginPath();
+          sCtx.arc(
+            eye.x + ox,
+            eye.y + oy + 2,
+            8,
+            1.15 * Math.PI,
+            1.85 * Math.PI
+          );
+          sCtx.stroke();
+        });
+      } else {
+        // #2 — Expression blending: default base + expression overlay
+        defaultEyes(1 - domVal);
+
+        if (domVal > 0.01 && domName) {
+          sCtx.save();
+          sCtx.globalAlpha = a2 * domVal;
+          if (domName === "love") {
+            sCtx.fillStyle = tint;
+            [eyeL, eyeR].forEach((eye) => {
+              const hx = eye.x + ox,
+                hy = eye.y + oy - 2,
+                hs = 8;
+              sCtx.beginPath();
+              sCtx.moveTo(hx, hy + hs * 0.4);
+              sCtx.bezierCurveTo(
+                hx,
+                hy - hs * 0.5,
+                hx - hs,
+                hy - hs * 0.5,
+                hx - hs,
+                hy + hs * 0.1
+              );
+              sCtx.bezierCurveTo(
+                hx - hs,
+                hy + hs * 0.6,
+                hx,
+                hy + hs,
+                hx,
+                hy + hs
+              );
+              sCtx.bezierCurveTo(
+                hx,
+                hy + hs,
+                hx + hs,
+                hy + hs * 0.6,
+                hx + hs,
+                hy + hs * 0.1
+              );
+              sCtx.bezierCurveTo(
+                hx + hs,
+                hy - hs * 0.5,
+                hx,
+                hy - hs * 0.5,
+                hx,
+                hy + hs * 0.4
+              );
+              sCtx.fill();
+            });
+          } else if (domName === "proud") {
+            sCtx.strokeStyle = tint;
+            sCtx.lineWidth = 3;
+            sCtx.lineCap = "round";
+            [eyeL, eyeR].forEach((eye) => {
+              sCtx.beginPath();
+              sCtx.arc(eye.x + ox, eye.y + oy, 8, 1.1 * Math.PI, 1.9 * Math.PI);
+              sCtx.stroke();
+            });
+            const skx = eyeR.x + ox + 14,
+              sky = eyeR.y + oy - 10;
+            sCtx.lineWidth = 1.5;
+            for (let i = 0; i < 4; i++) {
+              const a = (i / 4) * Math.PI * 2 + time * 2;
+              sCtx.beginPath();
+              sCtx.moveTo(skx + Math.cos(a), sky + Math.sin(a));
+              sCtx.lineTo(skx + Math.cos(a) * 4, sky + Math.sin(a) * 4);
+              sCtx.stroke();
+            }
+          } else if (domName === "cheeky") {
+            sCtx.strokeStyle = tint;
+            sCtx.lineWidth = 3;
+            sCtx.lineCap = "round";
+            [eyeL, eyeR].forEach((eye) => {
+              sCtx.beginPath();
+              sCtx.moveTo(eye.x + ox - 8, eye.y + oy + 1);
+              sCtx.quadraticCurveTo(
+                eye.x + ox,
+                eye.y + oy - 4,
+                eye.x + ox + 8,
+                eye.y + oy + 1
+              );
+              sCtx.stroke();
+            });
+          } else if (domName === "wink") {
+            sCtx.strokeStyle = tint;
+            sCtx.lineWidth = 3;
+            sCtx.lineCap = "round";
+            sCtx.beginPath();
+            sCtx.arc(
+              eyeL.x + ox,
+              eyeL.y + oy + 2,
+              7,
+              1.15 * Math.PI,
+              1.85 * Math.PI
+            );
+            sCtx.stroke();
+            sCtx.fillStyle = tint;
+            sCtx.beginPath();
+            sCtx.arc(eyeR.x + ox, eyeR.y + oy, 8, 0, Math.PI * 2);
+            sCtx.fill();
+          } else if (domName === "startled") {
+            sCtx.strokeStyle = tint;
+            sCtx.lineWidth = 2.5;
+            [eyeL, eyeR].forEach((eye) => {
+              sCtx.beginPath();
+              sCtx.arc(eye.x + ox, eye.y + oy - 3, 12, 0, Math.PI * 2);
+              sCtx.stroke();
+              sCtx.fillStyle = tint;
+              sCtx.beginPath();
+              sCtx.arc(eye.x + ox, eye.y + oy - 3, 2, 0, Math.PI * 2);
+              sCtx.fill();
+            });
+          } else if (domName === "shy") {
+            sCtx.fillStyle = tint;
+            const shyOff = -6;
+            [eyeL, eyeR].forEach((eye) => {
+              sCtx.beginPath();
+              sCtx.arc(eye.x + ox + shyOff, eye.y + oy + 2, 6, 0, Math.PI * 2);
+              sCtx.fill();
+            });
+            sCtx.globalAlpha = a2 * domVal * 0.15;
+            sCtx.fillStyle = "rgba(255,120,120,1)";
+            sCtx.beginPath();
+            sCtx.ellipse(
+              eyeL.x + ox - 4,
+              eyeL.y + oy + 16,
+              12,
+              6,
+              0,
+              0,
+              Math.PI * 2
+            );
+            sCtx.fill();
+            sCtx.beginPath();
+            sCtx.ellipse(
+              eyeR.x + ox + 4,
+              eyeR.y + oy + 16,
+              12,
+              6,
+              0,
+              0,
+              Math.PI * 2
+            );
+            sCtx.fill();
+          } else if (domName === "curious") {
+            sCtx.fillStyle = tint;
+            sCtx.beginPath();
+            sCtx.arc(eyeL.x + ox, eyeL.y + oy, 8, 0, Math.PI * 2);
+            sCtx.fill();
+            sCtx.beginPath();
+            sCtx.arc(eyeR.x + ox, eyeR.y + oy, 8, 0, Math.PI * 2);
+            sCtx.fill();
+            sCtx.strokeStyle = tint;
+            sCtx.lineWidth = 2.5;
+            sCtx.lineCap = "round";
+            sCtx.beginPath();
+            sCtx.arc(
+              eyeR.x + ox,
+              eyeR.y + oy - 16,
+              10,
+              1.1 * Math.PI,
+              1.9 * Math.PI
+            );
+            sCtx.stroke();
+            sCtx.beginPath();
+            sCtx.moveTo(eyeL.x + ox - 9, eyeL.y + oy - 14);
+            sCtx.lineTo(eyeL.x + ox + 9, eyeL.y + oy - 14);
+            sCtx.stroke();
+          } else if (domName === "phew") {
+            sCtx.strokeStyle = tint;
+            sCtx.lineWidth = 3;
+            sCtx.lineCap = "round";
+            sCtx.beginPath();
+            sCtx.arc(
+              eyeL.x + ox,
+              eyeL.y + oy + 2,
+              7,
+              1.0 * Math.PI,
+              2.0 * Math.PI
+            );
+            sCtx.stroke();
+            sCtx.beginPath();
+            sCtx.arc(eyeR.x + ox, eyeR.y + oy, 6, 0, Math.PI * 2);
+            sCtx.stroke();
+            sCtx.fillStyle = tint;
+            sCtx.beginPath();
+            sCtx.arc(eyeR.x + ox, eyeR.y + oy + 1, 3, 0, Math.PI * 2);
+            sCtx.fill();
+            sCtx.fillStyle = tint;
+            sCtx.globalAlpha = a2 * domVal * 0.4;
+            sCtx.beginPath();
+            sCtx.ellipse(
+              eyeR.x + ox + 14,
+              eyeR.y + oy + 8 + Math.sin(time * 3) * 2,
+              2.5,
+              4,
+              0,
+              0,
+              Math.PI * 2
+            );
+            sCtx.fill();
+          }
+          sCtx.restore();
+        }
       }
-      // Mouth
+
+      // ════ MOUTH ════
       sCtx.strokeStyle = tint;
       sCtx.lineCap = "round";
-      sCtx.beginPath();
-      if ((X.love || 0) > 0.3 && (X.love || 0) >= exMax) {
-        sCtx.lineWidth = 3;
-        sCtx.arc(fx + ox, fy + oy, 22, 0.3 * Math.PI, 0.7 * Math.PI);
-      } else if ((X.proud || 0) > 0.3 && (X.proud || 0) >= exMax) {
-        sCtx.lineWidth = 3;
-        sCtx.arc(fx + ox, fy - 4 + oy, 20, 0.3 * Math.PI, 0.7 * Math.PI);
-      } else if ((X.cheeky || 0) > 0.3 && (X.cheeky || 0) >= exMax) {
-        sCtx.lineWidth = 4;
-        sCtx.arc(fx + ox, fy - 2 + oy, 28, 0.2 * Math.PI, 0.8 * Math.PI);
-        sCtx.stroke();
+
+      // Special states override
+      if (hp > 0.3) {
         sCtx.beginPath();
-        sCtx.fillStyle = tint;
-        sCtx.globalAlpha = a2 * 0.35;
-        sCtx.ellipse(fx + ox, fy + 24 + oy, 10, 8, 0, 0, Math.PI);
-        sCtx.fill();
-        sCtx.globalAlpha = a2;
-        sCtx.beginPath();
-      } else if ((X.wink || 0) > 0.3 && (X.wink || 0) >= exMax) {
-        sCtx.lineWidth = 3;
-        sCtx.moveTo(fx + ox - 16, fy + 6 + oy);
-        sCtx.quadraticCurveTo(
-          fx + ox + 4,
-          fy + 20 + oy,
-          fx + ox + 18,
-          fy + 2 + oy
-        );
-      } else if ((X.startled || 0) > 0.3 && (X.startled || 0) >= exMax) {
-        sCtx.lineWidth = 2.5;
-        sCtx.arc(fx + ox, fy + 10 + oy, 6, 0, Math.PI * 2);
-      } else if ((X.shy || 0) > 0.3 && (X.shy || 0) >= exMax) {
-        sCtx.lineWidth = 2.5;
-        sCtx.moveTo(fx + ox - 10, fy + 6 + oy);
-        sCtx.quadraticCurveTo(fx + ox, fy + 10 + oy, fx + ox + 10, fy + 6 + oy);
-      } else if ((X.curious || 0) > 0.3 && (X.curious || 0) >= exMax) {
-        sCtx.lineWidth = 3;
-        sCtx.moveTo(fx + ox - 14, fy + 6 + oy);
-        sCtx.quadraticCurveTo(fx + ox, fy + 4 + oy, fx + ox + 14, fy + 2 + oy);
-      } else if ((X.phew || 0) > 0.3 && (X.phew || 0) >= exMax) {
-        // Phew — crooked exhale smile
-        sCtx.lineWidth = 3;
-        sCtx.moveTo(fx + ox - 14, fy + 4 + oy);
-        sCtx.quadraticCurveTo(fx + ox - 2, fy + 16 + oy, fx + ox + 16, fy + oy);
-      } else if (hp > 0.3) {
         sCtx.lineWidth = 4;
         sCtx.arc(fx + ox, fy - 6 + oy, 32, 0.25 * Math.PI, 0.75 * Math.PI);
+        sCtx.stroke();
       } else if (sl > 0.3) {
+        sCtx.beginPath();
         sCtx.lineWidth = 3;
         sCtx.moveTo(fx + ox - 12, fy + 8 + oy);
         sCtx.quadraticCurveTo(fx + ox, fy + 12 + oy, fx + ox + 12, fy + 8 + oy);
+        sCtx.stroke();
       } else if (sp > 0.3) {
+        sCtx.beginPath();
         sCtx.lineWidth = 3;
         const oSize = 10 + sp * 8;
         sCtx.arc(fx + ox, fy + 12 + oy, oSize, 0, Math.PI * 2);
-      } else if (dizzy < 0.3) {
-        sCtx.lineWidth = 5;
-        sCtx.arc(fx + ox, fy - 2 + oy, 38, 0.2 * Math.PI, 0.8 * Math.PI);
-      } else {
+        sCtx.stroke();
+      } else if (dizzy >= 0.3) {
+        sCtx.beginPath();
         const wobble = dizzy * 6;
         for (let i = 0; i <= 20; i++) {
           const t2 = i / 20;
-          const angle = 0.2 * Math.PI + t2 * 0.6 * Math.PI;
-          const wx = fx + ox + Math.cos(angle) * 38;
+          const angle = 0.25 * Math.PI + t2 * 0.5 * Math.PI;
+          const wx = fx + ox + Math.cos(angle) * 26;
           const wy =
-            fy -
+            fy +
             2 +
             oy +
-            Math.sin(angle) * 38 +
+            Math.sin(angle) * 26 +
             Math.sin(t2 * Math.PI * 3 + time * 5) * wobble;
           if (i === 0) sCtx.moveTo(wx, wy);
           else sCtx.lineTo(wx, wy);
         }
+        sCtx.stroke();
+      } else {
+        // #2 — Blend: default mouth base + expression mouth overlay
+        defaultMouth(1 - domVal);
+
+        if (domVal > 0.01 && domName) {
+          sCtx.save();
+          sCtx.globalAlpha = a2 * domVal;
+          sCtx.strokeStyle = tint;
+          sCtx.lineCap = "round";
+          sCtx.beginPath();
+          if (domName === "love") {
+            sCtx.lineWidth = 3;
+            sCtx.arc(fx + ox, fy + oy, 22, 0.3 * Math.PI, 0.7 * Math.PI);
+          } else if (domName === "proud") {
+            sCtx.lineWidth = 3;
+            sCtx.arc(fx + ox, fy - 4 + oy, 20, 0.3 * Math.PI, 0.7 * Math.PI);
+          } else if (domName === "cheeky") {
+            sCtx.lineWidth = 4;
+            sCtx.arc(fx + ox, fy - 2 + oy, 28, 0.2 * Math.PI, 0.8 * Math.PI);
+            sCtx.stroke();
+            sCtx.beginPath();
+            sCtx.fillStyle = tint;
+            sCtx.globalAlpha = a2 * domVal * 0.35;
+            sCtx.ellipse(fx + ox, fy + 24 + oy, 10, 8, 0, 0, Math.PI);
+            sCtx.fill();
+            sCtx.beginPath();
+          } else if (domName === "wink") {
+            sCtx.lineWidth = 3;
+            sCtx.moveTo(fx + ox - 16, fy + 6 + oy);
+            sCtx.quadraticCurveTo(
+              fx + ox + 4,
+              fy + 20 + oy,
+              fx + ox + 18,
+              fy + 2 + oy
+            );
+          } else if (domName === "startled") {
+            sCtx.lineWidth = 2.5;
+            sCtx.arc(fx + ox, fy + 10 + oy, 6, 0, Math.PI * 2);
+          } else if (domName === "shy") {
+            sCtx.lineWidth = 2.5;
+            sCtx.moveTo(fx + ox - 10, fy + 6 + oy);
+            sCtx.quadraticCurveTo(
+              fx + ox,
+              fy + 10 + oy,
+              fx + ox + 10,
+              fy + 6 + oy
+            );
+          } else if (domName === "curious") {
+            sCtx.lineWidth = 3;
+            sCtx.moveTo(fx + ox - 14, fy + 6 + oy);
+            sCtx.quadraticCurveTo(
+              fx + ox,
+              fy + 4 + oy,
+              fx + ox + 14,
+              fy + 2 + oy
+            );
+          } else if (domName === "phew") {
+            sCtx.lineWidth = 3;
+            sCtx.moveTo(fx + ox - 14, fy + 4 + oy);
+            sCtx.quadraticCurveTo(
+              fx + ox - 2,
+              fy + 16 + oy,
+              fx + ox + 16,
+              fy + oy
+            );
+          }
+          sCtx.stroke();
+          sCtx.restore();
+        }
       }
-      sCtx.stroke();
+
       sCtx.restore();
     }
 
@@ -557,10 +652,24 @@ export function createCubeFaceRenderer(canvas) {
     drawFace(0, 0, faceColor(0.9), 0.75 + dizzy * 0.15);
 
     if (glitchSlice > 0 && Math.abs(glitchOffset) > 2) {
-      const sliceH = 8 + Math.random() * 16;
-      const imgData = sCtx.getImageData(0, glitchSlice, 256, sliceH);
-      sCtx.clearRect(0, glitchSlice, 256, sliceH);
-      sCtx.putImageData(imgData, glitchOffset, glitchSlice);
+      const sliceH = Math.floor(8 + Math.random() * 16);
+      // Canvas self-draw — avoids getImageData GPU→CPU stall
+      sCtx.drawImage(
+        canvas,
+        0,
+        glitchSlice,
+        256,
+        sliceH,
+        glitchOffset,
+        glitchSlice,
+        256,
+        sliceH
+      );
+      // Clear the gap left behind
+      if (glitchOffset > 0)
+        sCtx.clearRect(0, glitchSlice, glitchOffset, sliceH);
+      else
+        sCtx.clearRect(256 + glitchOffset, glitchSlice, -glitchOffset, sliceH);
     }
     sCtx.fillStyle = "rgba(0,0,0,0.04)";
     if (Math.random() < 0.03 + dizzy * 0.3) {
@@ -589,7 +698,13 @@ export function createCubeFaceRenderer(canvas) {
     () => 1.2 + Math.random() * 1.8
   );
 
-  function drawWaveLayer(time, alpha, colors) {
+  // Cached wave glow texture — re-rendered when theme changes
+  const waveGlowCv = document.createElement("canvas");
+  waveGlowCv.width = 256;
+  waveGlowCv.height = 256;
+  let waveGlowColor = "";
+
+  function drawWaveLayer(time, alpha, colors, lookX, lookY) {
     sCtx.save();
     sCtx.globalAlpha = alpha;
 
@@ -600,14 +715,37 @@ export function createCubeFaceRenderer(canvas) {
       hexRgb(colors?.[3]),
     ];
 
-    // Very soft glow center
-    const glow = sCtx.createRadialGradient(smCx, smCy, 8, smCx, smCy, 70);
-    const gc = cols[1] || cols[0];
-    glow.addColorStop(0, `rgba(${gc.r},${gc.g},${gc.b},0.05)`);
-    glow.addColorStop(1, `rgba(${gc.r},${gc.g},${gc.b},0)`);
-    sCtx.fillStyle = glow;
-    sCtx.fillRect(0, 0, 256, 256);
+    // Glow center — cached, only re-render on theme change
+    const glowKey = colors?.[1] || colors?.[0] || "";
+    if (glowKey !== waveGlowColor) {
+      waveGlowColor = glowKey;
+      const gc = cols[1] || cols[0];
+      const gCtx = waveGlowCv.getContext("2d");
+      gCtx.clearRect(0, 0, 256, 256);
+      const glow = gCtx.createRadialGradient(smCx, smCy, 8, smCx, smCy, 70);
+      glow.addColorStop(0, `rgba(${gc.r},${gc.g},${gc.b},0.05)`);
+      glow.addColorStop(1, `rgba(${gc.r},${gc.g},${gc.b},0)`);
+      gCtx.fillStyle = glow;
+      gCtx.fillRect(0, 0, 256, 256);
+    }
+    sCtx.drawImage(waveGlowCv, 0, 0);
 
+    // ── Eyes above the bars ──
+    const lx = (lookX || 0) * 8;
+    const ly = (lookY || 0) * -5;
+    const eyeY = smCy - 38;
+    const eyeSpacing = 22;
+    const eyeSize = 7;
+    const fc = cols[0];
+    sCtx.fillStyle = `rgba(${fc.r},${fc.g},${fc.b},0.85)`;
+    sCtx.beginPath();
+    sCtx.arc(smCx - eyeSpacing + lx, eyeY + ly, eyeSize, 0, Math.PI * 2);
+    sCtx.fill();
+    sCtx.beginPath();
+    sCtx.arc(smCx + eyeSpacing + lx, eyeY + ly, eyeSize, 0, Math.PI * 2);
+    sCtx.fill();
+
+    // ── Bars (mouth) ──
     const totalW = 110;
     const barW = totalW / BAR_COUNT - 2;
     const startX = smCx - totalW / 2;
@@ -623,25 +761,20 @@ export function createCubeFaceRenderer(canvas) {
       const h3 = Math.cos(time * barSpeeds[i] * 0.5 + i);
       const height = (h1 * 0.5 + h2 * 0.3 + h3 * 0.2) * 55 + 8;
       const x = startX + (totalW / BAR_COUNT) * i;
-      const y = smCy - height / 2;
+      const barY = smCy - height / 2 + 10;
+      const r = barW / 2;
 
-      // Bar
+      // Soft glow behind bar (replaces shadowBlur)
+      sCtx.fillStyle = `rgba(${col.r},${col.g},${col.b},0.08)`;
+      sCtx.beginPath();
+      sCtx.roundRect(x - 3, barY - 3, barW + 6, height + 6, r + 3);
+      sCtx.fill();
+
+      // Main bar
       sCtx.fillStyle = `rgba(${col.r},${col.g},${col.b},0.7)`;
       sCtx.beginPath();
-      const r = barW / 2;
-      sCtx.roundRect(x, y, barW, height, r);
+      sCtx.roundRect(x, barY, barW, height, r);
       sCtx.fill();
-
-      // Glow per bar
-      sCtx.save();
-      sCtx.globalAlpha = 0.15;
-      sCtx.shadowColor = `rgba(${col.r},${col.g},${col.b},0.8)`;
-      sCtx.shadowBlur = 8;
-      sCtx.fillStyle = `rgba(${col.r},${col.g},${col.b},0.3)`;
-      sCtx.beginPath();
-      sCtx.roundRect(x, y, barW, height, r);
-      sCtx.fill();
-      sCtx.restore();
     }
 
     sCtx.restore();
@@ -679,7 +812,7 @@ export function createCubeFaceRenderer(canvas) {
         blink,
         ex
       );
-    if (waveAlpha > 0.01) drawWaveLayer(time, waveAlpha, colors);
+    if (waveAlpha > 0.01) drawWaveLayer(time, waveAlpha, colors, lookX, lookY);
     // Gold sparkles persist across both face and wave modes
     drawGoldSparkles(time, colors);
 
@@ -694,37 +827,42 @@ export function createCubeFaceRenderer(canvas) {
       const lineW = 3 + hp * 4;
       const pulse = 1 + Math.sin(time * 12) * 0.15 * hp;
 
-      // Outer glow ring
+      // Outer glow ring (wide, semi-transparent — no shadowBlur needed)
       sCtx.save();
       sCtx.globalAlpha = hp * 0.3;
       sCtx.strokeStyle = `rgba(${c2.r},${c2.g},${c2.b},0.4)`;
-      sCtx.lineWidth = lineW + 8;
+      sCtx.lineWidth = lineW + 12;
       sCtx.lineCap = "round";
-      sCtx.shadowColor = `rgba(${c2.r},${c2.g},${c2.b},0.6)`;
-      sCtx.shadowBlur = 12 * pulse;
       sCtx.beginPath();
       sCtx.arc(smCx, smCy, ringR * pulse, startAngle, endAngle);
       sCtx.stroke();
       sCtx.restore();
 
-      // Main progress arc
+      // Main progress arc — soft glow layer underneath
+      sCtx.save();
+      sCtx.globalAlpha = (0.6 + hp * 0.35) * 0.3;
+      sCtx.lineWidth = lineW + 6;
+      sCtx.lineCap = "round";
+      sCtx.strokeStyle = `rgba(${c1.r},${c1.g},${c1.b},0.3)`;
+      sCtx.beginPath();
+      sCtx.arc(smCx, smCy, ringR * pulse, startAngle, endAngle);
+      sCtx.stroke();
+      sCtx.restore();
+
+      // Main progress arc — gradient segments
       sCtx.save();
       sCtx.globalAlpha = 0.6 + hp * 0.35;
       sCtx.lineWidth = lineW;
       sCtx.lineCap = "round";
-      sCtx.shadowColor = `rgba(${c1.r},${c1.g},${c1.b},0.5)`;
-      sCtx.shadowBlur = 6 * pulse;
 
       const steps = 20;
       for (let i = 0; i < steps; i++) {
         const t = i / steps;
         const a1 = startAngle + t * hp * Math.PI * 2;
         const a2 = startAngle + (t + 1 / steps) * hp * Math.PI * 2;
-        const r1 = hexRgb(colors?.[0]);
-        const r2 = hexRgb(colors?.[1]);
-        const cr = Math.round(r1.r + (r2.r - r1.r) * t);
-        const cg = Math.round(r1.g + (r2.g - r1.g) * t);
-        const cb = Math.round(r1.b + (r2.b - r1.b) * t);
+        const cr = Math.round(c1.r + (c2.r - c1.r) * t);
+        const cg = Math.round(c1.g + (c2.g - c1.g) * t);
+        const cb = Math.round(c1.b + (c2.b - c1.b) * t);
         sCtx.strokeStyle = `rgba(${cr},${cg},${cb},1)`;
         sCtx.beginPath();
         sCtx.arc(smCx, smCy, ringR * pulse, a1, a2 + 0.02);
