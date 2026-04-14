@@ -53,7 +53,9 @@ export default function GradientBackground({
     const tmp = document.createElement("canvas");
     const tCtx = tmp.getContext("2d");
 
-    const dpr = Math.min(window.devicePixelRatio, 2);
+    // Blobs are large soft gradients — 1x DPR is visually identical to 2x
+    // but renders 4× fewer pixels on retina displays
+    const dpr = 1;
     let W, H;
 
     function resize() {
@@ -82,7 +84,7 @@ export default function GradientBackground({
       mouse.y = e.clientY;
       lastBrushTime = performance.now();
     };
-    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mousemove", onMove, { passive: true });
 
     // Bristles — normalized, scaled by config each frame
     const BRISTLES = 18,

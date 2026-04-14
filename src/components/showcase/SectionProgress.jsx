@@ -7,19 +7,17 @@ export function SettleFooter({ onClose, onContact, totalSections }) {
   const ref = useRef();
 
   useEffect(() => {
-    let raf;
-    function tick() {
-      raf = requestAnimationFrame(tick);
+    function update(sec) {
       if (!ref.current) return;
-      const atEnd = state.section >= totalSections - 1;
+      const atEnd = sec >= totalSections - 1;
       ref.current.style.opacity = atEnd ? "1" : "0";
       ref.current.style.transform = `translateX(-50%) translateY(${
         atEnd ? "0" : "8px"
       })`;
       ref.current.style.pointerEvents = atEnd ? "auto" : "none";
     }
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    update(state.section);
+    return state.subscribe(update);
   }, [totalSections]);
 
   return (
@@ -56,10 +54,7 @@ export function SectionProgress({
   const settleIdx = totalSections - 1;
 
   useEffect(() => {
-    let raf;
-    function tick() {
-      raf = requestAnimationFrame(tick);
-      const sec = state.section;
+    function update(sec) {
       const center = sec * TICKS_PER + TICKS_PER / 2;
       const sigma = TICKS_PER * 1.4;
 
@@ -90,8 +85,8 @@ export function SectionProgress({
       if (endRef.current)
         endRef.current.style.opacity = sec >= totalSections - 1 ? "0.3" : "0";
     }
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    update(state.section);
+    return state.subscribe(update);
   }, [totalSections, themeColor, projectCount]);
 
   return (

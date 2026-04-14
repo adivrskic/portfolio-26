@@ -36,7 +36,7 @@ export default function App() {
   const [birthComplete, setBirthComplete] = useState(false);
   const [chatMode, setChatMode] = useState(false);
   const [chatMounted, setChatMounted] = useState(false);
-  const [cubeProximity, setCubeProximity] = useState(0);
+  const cubeProximityRef = useRef(0);
   const [gradCanvas, setGradCanvas] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeSeason, setActiveSeason] = useState(getCurrentSeason);
@@ -99,12 +99,24 @@ export default function App() {
     }, 2500);
   }, []);
 
-  const handleCubeProximity = useCallback((p) => setCubeProximity(p), []);
+  const handleCubeProximity = useCallback((p) => {
+    cubeProximityRef.current = p;
+  }, []);
 
   const handleCloseChat = useCallback(() => {
     setChatMode(false);
     setTimeout(() => setChatMounted(false), 1400);
   }, []);
+
+  const handleMenuToggle = useCallback(() => setMenuOpen((v) => !v), []);
+  const handleMenuClose = useCallback(() => setMenuOpen(false), []);
+  const handleMenuShowcase = useCallback(
+    (section) => {
+      setMenuOpen(false);
+      setTimeout(() => handleCubeShowcase(section), 600);
+    },
+    [handleCubeShowcase]
+  );
 
   const fading = showcaseTransition || showcaseOpen;
 
@@ -148,11 +160,11 @@ export default function App() {
               fadeFactor={1}
               gradientCanvas={gradCanvas}
               menuOpen={menuOpen}
-              onMenuToggle={() => setMenuOpen((v) => !v)}
+              onMenuToggle={handleMenuToggle}
             />
           )}
           <Reticle
-            proximity={cubeProximity}
+            proximityRef={cubeProximityRef}
             chatMode={chatMode}
             menuOpen={menuOpen}
             config={config}
@@ -185,14 +197,11 @@ export default function App() {
 
       <MenuOverlay
         open={menuOpen}
-        onClose={() => setMenuOpen(false)}
+        onClose={handleMenuClose}
         config={config}
         onThemeChange={handleThemeChange}
         activeSeason={activeSeason}
-        onShowcase={(section) => {
-          setMenuOpen(false);
-          setTimeout(() => handleCubeShowcase(section), 600);
-        }}
+        onShowcase={handleMenuShowcase}
       />
       {/* {DebugPanel && (
         <Suspense fallback={null}>

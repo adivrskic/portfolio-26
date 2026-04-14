@@ -8,7 +8,7 @@ const IS_TOUCH =
   typeof window !== "undefined" && window.matchMedia("(hover: none)").matches;
 
 export default function Reticle({
-  proximity,
+  proximityRef,
   chatMode,
   menuOpen,
   config: c,
@@ -22,12 +22,10 @@ export default function Reticle({
   const line2Ref = useRef(null);
   const pillRef = useRef(null);
   const pill2Ref = useRef(null);
-  const pRef = useRef(0);
   const smoothP = useRef(0);
   const mouseRef = useRef({ x: -200, y: -200 });
   const gradCanvasRef = useRef(null);
   gradCanvasRef.current = gradientCanvas;
-  pRef.current = proximity;
 
   const scrollRef = useRef(0);
   const chatRef = useRef(false);
@@ -42,7 +40,7 @@ export default function Reticle({
         ref.current.style.top = e.clientY + "px";
       }
     };
-    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mousemove", onMove, { passive: true });
 
     let raf;
     let frame = 0;
@@ -56,7 +54,7 @@ export default function Reticle({
       skipFrame = !skipFrame;
       if (skipFrame) return;
       const smoothing = c.reticleSmoothing || 0.08;
-      smoothP.current += (pRef.current - smoothP.current) * smoothing;
+      smoothP.current += (proximityRef.current - smoothP.current) * smoothing;
       const p = Math.max(0, Math.min(1, smoothP.current));
 
       if (ref.current) {
@@ -73,7 +71,9 @@ export default function Reticle({
         // Only read back pixels when: enough frames have passed AND
         // the cursor moved enough to be over a different gradient region.
         if (++frame % 5 === 0 && gradCanvasRef.current) {
-          const dpr = Math.min(window.devicePixelRatio, 2);
+          const gc = gradCanvasRef.current;
+          const dpr =
+            gc.width / (parseFloat(gc.style.width) || window.innerWidth);
           const cx = Math.round(mouseRef.current.x * dpr);
           const cy = Math.round(mouseRef.current.y * dpr);
           const dx = cx - lastSampleX;
@@ -82,7 +82,6 @@ export default function Reticle({
             // ~20px movement threshold
             lastSampleX = cx;
             lastSampleY = cy;
-            const gc = gradCanvasRef.current;
             if (cx >= 0 && cy >= 0 && cx < gc.width && cy < gc.height) {
               try {
                 const ctx = gc.getContext("2d", { willReadFrequently: true });

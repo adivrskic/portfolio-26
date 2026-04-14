@@ -1,4 +1,5 @@
 import { Suspense, useRef, useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { TextureLoader, Vector3, MathUtils as ThrMath } from "three";
 import { Canvas, useThree, useFrame, useLoader } from "@react-three/fiber";
 import { Environment, Lightformer } from "@react-three/drei";
@@ -8,6 +9,7 @@ import {
   N8AO,
 } from "@react-three/postprocessing";
 import ContactForm from "../contact/ContactForm";
+import { ChevronDown, ChevronUp, X as XIcon } from "lucide-react";
 
 import { SHOWCASE_PROJECTS } from "./ShowcaseProjects";
 import { L, state, FONT_URL, TOTAL_SECTIONS, N } from "./ShowcaseLayout";
@@ -18,6 +20,10 @@ import IntroWave from "./IntroWave";
 import { SectionProgress, SettleFooter } from "./SectionProgress";
 import { BG_HEX } from "../../constants/style";
 import "./Showcase.css";
+
+const IS_MOBILE =
+  typeof window !== "undefined" &&
+  ("ontouchstart" in window || window.innerWidth < 768);
 
 // ── Eagerly preload via browser — fires at import time ──
 const ALL_IMAGE_URLS = SHOWCASE_PROJECTS.flatMap((p) => p.images);
@@ -47,7 +53,6 @@ SHOWCASE_PROJECTS.forEach((p) => {
 });
 
 // ── Dynamic depth of field ──
-// ONLY on hero. Everything else: zero blur, instantly.
 state.focusZ = 0;
 
 function DynamicDof() {
@@ -57,20 +62,16 @@ function DynamicDof() {
 
   useFrame(({ camera }) => {
     if (!dofRef.current) return;
-
     const sec = state.section;
     const onHero = sec === 0;
 
     if (!onHero) {
-      // NOT hero — snap DOF to zero immediately, no lerp
       smoothBokeh.current = 0;
       smoothRange.current = 100;
     } else if (state.focusZ > 0) {
-      // Hero with cube hover — no blur
       smoothBokeh.current = ThrMath.lerp(smoothBokeh.current, 0, 0.15);
       smoothRange.current = ThrMath.lerp(smoothRange.current, 100, 0.15);
     } else {
-      // Hero idle — normal DoF
       smoothBokeh.current = ThrMath.lerp(
         smoothBokeh.current,
         L.post.dofBokehScale,
@@ -138,6 +139,60 @@ function Content({ onVpHeight, themeColor }) {
   );
 }
 
+// ── Bottom nav bar (mobile + desktop) ──
+function NavBar({ onNext, onPrev, onClose, currentSection, totalSections }) {
+  const [sec, setSec] = useState(state.section);
+
+  useEffect(() => {
+    return state.subscribe((v) => setSec(v));
+  }, []);
+
+  const isFirst = sec === 0;
+  const isLast = sec >= totalSections - 1;
+
+  return (
+    <div className="showcase__nav">
+      {isFirst ? (
+        <button
+          className="showcase__nav-btn showcase__nav-btn--close"
+          onClick={onClose}
+        >
+          <XIcon size={16} strokeWidth={1.5} />
+          <span>Close</span>
+        </button>
+      ) : (
+        <button className="showcase__nav-btn" onClick={onPrev}>
+          <ChevronUp size={16} strokeWidth={1.5} />
+          <span>Prev</span>
+        </button>
+      )}
+
+      <span className="showcase__nav-label">
+        {String(sec + 1).padStart(2, "0")} /{" "}
+        {String(totalSections).padStart(2, "0")}
+      </span>
+
+      {isLast ? (
+        <button
+          className="showcase__nav-btn showcase__nav-btn--close"
+          onClick={onClose}
+        >
+          <XIcon size={16} strokeWidth={1.5} />
+          <span>Exit</span>
+        </button>
+      ) : (
+        <button
+          className="showcase__nav-btn showcase__nav-btn--next"
+          onClick={onNext}
+        >
+          <span>Next</span>
+          <ChevronDown size={16} strokeWidth={1.5} />
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ── Main export ──
 export default function ShowcaseCanvas({
   open,
@@ -155,6 +210,10 @@ export default function ShowcaseCanvas({
   const [loaderVisible, setLoaderVisible] = useState(false);
   const checkerGridRef = useRef(null);
   const hasOpened = useRef(false);
+
+  // Touch swipe tracking
+  const touchStartY = useRef(null);
+  const touchStartTime = useRef(0);
 
   const COLS = 16,
     ROWS = 10;
@@ -354,28 +413,65 @@ export default function ShowcaseCanvas({
     });
   }, []);
 
+  // ── Navigation helpers ──
+  const goNext = useCallback(() => {
+    if (closingRef.current || sectionTransitioning.current) return;
+    if (state.section < state.totalSections - 1) {
+      triggerSectionTransition(state.section + 1);
+    }
+  }, [triggerSectionTransition]);
+
+  const goPrev = useCallback(() => {
+    if (closingRef.current || sectionTransitioning.current) return;
+    if (state.section > 0) {
+      triggerSectionTransition(state.section - 1);
+    } else {
+      closingRef.current = true;
+      onClose();
+    }
+  }, [onClose, triggerSectionTransition]);
+
   const onWheel = useCallback(
     (e) => {
-      if (closingRef.current) return;
-      if (sectionTransitioning.current) return;
+      if (closingRef.current || sectionTransitioning.current) return;
       const now = performance.now();
       if (now - lastWheelRef.current < L.anim.wheelDebounce) return;
       lastWheelRef.current = now;
 
-      if (e.deltaY > 10) {
-        if (state.section < state.totalSections - 1) {
-          triggerSectionTransition(state.section + 1);
-        }
-      } else if (e.deltaY < -10) {
-        if (state.section > 0) {
-          triggerSectionTransition(state.section - 1);
-        } else {
-          closingRef.current = true;
-          onClose();
-        }
-      }
+      if (e.deltaY > 10) goNext();
+      else if (e.deltaY < -10) goPrev();
     },
-    [onClose, triggerSectionTransition]
+    [goNext, goPrev]
+  );
+
+  // ── Touch swipe ──
+  const onTouchStart = useCallback((e) => {
+    if (e.touches.length === 1) {
+      touchStartY.current = e.touches[0].clientY;
+      touchStartTime.current = performance.now();
+    }
+  }, []);
+
+  const onTouchEnd = useCallback(
+    (e) => {
+      if (touchStartY.current === null) return;
+      const endY = e.changedTouches[0].clientY;
+      const dy = touchStartY.current - endY;
+      const elapsed = performance.now() - touchStartTime.current;
+      touchStartY.current = null;
+
+      // Require at least 40px swipe within 500ms
+      if (Math.abs(dy) < 40 || elapsed > 500) return;
+      if (closingRef.current || sectionTransitioning.current) return;
+
+      const now = performance.now();
+      if (now - lastWheelRef.current < L.anim.wheelDebounce) return;
+      lastWheelRef.current = now;
+
+      if (dy > 0) goNext();
+      else goPrev();
+    },
+    [goNext, goPrev]
   );
 
   if (!preloaded && visible) return <IntroWave config={config} />;
@@ -386,6 +482,8 @@ export default function ShowcaseCanvas({
     <div
       ref={containerRef}
       onWheel={isShown ? onWheel : undefined}
+      onTouchStart={isShown ? onTouchStart : undefined}
+      onTouchEnd={isShown ? onTouchEnd : undefined}
       className={`showcase ${
         isShown ? "showcase--visible" : "showcase--hidden"
       }`}
@@ -399,7 +497,7 @@ export default function ShowcaseCanvas({
       <Canvas
         flat
         shadows
-        dpr={[1, 1.5]}
+        dpr={[1, IS_MOBILE ? 1 : 1.5]}
         frameloop={isShown ? "always" : "demand"}
         raycaster={{}}
         camera={{ position: [0, 0, 12], fov: 45, far: 200, near: 0.1 }}
@@ -517,22 +615,45 @@ export default function ShowcaseCanvas({
         </div>
       )}
 
-      {/* UI overlays */}
-      {isShown && (
-        <>
-          <SectionProgress
-            totalSections={TOTAL_SECTIONS}
-            themeColor={config?.gradColor1}
-            onClose={onClose}
-            onJump={triggerSectionTransition}
-          />
-          <SettleFooter
-            onClose={onClose}
-            onContact={() => setShowContact(true)}
-            totalSections={TOTAL_SECTIONS}
-          />
-        </>
-      )}
+      {/* UI overlays — portaled to body so they sit above checkerboard grids */}
+      {isShown &&
+        createPortal(
+          <div
+            className="showcase-nav-portal"
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 10000,
+              pointerEvents: "none",
+            }}
+          >
+            {/* Desktop: side progress ticks. Hidden on mobile. */}
+            {!IS_MOBILE && (
+              <SectionProgress
+                totalSections={TOTAL_SECTIONS}
+                themeColor={config?.gradColor1}
+                onClose={onClose}
+                onJump={triggerSectionTransition}
+              />
+            )}
+            <SettleFooter
+              onClose={onClose}
+              onContact={() => setShowContact(true)}
+              totalSections={TOTAL_SECTIONS}
+            />
+            {/* Bottom nav bar — mobile only */}
+            {IS_MOBILE && (
+              <NavBar
+                onNext={goNext}
+                onPrev={goPrev}
+                onClose={onClose}
+                currentSection={0}
+                totalSections={TOTAL_SECTIONS}
+              />
+            )}
+          </div>,
+          document.body
+        )}
 
       {/* Contact overlay */}
       <div

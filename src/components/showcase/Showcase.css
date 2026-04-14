@@ -89,7 +89,7 @@
   right: 16px;
   top: 50%;
   transform: translateY(-50%);
-  z-index: 5;
+  z-index: 15;
   pointer-events: none;
 }
 .sc-progress__endpoint {
@@ -119,8 +119,8 @@
 /* Numbers + action icons beneath the ticks */
 .sc-progress__nums {
   position: absolute;
-  right: 0px;
-  bottom: -240px;
+  right: -4px;
+  bottom: -200px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -171,7 +171,7 @@
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  z-index: 5;
+  z-index: 15;
   opacity: 0;
   transition: opacity 0.6s, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
   pointer-events: none;
@@ -309,4 +309,100 @@
 }
 .showcase__checker-cell--on {
   transform: scale(1);
+}
+
+/* ── Bottom navigation bar ── */
+.showcase__nav {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom, 12px));
+  background: rgba(232, 232, 238, 0.7);
+  backdrop-filter: blur(20px) saturate(1.1);
+  -webkit-backdrop-filter: blur(20px) saturate(1.1);
+  border-top: 0.5px solid rgba(26, 26, 46, 0.06);
+  pointer-events: auto;
+}
+
+.showcase__nav-label {
+  font-family: "Inter", -apple-system, sans-serif;
+  font-size: 10px;
+  font-weight: 300;
+  letter-spacing: 0.15em;
+  color: rgba(26, 26, 46, 0.35);
+}
+
+.showcase__nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 24px;
+  border-radius: 12px;
+  border: 0.5px solid rgba(26, 26, 46, 0.08);
+  background: rgba(255, 255, 255, 0.5);
+  font-family: "Inter", -apple-system, sans-serif;
+  font-size: 12px;
+  font-weight: 300;
+  letter-spacing: 0.06em;
+  color: rgba(26, 26, 46, 0.55);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  min-width: 100px;
+  justify-content: center;
+}
+
+.showcase__nav-btn:hover {
+  background: rgba(255, 255, 255, 0.75);
+  color: rgba(26, 26, 46, 0.75);
+  border-color: rgba(26, 26, 46, 0.12);
+}
+
+.showcase__nav-btn:active {
+  background: rgba(255, 255, 255, 0.9);
+  transform: scale(0.97);
+}
+
+.showcase__nav-btn--next {
+  background: rgba(26, 26, 46, 0.06);
+  border-color: rgba(26, 26, 46, 0.1);
+  color: rgba(26, 26, 46, 0.7);
+}
+
+.showcase__nav-btn--next:hover {
+  background: rgba(26, 26, 46, 0.1);
+  color: rgba(26, 26, 46, 0.85);
+}
+
+.showcase__nav-btn--close {
+  color: rgba(26, 26, 46, 0.4);
+}
+
+/* On mobile, make buttons larger tap targets */
+@media (max-width: 768px) {
+  .showcase__nav {
+    padding: 10px 12px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 10px));
+  }
+  .showcase__nav-btn {
+    padding: 12px 20px;
+    font-size: 13px;
+    min-width: 90px;
+    border-radius: 14px;
+  }
+  /* Hide side progress on mobile */
+  .sc-progress {
+    display: none;
+  }
+  /* Move settle footer above the nav bar */
+  .sc-footer {
+    bottom: 80px;
+  }
 }

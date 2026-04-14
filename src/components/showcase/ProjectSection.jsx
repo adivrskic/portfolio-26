@@ -30,7 +30,6 @@ export function CameraScroll() {
 
     const targetY = getSectionY(state.section);
 
-    // Snap camera instantly for checker transitions
     if (state.snapCamera) {
       lerp.current = targetY;
       state.snapCamera = false;
@@ -65,7 +64,6 @@ function Img({ url, w, h }) {
   );
 }
 
-// Error boundary so a single failed image doesn't crash the whole showcase
 class ImgBoundary extends Component {
   state = { failed: false };
   static getDerivedStateFromError() {
@@ -90,7 +88,7 @@ function FadeIn({ children }) {
   return <group>{children}</group>;
 }
 
-// ── Solid section background — #e8e8ee at full opacity ──
+// ── Solid section background ──
 function GlassCard({ w, h }) {
   return (
     <group>
@@ -124,7 +122,155 @@ function GlassCard({ w, h }) {
   );
 }
 
-export function ProjectSection({ project, index, s, vw, vh }) {
+// ── Mobile layout: stacked vertical ──
+function MobileSection({ project, index, vw, vh }) {
+  const sectionY = -(L.heroH + index * L.sectionH);
+  const edgePad = vw * 0.02;
+  const cardW = vw - edgePad * 2;
+  const cardH = vh - edgePad * 2;
+  const cardPad = vw * 0.02;
+
+  if (!state.panels) state.panels = {};
+  state.panels[index] = { seamX: 0, forkY: 0, sectionY };
+
+  const D = "#1a1a2e";
+  const usableW = cardW - cardPad * 2;
+  const imgH = cardH * 0.35;
+  const gap = vw * 0.01;
+
+  return (
+    <group position={[0, sectionY, 0]}>
+      <GlassCard w={cardW} h={cardH} />
+
+      <Flex
+        size={[cardW, cardH, 0]}
+        position={[-cardW / 2, cardH / 2, 0]}
+        flexDirection="column"
+        padding={cardPad}
+      >
+        {/* Hero image */}
+        <Box height={imgH} marginBottom={gap} centerAnchor alignItems="center">
+          <FadeIn>
+            <SafeImg url={project.images[0]} w={usableW} h={imgH} />
+          </FadeIn>
+        </Box>
+
+        {/* Number watermark */}
+        <Box height={vw * 0.12}>
+          <FadeIn>
+            <Text
+              fontSize={vw * 0.1}
+              letterSpacing={-0.03}
+              color={D}
+              anchorX="left"
+              anchorY="top"
+              fillOpacity={0.04}
+            >
+              {project.number}
+            </Text>
+          </FadeIn>
+        </Box>
+
+        {/* Tag */}
+        <Box height={0.2}>
+          <FadeIn>
+            <Text
+              fontSize={0.09}
+              letterSpacing={0.12}
+              color={D}
+              anchorX="left"
+              anchorY="top"
+              fillOpacity={0.9}
+            >
+              {project.tag}
+            </Text>
+          </FadeIn>
+        </Box>
+
+        {/* Title */}
+        <Box height={vw * 0.1} marginTop={gap}>
+          <FadeIn>
+            <Text
+              fontSize={vw * 0.07}
+              letterSpacing={-0.02}
+              lineHeight={1.15}
+              color={D}
+              anchorX="left"
+              anchorY="top"
+              textAlign="left"
+              maxWidth={usableW * 0.95}
+              fillOpacity={0.95}
+            >
+              {project.title}
+            </Text>
+          </FadeIn>
+        </Box>
+
+        {/* Description */}
+        <Box flex={1} marginTop={gap}>
+          <FadeIn>
+            <Text
+              fontSize={0.16}
+              lineHeight={1.7}
+              color={D}
+              anchorX="left"
+              anchorY="top"
+              textAlign="left"
+              maxWidth={usableW * 0.95}
+              fillOpacity={0.85}
+            >
+              {project.text}
+            </Text>
+          </FadeIn>
+        </Box>
+
+        {/* Skills */}
+        <Box height={0.25}>
+          <FadeIn>
+            <Text
+              fontSize={0.08}
+              letterSpacing={0.06}
+              color={D}
+              anchorX="left"
+              anchorY="top"
+              fillOpacity={0.7}
+            >
+              {project.skills.join("  ·  ")}
+            </Text>
+          </FadeIn>
+        </Box>
+
+        {/* Link */}
+        <Box height={0.3} marginTop={gap}>
+          <FadeIn>
+            <Text
+              fontSize={0.09}
+              letterSpacing={0.1}
+              color={D}
+              anchorX="left"
+              anchorY="top"
+              fillOpacity={0.7}
+              onClick={() => window.open(project.link, "_blank")}
+              onPointerOver={(e) => {
+                document.body.style.cursor = "pointer";
+                e.object.material.opacity = 1;
+              }}
+              onPointerOut={(e) => {
+                document.body.style.cursor = "";
+                e.object.material.opacity = 0.7;
+              }}
+            >
+              {"VIEW PROJECT  \u2197"}
+            </Text>
+          </FadeIn>
+        </Box>
+      </Flex>
+    </group>
+  );
+}
+
+// ── Desktop layout: side-by-side ──
+function DesktopSection({ project, index, s, vw, vh }) {
   const sectionY = -(L.heroH + index * L.sectionH);
 
   const rightClear = vw * 0.04;
@@ -169,7 +315,7 @@ export function ProjectSection({ project, index, s, vw, vh }) {
         flexDirection={flipped ? "row-reverse" : "row"}
         padding={cardPad}
       >
-        {/* ═══ Image column ═══ */}
+        {/* Image column */}
         <Box
           flex={imgFrac}
           flexDirection="column"
@@ -178,26 +324,26 @@ export function ProjectSection({ project, index, s, vw, vh }) {
           marginLeft={flipped ? gap : 0}
         >
           <Box flex={0.6} marginBottom={gap} centerAnchor>
-            <FadeIn sectionY={sectionY} delay={0}>
+            <FadeIn>
               <SafeImg url={project.images[0]} w={imgColW} h={heroH} />
             </FadeIn>
           </Box>
 
           <Box flex={0.4} flexDirection="row" alignItems="center">
             <Box flex={1} marginRight={gap / 2} centerAnchor>
-              <FadeIn sectionY={sectionY} delay={1}>
+              <FadeIn>
                 <SafeImg url={project.images[1]} w={stackItemW} h={stackH} />
               </FadeIn>
             </Box>
             <Box flex={1} marginLeft={gap / 2} centerAnchor>
-              <FadeIn sectionY={sectionY} delay={2}>
+              <FadeIn>
                 <SafeImg url={project.images[2]} w={stackItemW} h={stackH} />
               </FadeIn>
             </Box>
           </Box>
         </Box>
 
-        {/* ═══ Text column ═══ */}
+        {/* Text column */}
         <Box
           flex={1 - imgFrac}
           flexDirection="column"
@@ -206,7 +352,7 @@ export function ProjectSection({ project, index, s, vw, vh }) {
           paddingRight={vw * 0.005}
         >
           <Box height={2.2}>
-            <FadeIn sectionY={sectionY} delay={0}>
+            <FadeIn>
               <Text
                 fontSize={2.0}
                 letterSpacing={-0.03}
@@ -221,14 +367,14 @@ export function ProjectSection({ project, index, s, vw, vh }) {
           </Box>
 
           <Box height={0.3}>
-            <FadeIn sectionY={sectionY} delay={1}>
+            <FadeIn>
               <Text
                 fontSize={0.12}
                 letterSpacing={0.15}
                 color={D}
                 anchorX="left"
                 anchorY="top"
-                fillOpacity={1}
+                fillOpacity={0.9}
               >
                 {project.tag}
               </Text>
@@ -236,7 +382,7 @@ export function ProjectSection({ project, index, s, vw, vh }) {
           </Box>
 
           <Box height={1.2}>
-            <FadeIn sectionY={sectionY} delay={2}>
+            <FadeIn>
               <Text
                 fontSize={0.9}
                 letterSpacing={-0.02}
@@ -246,7 +392,7 @@ export function ProjectSection({ project, index, s, vw, vh }) {
                 anchorY="top"
                 textAlign="left"
                 maxWidth={txtColW * 0.95}
-                fillOpacity={1}
+                fillOpacity={0.95}
               >
                 {project.title}
               </Text>
@@ -254,7 +400,7 @@ export function ProjectSection({ project, index, s, vw, vh }) {
           </Box>
 
           <Box height={2.4}>
-            <FadeIn sectionY={sectionY} delay={3}>
+            <FadeIn>
               <Text
                 fontSize={0.22}
                 lineHeight={1.75}
@@ -263,7 +409,7 @@ export function ProjectSection({ project, index, s, vw, vh }) {
                 anchorY="top"
                 textAlign="left"
                 maxWidth={txtColW * 0.9}
-                fillOpacity={0.9}
+                fillOpacity={0.85}
               >
                 {project.text}
               </Text>
@@ -271,14 +417,14 @@ export function ProjectSection({ project, index, s, vw, vh }) {
           </Box>
 
           <Box height={0.3}>
-            <FadeIn sectionY={sectionY} delay={4}>
+            <FadeIn>
               <Text
                 fontSize={0.1}
                 letterSpacing={0.08}
                 color={D}
                 anchorX="left"
                 anchorY="top"
-                fillOpacity={0.8}
+                fillOpacity={0.7}
               >
                 {project.skills.join("  ·  ")}
               </Text>
@@ -286,7 +432,7 @@ export function ProjectSection({ project, index, s, vw, vh }) {
           </Box>
 
           <Box height={0.4} marginTop={0.3}>
-            <FadeIn sectionY={sectionY} delay={5}>
+            <FadeIn>
               <Text
                 fontSize={0.11}
                 letterSpacing={0.1}
@@ -314,9 +460,23 @@ export function ProjectSection({ project, index, s, vw, vh }) {
   );
 }
 
+// ── Router: picks mobile or desktop layout based on viewport ──
+export function ProjectSection({ project, index, s, vw, vh }) {
+  // vw < ~8 R3F units ≈ roughly 768px screen width at fov 45 distance 12
+  const isMobile = vw < 8;
+
+  if (isMobile) {
+    return <MobileSection project={project} index={index} vw={vw} vh={vh} />;
+  }
+  return (
+    <DesktopSection project={project} index={index} s={s} vw={vw} vh={vh} />
+  );
+}
+
 export function Hero({ s, vw }) {
   const groupRef = useRef();
   const opRef = useRef(0);
+  const matsRef = useRef(null);
   const lockedVw = useRef(null);
   if (vw > 1 && lockedVw.current === null) lockedVw.current = vw;
   const w = lockedVw.current || vw;
@@ -326,12 +486,20 @@ export function Hero({ s, vw }) {
     const dist = Math.abs(camera.position.y);
     const target = clamp(1 - (dist - 1) / 5, 0, 1);
     opRef.current += (target - opRef.current) * 0.03;
-    groupRef.current.traverse((child) => {
-      if (child.material && child.material.opacity !== undefined) {
-        child.material.opacity = opRef.current;
-        child.material.transparent = true;
-      }
-    });
+    // Cache materials on first frame to avoid traverse() every frame
+    if (!matsRef.current) {
+      matsRef.current = [];
+      groupRef.current.traverse((child) => {
+        if (child.material && child.material.opacity !== undefined) {
+          child.material.transparent = true;
+          matsRef.current.push(child.material);
+        }
+      });
+    }
+    const mats = matsRef.current;
+    for (let i = 0; i < mats.length; i++) {
+      mats[i].opacity = opRef.current;
+    }
   });
 
   return (

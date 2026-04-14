@@ -115,7 +115,7 @@ export default function Scene({
     camera.position.set(0, 0, 8);
 
     // ── Mesh ──
-    const sphereGeo = new IcosahedronGeometry(1, 64);
+    const sphereGeo = new IcosahedronGeometry(1, 32);
     const fU = {
       uTime: { value: 0 },
       uNoiseFreq: { value: 0.2 },
@@ -295,8 +295,8 @@ export default function Scene({
         lastActivity = performance.now();
       }
     };
-    window.addEventListener("mousemove", onMM);
-    window.addEventListener("touchmove", onTM);
+    window.addEventListener("mousemove", onMM, { passive: true });
+    window.addEventListener("touchmove", onTM, { passive: true });
 
     let bounceZ = 0,
       bounceSpin = 0,
@@ -387,6 +387,76 @@ export default function Scene({
       prevMouseY = 0;
     const menuCubes = [];
     let menuCubesShown = false;
+    let menuCubesCreated = false;
+    function ensureMenuCubes() {
+      if (menuCubesCreated) return;
+      menuCubesCreated = true;
+      const cubeSize = (configRef.current.glassCubeSize || 3.6) * 0.55;
+      const cr = configRef.current.glassCornerRadius || 0.08;
+      const zones = [
+        { x: [-1.5, 1.5], y: [1.5, 3.5], z: [-5, -3] },
+        { x: [-1.5, 1.5], y: [-3.5, -1.5], z: [-5, -3] },
+      ];
+      zones.forEach((zone, i) => {
+        const px = zone.x[0] + Math.random() * (zone.x[1] - zone.x[0]);
+        const py = zone.y[0] + Math.random() * (zone.y[1] - zone.y[0]);
+        const pz = zone.z[0] + Math.random() * (zone.z[1] - zone.z[0]);
+        const g = new RoundedBoxGeometry(
+          cubeSize,
+          cubeSize,
+          cubeSize,
+          4,
+          cr * cubeSize
+        );
+        const m = isMobile
+          ? new MeshPhysicalMaterial({
+              transparent: true,
+              opacity: 0,
+              roughness: 0.05,
+              metalness: 0.1,
+              envMapIntensity: 1.2,
+              color: 0xffffff,
+            })
+          : new MeshPhysicalMaterial({
+              transmission: 0.92,
+              roughness: 0.05,
+              ior: 1.5,
+              thickness: 1.2,
+              transparent: true,
+              opacity: 0,
+              metalness: 0,
+              envMapIntensity: 1.2,
+              color: 0xffffff,
+            });
+        const edgeGeo = new EdgesGeometry(g);
+        const lineMat = new LineBasicMaterial({
+          color: 0xffffff,
+          transparent: true,
+          opacity: 0,
+        });
+        const mesh = new Mesh(g, m);
+        const wire = new LineSegments(edgeGeo, lineMat);
+        mesh.add(wire);
+        mesh.position.set(px, py - 1.5, pz);
+        mesh.scale.setScalar(0.01);
+        mesh.rotation.set(
+          Math.random() * 0.6,
+          Math.random() * 0.6,
+          Math.random() * 0.3
+        );
+        mesh.userData.rotSpeed = new Vector3(
+          (Math.random() - 0.5) * 0.12,
+          (Math.random() - 0.5) * 0.18,
+          0
+        );
+        mesh.userData.targetY = py;
+        mesh.userData.delay = i * 0.2;
+        mesh.userData.born = performance.now();
+        mesh.visible = false;
+        scene.add(mesh);
+        menuCubes.push({ mesh, mat: m, lineMat, geo: g, edges: edgeGeo });
+      });
+    }
     let chatZ = 0,
       chatZVel = 0,
       chatSpinBurst = 0,
@@ -398,15 +468,27 @@ export default function Scene({
     let clickScale = 1,
       clickScaleVel = 0;
     let scZoom = 0;
+    let cachedBirthBezier = null;
+    let cachedBezierKey = "";
+    let wasShowcaseOpen = false;
 
     function loop() {
       raf = requestAnimationFrame(loop);
 
+      const now = performance.now();
+
+      // Fully pause rendering when showcase is open
       if (showcaseOpenRef.current) {
         renderer.domElement.style.visibility = "hidden";
+        wasShowcaseOpen = true;
         return;
       }
-      renderer.domElement.style.visibility = "visible";
+      if (wasShowcaseOpen) {
+        wasShowcaseOpen = false;
+        renderer.domElement.style.visibility = "visible";
+        clock.getDelta(); // flush stale delta
+        return;
+      }
 
       const dt = Math.min(clock.getDelta(), 0.0333);
       const el = clock.elapsedTime;
@@ -414,26 +496,28 @@ export default function Scene({
 
       if (c.birthReplay && c.birthReplay !== lastReplayKey) {
         lastReplayKey = c.birthReplay;
-        birthStart = performance.now();
+        birthStart = now;
         rotAngle = 0;
         angVel.x += c.birthSpinBurstX ?? 0;
         angVel.y += c.birthSpinBurstY ?? 0;
         angVel.z += c.birthSpinBurstZ ?? 0;
       }
 
-      const birthT = Math.min(
-        1,
-        (performance.now() - birthStart) / 1000 / c.birthDuration
-      );
+      const birthT = Math.min(1, (now - birthStart) / 1000 / c.birthDuration);
       let birth;
       if ((c.birthUseBezier ?? 0) > 0.5) {
-        const ease = cubicBezier(
-          c.birthBezierX1 ?? 0.16,
-          c.birthBezierY1 ?? 1.0,
-          c.birthBezierX2 ?? 0.3,
-          c.birthBezierY2 ?? 1.0
-        );
-        birth = ease(birthT);
+        // Cache bezier function — only recreate when control points change
+        const bezKey = `${c.birthBezierX1},${c.birthBezierY1},${c.birthBezierX2},${c.birthBezierY2}`;
+        if (bezKey !== cachedBezierKey) {
+          cachedBezierKey = bezKey;
+          cachedBirthBezier = cubicBezier(
+            c.birthBezierX1 ?? 0.16,
+            c.birthBezierY1 ?? 1.0,
+            c.birthBezierX2 ?? 0.3,
+            c.birthBezierY2 ?? 1.0
+          );
+        }
+        birth = cachedBirthBezier(birthT);
       } else {
         const birthEase = c.birthEasing || 2.5;
         birth = 1 - Math.pow(1 - birthT, birthEase);
@@ -474,10 +558,7 @@ export default function Scene({
       rotAngle += bounceSpin * dt;
 
       if (isHolding) {
-        const holdProgress = Math.min(
-          1,
-          (performance.now() - holdStartTime) / 600
-        );
+        const holdProgress = Math.min(1, (now - holdStartTime) / 600);
         const holdTarget = 1 - holdProgress * 0.18;
         clickScale += (holdTarget - clickScale) * 0.12;
         clickScaleVel = 0;
@@ -508,69 +589,13 @@ export default function Scene({
       const mOpen = menuOpenRef.current;
       if (mOpen && !menuCubesShown) {
         menuCubesShown = true;
-        const cubeSize = (c.glassCubeSize || 3.6) * 0.55;
-        const cr = c.glassCornerRadius || 0.08;
-        const zones = [
-          { x: [-1.5, 1.5], y: [1.5, 3.5], z: [-5, -3] },
-          { x: [-1.5, 1.5], y: [-3.5, -1.5], z: [-5, -3] },
-        ];
-        zones.forEach((zone, i) => {
-          const px = zone.x[0] + Math.random() * (zone.x[1] - zone.x[0]);
-          const py = zone.y[0] + Math.random() * (zone.y[1] - zone.y[0]);
-          const pz = zone.z[0] + Math.random() * (zone.z[1] - zone.z[0]);
-          const g = new RoundedBoxGeometry(
-            cubeSize,
-            cubeSize,
-            cubeSize,
-            4,
-            cr * cubeSize
-          );
-          const m = isMobile
-            ? new MeshPhysicalMaterial({
-                transparent: true,
-                opacity: 0,
-                roughness: 0.05,
-                metalness: 0.1,
-                envMapIntensity: 1.2,
-                color: 0xffffff,
-              })
-            : new MeshPhysicalMaterial({
-                transmission: 0.92,
-                roughness: 0.05,
-                ior: 1.5,
-                thickness: 1.2,
-                transparent: true,
-                opacity: 0,
-                metalness: 0,
-                envMapIntensity: 1.2,
-                color: 0xffffff,
-              });
-          const edgeGeo = new EdgesGeometry(g);
-          const lineMat = new LineBasicMaterial({
-            color: 0xffffff,
-            transparent: true,
-            opacity: 0,
-          });
-          const mesh = new Mesh(g, m);
-          const wire = new LineSegments(edgeGeo, lineMat);
-          mesh.add(wire);
-          mesh.position.set(px, py - 1.5, pz);
-          mesh.scale.setScalar(0.01);
-          mesh.rotation.set(
-            Math.random() * 0.6,
-            Math.random() * 0.6,
-            Math.random() * 0.3
-          );
-          mesh.userData.rotSpeed = new Vector3(
-            (Math.random() - 0.5) * 0.12,
-            (Math.random() - 0.5) * 0.18,
-            0
-          );
-          mesh.userData.targetY = py;
-          mesh.userData.delay = i * 0.2;
-          mesh.userData.born = performance.now();
-          scene.add(mesh);
-          menuCubes.push({ mesh, mat: m, lineMat, geo: g, edges: edgeGeo });
+        ensureMenuCubes();
+        menuCubes.forEach((mc) => {
+          mc.mesh.visible = true;
+          mc.mesh.userData.born = now;
+          mc.mat.opacity = 0;
+          mc.lineMat.opacity = 0;
+          mc.mesh.scale.setScalar(0.01);
         });
       }
       if (
@@ -580,16 +605,11 @@ export default function Scene({
       ) {
         menuCubesShown = false;
         menuCubes.forEach((mc) => {
-          scene.remove(mc.mesh);
-          mc.geo.dispose();
-          mc.mat.dispose();
-          mc.edges.dispose();
-          mc.lineMat.dispose();
+          mc.mesh.visible = false;
         });
-        menuCubes.length = 0;
       }
       menuCubes.forEach((mc) => {
-        const age = (performance.now() - mc.mesh.userData.born) / 1000;
+        const age = (now - mc.mesh.userData.born) / 1000;
         const delay = mc.mesh.userData.delay || 0;
         const t = Math.max(0, age - delay);
         const entrance = Math.min(1, t / 1.0);
@@ -713,7 +733,7 @@ export default function Scene({
           activeSeason: activeSeasonRef.current,
           angVelY: angVel.y,
           showcaseOpen: showcaseOpenRef.current,
-          now: performance.now(),
+          now: now,
           lookX: safeMx,
           lookY: safeMy,
         }
@@ -745,7 +765,7 @@ export default function Scene({
         lastActivity,
         exprTriggerState.lastExpressionTime || 0
       );
-      const idleTime = (performance.now() - effectiveLastActive) / 1000;
+      const idleTime = (now - effectiveLastActive) / 1000;
       const sleepTarget = idleTime > 15 ? Math.min(1, (idleTime - 15) / 3) : 0;
       const sleepLerp = exprShowing && sleepSmooth > 0.2 ? 8 : 2;
       sleepSmooth += (sleepTarget - sleepSmooth) * sleepLerp * dt;
@@ -759,7 +779,7 @@ export default function Scene({
       expr._driftY = exprTriggerState.eyeDriftY;
       expr._mouthVar = exprTriggerState.mouthVar;
 
-      const holdElapsed = performance.now() - holdStartTime;
+      const holdElapsed = now - holdStartTime;
       const holdDeadZone = 150;
       const holdProgress =
         isHolding && !holdFired && holdElapsed > holdDeadZone
@@ -896,6 +916,8 @@ export default function Scene({
         scene.remove(mc.mesh);
         mc.geo.dispose();
         mc.mat.dispose();
+        mc.edges.dispose();
+        mc.lineMat.dispose();
       });
       smileyTex.dispose();
       smileyMat.dispose();

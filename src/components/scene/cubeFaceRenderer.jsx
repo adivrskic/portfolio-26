@@ -788,7 +788,7 @@ export function createCubeFaceRenderer(canvas) {
       sCtx.lineWidth = lineW;
       sCtx.lineCap = "round";
 
-      const steps = 20;
+      const steps = 8;
       for (let i = 0; i < steps; i++) {
         const t = i / steps;
         const a1 = startAngle + t * hp * Math.PI * 2;

@@ -54,7 +54,10 @@ export default function TextOverlay({
   useEffect(() => {
     if (!gradientCanvas || !revealed) return;
     const ctx = gradientCanvas.getContext("2d", { willReadFrequently: true });
-    const dpr = Math.min(window.devicePixelRatio, 2);
+    // Derive actual DPR from the canvas dimensions — matches GradientBackground
+    const dpr =
+      gradientCanvas.width /
+      (parseFloat(gradientCanvas.style.width) || window.innerWidth);
     let raf,
       frame = 0;
     function sample() {

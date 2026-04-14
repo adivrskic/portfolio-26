@@ -5,10 +5,24 @@ export const FONT_URL =
 
 export const state = {
   top: 0,
-  section: 0,
+  _section: 0,
   totalSections: 0,
   hoveredPanel: -1,
   snapCamera: false,
+  _listeners: new Set(),
+  get section() {
+    return this._section;
+  },
+  set section(v) {
+    if (v !== this._section) {
+      this._section = v;
+      this._listeners.forEach((fn) => fn(v));
+    }
+  },
+  subscribe(fn) {
+    this._listeners.add(fn);
+    return () => this._listeners.delete(fn);
+  },
 };
 
 export const L = {
