@@ -78,12 +78,13 @@ export function SectionProgress({
         const el = numRefs.current[p];
         if (!el) continue;
         const isActive = sec === p + 1;
-        el.style.opacity = isActive ? "0.7" : "0.15";
+        el.style.color = isActive ? "#333355" : "#b4b4ca";
       }
       if (startRef.current)
-        startRef.current.style.opacity = sec === 0 ? "0.3" : "0";
+        startRef.current.style.color = sec === 0 ? "#747498" : "transparent";
       if (endRef.current)
-        endRef.current.style.opacity = sec >= totalSections - 1 ? "0.3" : "0";
+        endRef.current.style.color =
+          sec >= totalSections - 1 ? "#747498" : "transparent";
     }
     update(state.section);
     return state.subscribe(update);

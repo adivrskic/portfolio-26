@@ -37,6 +37,7 @@ export default function ShowcaseCube() {
     const CUBE_SIZE_AT_SECTION = L.cube.size;
 
     function getPosForSection(sec) {
+      const isMobile = vw < 8;
       if (sec === 0) {
         const t = clock.elapsedTime;
         const driftX = Math.sin(t * 0.3) * vw * 0.22;
@@ -44,6 +45,14 @@ export default function ShowcaseCube() {
       } else if (sec > 0 && sec <= N) {
         const projIdx = sec - 1;
         const sectionCenterY = -(L.heroH + projIdx * L.sectionH);
+
+        if (isMobile) {
+          // Bottom-right corner, above the nav bar
+          const targetX = vw * 0.32;
+          const targetY = sectionCenterY - vh * 0.33;
+          return { x: targetX, y: targetY, scale: 0.18 };
+        }
+
         const panels = state.panels && state.panels[projIdx];
         // L.cube.centerX tweaks the horizontal centering (viewport-relative, flips for alternating layouts)
         const flipSign = projIdx % 2 === 1 ? -1 : 1;

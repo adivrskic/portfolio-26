@@ -469,7 +469,7 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
               <Ic
                 size={isMobile ? 140 : 750}
                 strokeWidth={0.5}
-                color="rgba(18,18,40,0.02)"
+                color="#e4e4ea"
               />
             );
           })()}
@@ -613,7 +613,7 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
               : "chat-panel__close--desktop"
           }`}
         >
-          <X size={18} strokeWidth={1.5} color="rgba(18,18,40,0.45)" />
+          <X size={18} strokeWidth={1.5} color="#585878" />
         </button>
       </div>
     </>

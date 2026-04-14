@@ -47,7 +47,7 @@
   border-radius: 10px;
   background: rgba(200, 60, 60, 0.06);
   border: 0.5px solid rgba(200, 60, 60, 0.12);
-  color: rgba(200, 60, 60, 0.5);
+  color: #c84040;
   font-weight: 400;
   letter-spacing: 0.03em;
 }
@@ -147,7 +147,7 @@
   font-size: 11px;
   font-family: "Inter", -apple-system, sans-serif;
   font-weight: 300;
-  color: rgba(200, 60, 60, 0.6);
+  color: #b83838;
   text-align: center;
   margin: 4px 0 0;
 }

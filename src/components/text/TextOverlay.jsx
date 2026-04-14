@@ -141,7 +141,7 @@ export default function TextOverlay({
                 fontWeight: c.fontWeight,
                 letterSpacing: `clamp(0.1em, ${c.letterSpacing}em, 0.5em)`,
                 minWidth: ch === " " ? "0.3em" : "auto",
-                opacity: revealed ? c.textOpacity * ff : 0,
+                opacity: revealed ? ff : 0,
                 transform: revealed
                   ? "translateY(0)"
                   : `translateY(${c.textTravelDist || 10}px)`,
@@ -173,7 +173,7 @@ export default function TextOverlay({
           aria-label="Open menu"
           style={{
             pointerEvents: revealed ? "auto" : "none",
-            opacity: revealed ? c.textOpacity * 0.7 * ff : 0,
+            opacity: revealed ? ff : 0,
             transition: `opacity 0.6s cubic-bezier(.33,1,.68,1) ${
               !initialRevealDone ? (c.menuBtnDelay || 1.3) + "s" : "0s"
             }`,
@@ -183,15 +183,7 @@ export default function TextOverlay({
             className="text-overlay__menu-inner"
             style={{ transform: menuHover ? "scale(1.08)" : "scale(1)" }}
           >
-            <Fingerprint
-              size={24}
-              strokeWidth={1.5}
-              color={btnColor}
-              style={{
-                opacity: menuHover ? 0.7 : 0.5,
-                transition: "opacity 0.3s",
-              }}
-            />
+            <Fingerprint size={24} strokeWidth={1.5} color={btnColor} />
           </div>
         </button>
       )}

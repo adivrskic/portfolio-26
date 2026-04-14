@@ -177,7 +177,7 @@
 
 .chat-panel__help-label {
   font-size: 9px;
-  color: rgba(18, 18, 40, 0.25);
+  color: #7e7ea0;
   font-family: "Inter", -apple-system, sans-serif;
   font-weight: 300;
   letter-spacing: 0.1em;
@@ -194,7 +194,7 @@
   font-family: "Inter", -apple-system, sans-serif;
   font-size: 11px;
   font-weight: 300;
-  color: rgba(18, 18, 40, 0.4);
+  color: #585878;
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -257,12 +257,12 @@
   font-family: "Inter", -apple-system, sans-serif;
   font-size: 13px;
   font-weight: 300;
-  color: rgba(18, 18, 40, 0.7);
+  color: #2e2e4a;
   letter-spacing: 0.01em;
 }
 
 .chat-panel__text-input::placeholder {
-  color: rgba(18, 18, 40, 0.25);
+  color: #7e7ea0;
   font-weight: 200;
 }
 
@@ -275,7 +275,7 @@
   align-items: center;
   justify-content: center;
   background: transparent;
-  color: rgba(18, 18, 40, 0.12);
+  color: #9e9eb8;
   cursor: default;
   transition: background 0.2s, color 0.2s, transform 0.15s;
   flex-shrink: 0;
@@ -283,13 +283,13 @@
 
 .chat-panel__send-btn--active {
   background: rgba(18, 18, 40, 0.07);
-  color: rgba(18, 18, 40, 0.5);
+  color: #484868;
   cursor: pointer;
 }
 
 .chat-panel__send-btn--active:hover {
   background: rgba(18, 18, 40, 0.1);
-  color: rgba(18, 18, 40, 0.65);
+  color: #333350;
   transform: translateX(1px);
 }
 

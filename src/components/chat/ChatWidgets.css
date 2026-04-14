@@ -14,7 +14,7 @@
   font-family: "Inter", -apple-system, sans-serif;
   font-size: 10px;
   font-weight: 300;
-  color: rgba(18, 18, 40, 0.4);
+  color: #585878;
   letter-spacing: 0.02em;
   cursor: pointer;
   transition: all 0.2s;
@@ -23,5 +23,5 @@
 
 .suggestion-pill:hover {
   background: rgba(255, 255, 255, 0.6);
-  color: rgba(18, 18, 40, 0.6);
+  color: #3e3e5e;
 }

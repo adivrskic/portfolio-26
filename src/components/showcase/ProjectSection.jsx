@@ -134,6 +134,10 @@ function MobileSection({ project, index, vw, vh }) {
   state.panels[index] = { seamX: 0, forkY: 0, sectionY };
 
   const D = "#1a1a2e";
+  const D_TAG = "#1e1e34";
+  const D_BODY = "#222240";
+  const D_SEC = "#333355";
+  const D_GHOST = "#c8c8d8";
   const usableW = cardW - cardPad * 2;
   const imgH = cardH * 0.35;
   const gap = vw * 0.01;
@@ -167,10 +171,10 @@ function MobileSection({ project, index, vw, vh }) {
             <Text
               fontSize={vw * 0.1}
               letterSpacing={-0.03}
-              color={D}
+              color={D_GHOST}
               anchorX="left"
               anchorY="top"
-              fillOpacity={0.04}
+              fillOpacity={1}
             >
               {project.number}
             </Text>
@@ -183,10 +187,10 @@ function MobileSection({ project, index, vw, vh }) {
             <Text
               fontSize={0.09}
               letterSpacing={0.12}
-              color={D}
+              color={D_TAG}
               anchorX="left"
               anchorY="top"
-              fillOpacity={0.9}
+              fillOpacity={1}
             >
               {project.tag}
             </Text>
@@ -205,7 +209,7 @@ function MobileSection({ project, index, vw, vh }) {
               anchorY="top"
               textAlign="left"
               maxWidth={usableW * 0.95}
-              fillOpacity={0.95}
+              fillOpacity={1}
             >
               {project.title}
             </Text>
@@ -218,12 +222,12 @@ function MobileSection({ project, index, vw, vh }) {
             <Text
               fontSize={0.16}
               lineHeight={1.7}
-              color={D}
+              color={D_BODY}
               anchorX="left"
               anchorY="top"
               textAlign="left"
               maxWidth={usableW * 0.95}
-              fillOpacity={0.85}
+              fillOpacity={1}
             >
               {project.text}
             </Text>
@@ -236,10 +240,10 @@ function MobileSection({ project, index, vw, vh }) {
             <Text
               fontSize={0.08}
               letterSpacing={0.06}
-              color={D}
+              color={D_SEC}
               anchorX="left"
               anchorY="top"
-              fillOpacity={0.7}
+              fillOpacity={1}
             >
               {project.skills.join("  ·  ")}
             </Text>
@@ -252,10 +256,10 @@ function MobileSection({ project, index, vw, vh }) {
             <Text
               fontSize={0.09}
               letterSpacing={0.1}
-              color={D}
+              color={D_SEC}
               anchorX="left"
               anchorY="top"
-              fillOpacity={0.7}
+              fillOpacity={1}
               onClick={() => window.open(project.link, "_blank")}
               onPointerOver={(e) => {
                 document.body.style.cursor = "pointer";
@@ -263,7 +267,7 @@ function MobileSection({ project, index, vw, vh }) {
               }}
               onPointerOut={(e) => {
                 document.body.style.cursor = "";
-                e.object.material.opacity = 0.7;
+                e.object.material.opacity = 1;
               }}
             >
               {"VIEW PROJECT  \u2197"}
@@ -310,6 +314,10 @@ function DesktopSection({ project, index, s, vw, vh }) {
   state.panels[index] = { seamX: imgColCenterX, forkY, sectionY };
 
   const D = "#1a1a2e";
+  const D_TAG = "#1e1e34";
+  const D_BODY = "#222240";
+  const D_SEC = "#333355";
+  const D_GHOST = "#c8c8d8";
 
   return (
     <group position={[cardOffsetX, sectionY, 0]}>
@@ -386,10 +394,10 @@ function DesktopSection({ project, index, s, vw, vh }) {
               <Text
                 fontSize={2.0}
                 letterSpacing={-0.03}
-                color={D}
+                color={D_GHOST}
                 anchorX="left"
                 anchorY="top"
-                fillOpacity={0.04}
+                fillOpacity={1}
               >
                 {project.number}
               </Text>
@@ -401,10 +409,10 @@ function DesktopSection({ project, index, s, vw, vh }) {
               <Text
                 fontSize={0.12}
                 letterSpacing={0.15}
-                color={D}
+                color={D_TAG}
                 anchorX="left"
                 anchorY="top"
-                fillOpacity={0.9}
+                fillOpacity={1}
               >
                 {project.tag}
               </Text>
@@ -422,7 +430,7 @@ function DesktopSection({ project, index, s, vw, vh }) {
                 anchorY="top"
                 textAlign="left"
                 maxWidth={txtColW * 0.95}
-                fillOpacity={0.95}
+                fillOpacity={1}
               >
                 {project.title}
               </Text>
@@ -434,12 +442,12 @@ function DesktopSection({ project, index, s, vw, vh }) {
               <Text
                 fontSize={0.22}
                 lineHeight={1.75}
-                color={D}
+                color={D_BODY}
                 anchorX="left"
                 anchorY="top"
                 textAlign="left"
                 maxWidth={txtColW * 0.9}
-                fillOpacity={0.85}
+                fillOpacity={1}
               >
                 {project.text}
               </Text>
@@ -451,10 +459,10 @@ function DesktopSection({ project, index, s, vw, vh }) {
               <Text
                 fontSize={0.1}
                 letterSpacing={0.08}
-                color={D}
+                color={D_SEC}
                 anchorX="left"
                 anchorY="top"
-                fillOpacity={0.7}
+                fillOpacity={1}
               >
                 {project.skills.join("  ·  ")}
               </Text>
@@ -466,10 +474,10 @@ function DesktopSection({ project, index, s, vw, vh }) {
               <Text
                 fontSize={0.11}
                 letterSpacing={0.1}
-                color={D}
+                color={D_SEC}
                 anchorX="left"
                 anchorY="top"
-                fillOpacity={0.7}
+                fillOpacity={1}
                 onClick={() => window.open(project.link, "_blank")}
                 onPointerOver={(e) => {
                   document.body.style.cursor = "pointer";
@@ -477,7 +485,7 @@ function DesktopSection({ project, index, s, vw, vh }) {
                 }}
                 onPointerOut={(e) => {
                   document.body.style.cursor = "";
-                  e.object.material.opacity = 0.7;
+                  e.object.material.opacity = 1;
                 }}
               >
                 {"VIEW PROJECT  \u2197"}
