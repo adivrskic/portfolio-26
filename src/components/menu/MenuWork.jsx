@@ -1,4 +1,4 @@
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ExternalLink } from "lucide-react";
 import { MENU_PROJECTS } from "../../constants/projects";
 import "./MenuSections.css";
 
@@ -28,7 +28,20 @@ export default function MenuWork({ isMobile, onShowcase }) {
             <span className="menu-work__year">FEATURED · {feat.year}</span>
           </div>
           <p className="menu-work__desc">{feat.desc}</p>
-          <span className="menu-work__tech">{feat.tech}</span>
+          <div className="menu-work__meta-row">
+            <span className="menu-work__tech">{feat.tech}</span>
+            {feat.url && (
+              <a
+                href={feat.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="menu-work__visit"
+                onClick={(e) => e.stopPropagation()}
+              >
+                Visit <ExternalLink size={10} strokeWidth={1.5} />
+              </a>
+            )}
+          </div>
         </div>
       )}
 
@@ -58,6 +71,17 @@ export default function MenuWork({ isMobile, onShowcase }) {
               <div className="menu-work__desc menu-work__desc--sm">
                 {p.desc}
               </div>
+              {p.url && (
+                <a
+                  href={p.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="menu-work__visit menu-work__visit--sm"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Visit <ExternalLink size={9} strokeWidth={1.5} />
+                </a>
+              )}
             </div>
             <div className="menu-work__card-arrow">
               <ArrowRight size={14} strokeWidth={1.5} />

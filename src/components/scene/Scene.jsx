@@ -28,16 +28,13 @@ import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeom
 import { getCurrentSeason } from "../../config/defaults";
 import { sphereVertexShader } from "./shaders/sphereVertex.glsl.js";
 import { sphereFragmentShader } from "./shaders/sphereFragment.glsl.js";
-// Glass cube now uses MeshPhysicalMaterial with transmission (no custom shader)
 import { createCubeFaceRenderer } from "./cubeFaceRenderer";
 import { createExpressionState, updateExpressions } from "./expressionTriggers";
 import { createGlassEnvironment } from "./glassEnv";
 
-// Shaders imported from ./shaders/ — see sphereVertexShader, sphereFragmentShader, etc.
 const FV = sphereVertexShader;
 const FF = sphereFragmentShader;
 
-// Cubic-bezier easing — attempt Newton's method, fall back to bisection
 function cubicBezier(x1, y1, x2, y2) {
   const cx = 3 * x1,
     bx = 3 * (x2 - x1) - cx,
@@ -183,12 +180,10 @@ export default function Scene({
       })
     );
     sphere.renderOrder = 0;
-    sphere.visible = false; // sphere is replaced by glass cube — kept only for disposal
+    sphere.visible = false;
     scene.add(sphere);
 
     // ── Glass cube ──
-    // Mobile: skip transmission (renders scene twice internally). Use a lightweight
-    // transparent material that looks 80% as good at half the GPU cost.
     const glassGeo = new RoundedBoxGeometry(1, 1, 1, 4, 0.08);
     const glassMat = isMobile
       ? new MeshPhysicalMaterial({
@@ -210,11 +205,11 @@ export default function Scene({
           thickness: 3.5,
           transparent: true,
           metalness: 0,
-          envMapIntensity: 2.0,
-          specularIntensity: 1,
+          envMapIntensity: 2.5,
+          specularIntensity: 1.5,
           specularColor: 0xffffff,
-          clearcoat: 0.3,
-          clearcoatRoughness: 0,
+          clearcoat: 0.5,
+          clearcoatRoughness: 0.05,
           color: 0xffffff,
           side: FrontSide,
           depthWrite: false,
@@ -231,33 +226,30 @@ export default function Scene({
     const smCx = 128,
       smCy = 128;
     let dizzySmooth = 0;
-    let chatMorph = 0; // 0 = smiley, 1 = wave
-    let sleepSmooth = 0; // 0 = awake, 1 = sleeping
-    let happySmooth = 0; // 0 = normal, 1 = happy (after chat closes)
+    let chatMorph = 0;
+    let sleepSmooth = 0;
+    let happySmooth = 0;
     let prevChatMode = false;
     let blinkTimer = 0;
-    let blinkAmount = 0; // 0 = open, 1 = closed
+    let blinkAmount = 0;
     let nextBlink = 2 + Math.random() * 4;
-    let doubleBlink = 0; // countdown for second blink (0 = none pending)
-    // ── New expressions ──
+    let doubleBlink = 0;
     let expr = {
-      curious: 0, // near-hover without click
-      wink: 0, // gold theme change
-      love: 0, // contact form sent (set externally)
-      cheeky: 0, // rapid scroll direction changes
-      proud: 0, // viewed all showcase sections
-      startled: 0, // first click
-      shy: 0, // long hover on cube
-      phew: 0, // birth complete — "sorry I'm late"
+      curious: 0,
+      wink: 0,
+      love: 0,
+      cheeky: 0,
+      proud: 0,
+      startled: 0,
+      shy: 0,
+      phew: 0,
     };
     let prevMx = 0,
       prevMy = 0;
-    // ── Face renderer (extracted to cubeFaceRenderer.js) ──
     const { drawCubeFace } = createCubeFaceRenderer(smileyCanvas);
     const exprTriggerState = createExpressionState();
     exprTriggerState.prevSeason = activeSeasonRef.current;
 
-    // Love expression: triggered by ContactForm via custom event
     const onLoveTrigger = () => {
       expr.love = 1;
     };
@@ -278,15 +270,13 @@ export default function Scene({
     glassCube.add(smiley);
 
     let lastCornerR = 0.08;
-    // Quaternion-based rotation — spin always matches screen-space mouse direction
     const cubeQuat = new Quaternion();
-    const angVel = new Vector3(0, 0, 0); // angular velocity in world space
+    const angVel = new Vector3(0, 0, 0);
 
     const mouse = new Vector2(-999, -999);
     let lastActivity = performance.now();
     const raycaster = new Raycaster(),
       mSp = new Sphere(new Vector3(), 1);
-    // ── Reusable math objects — avoids per-frame allocations in the render loop ──
     const _screenPos = new Vector3();
     const _axis = new Vector3();
     const _dq = new Quaternion();
@@ -308,7 +298,6 @@ export default function Scene({
     window.addEventListener("mousemove", onMM);
     window.addEventListener("touchmove", onTM);
 
-    // Hold detection on cube
     let bounceZ = 0,
       bounceSpin = 0,
       bounceDecay = 0;
@@ -324,12 +313,10 @@ export default function Scene({
     };
     const onDown = (e) => {
       lastActivity = performance.now();
-      // Startled on first click/touch — BUG3 FIX: skip if showcase open (scZoom handles it)
       if (!exprTriggerState.firstClickFired && !showcaseOpenRef.current) {
         exprTriggerState.firstClickFired = true;
         expr.startled = 1;
       }
-      // Don't interact with cube when overlays are open
       if (
         menuOpenRef.current ||
         chatModeRef.current ||
@@ -343,7 +330,6 @@ export default function Scene({
       holdStartTime = performance.now();
       holdTimer = setTimeout(() => {
         if (isHolding) {
-          // Hold — trigger showcase
           holdFired = true;
           clickScaleVel = -0.8;
           isHolding = false;
@@ -353,7 +339,6 @@ export default function Scene({
     };
     const onUp = () => {
       if (holdTimer) clearTimeout(holdTimer);
-      // Quick click only — if held long enough to start progress ring, don't open chat
       const holdDuration = performance.now() - holdStartTime;
       if (isHolding && !holdFired && holdDuration < 150) {
         clickScaleVel = -0.8;
@@ -367,7 +352,6 @@ export default function Scene({
     };
     window.addEventListener("mousedown", onDown);
     window.addEventListener("mouseup", onUp);
-    // Touch hold support
     const onTouchDown = (e) => {
       if (e.touches.length !== 1) return;
       const t = e.touches[0];
@@ -395,14 +379,12 @@ export default function Scene({
     let birthPhewFired = false;
     let lastReplayKey = 0;
     let rotAngle = 0;
-    // Menu animation: smoothly move object to left + scale up
     const menuPos = new Vector3(0, 0, 0);
     const menuVel = new Vector3(0, 0, 0);
     let menuScale = 1;
     let menuScaleVel = 0;
     let prevMouseX = 0,
       prevMouseY = 0;
-    // Menu floating cubes
     const menuCubes = [];
     let menuCubesShown = false;
     let chatZ = 0,
@@ -415,13 +397,11 @@ export default function Scene({
       wasInChat = false;
     let clickScale = 1,
       clickScaleVel = 0;
-    // Showcase transition — cube zooms toward camera
-    let scZoom = 0; // 0 = normal, 1 = fully zoomed
+    let scZoom = 0;
 
     function loop() {
       raf = requestAnimationFrame(loop);
 
-      // When showcase is open, hide canvas entirely and skip all rendering
       if (showcaseOpenRef.current) {
         renderer.domElement.style.visibility = "hidden";
         return;
@@ -432,12 +412,10 @@ export default function Scene({
       const el = clock.elapsedTime;
       const c = cfg.current;
 
-      // Replay detection — reset birth when birthReplay changes
       if (c.birthReplay && c.birthReplay !== lastReplayKey) {
         lastReplayKey = c.birthReplay;
         birthStart = performance.now();
         rotAngle = 0;
-        // Apply initial spin burst
         angVel.x += c.birthSpinBurstX ?? 0;
         angVel.y += c.birthSpinBurstY ?? 0;
         angVel.z += c.birthSpinBurstZ ?? 0;
@@ -447,7 +425,6 @@ export default function Scene({
         1,
         (performance.now() - birthStart) / 1000 / c.birthDuration
       );
-      // Easing — cubic-bezier or power ease
       let birth;
       if ((c.birthUseBezier ?? 0) > 0.5) {
         const ease = cubicBezier(
@@ -462,24 +439,21 @@ export default function Scene({
         birth = 1 - Math.pow(1 - birthT, birthEase);
       }
       if (onBirthProgress) onBirthProgress(birth);
-      // Trigger phew face when birth just completes
       if (birthT >= 1 && !birthPhewFired) {
         birthPhewFired = true;
         expr.phew = 1;
       }
-      // Fly-in from behind camera, settles slightly upward
+
       const bR = c.sphereRadius;
       const birthYDist = c.birthFloatDist ?? 1.2;
       const birthY = -birthYDist * (1 - birth);
       const birthZDist = c.birthFlyInDist ?? 7;
       const birthZCurve = c.birthFlyInCurve ?? 1.8;
       const birthZ = birthZDist * Math.pow(1 - birth, birthZCurve);
-      // Parabolic arc — peaks mid-flight, zero at start & end
       const birthArc = Math.sin(birth * Math.PI) * (c.birthArcHeight ?? 2.0);
       const birthScaleStart = c.birthScaleStart ?? 1.0;
       const birthScaleCurve = birthScaleStart + (1 - birthScaleStart) * birth;
       const birthOpacity = Math.min(birth * (c.birthFadeSpeed || 3), 1);
-      // X/Y coordinate offsets — lerp from start to end
       const birthX =
         (c.birthStartX ?? 0) +
         ((c.birthEndX ?? 0) - (c.birthStartX ?? 0)) * birth;
@@ -487,12 +461,9 @@ export default function Scene({
         (c.birthStartY ?? 0) +
         ((c.birthEndY ?? 0) - (c.birthStartY ?? 0)) * birth;
 
-      // Birth rotation
       rotAngle += (c.birthSpinSpeed || 0.4) * (c.birthSpinMult || 0.15) * dt;
-      // Idle base rotation
       if (birth > 0.98) rotAngle += c.rotationSpeed * 0.5 * dt;
 
-      // Bounce animation (click reaction) — clicky spring
       bounceDecay += dt;
       const bSpring = 8,
         bDamp = 4;
@@ -502,7 +473,6 @@ export default function Scene({
       bounceSpin *= Math.max(0, 1 - 3 * dt);
       rotAngle += bounceSpin * dt;
 
-      // Click scale — gradual shrink during hold, spring back after
       if (isHolding) {
         const holdProgress = Math.min(
           1,
@@ -524,7 +494,6 @@ export default function Scene({
         }
       }
 
-      // Proximity reporting — project cube to screen, measure distance from mouse
       let cubeProx = 0;
       if (birth > 0.5 && onCubeProximityRef.current) {
         _screenPos.copy(glassCube.position).project(camera);
@@ -533,20 +502,17 @@ export default function Scene({
         const dist = Math.sqrt(dx * dx + dy * dy);
         cubeProx = Math.max(0, 1 - dist / (c.reticleRange || 1.2));
         onCubeProximityRef.current(cubeProx);
-        // Update bounding sphere for click detection
         mSp.set(glassCube.position, bR * (c.shapeScale || 1) * menuScale * 1.3);
       }
 
-      // ── Position animation: damped spring ──
       const mOpen = menuOpenRef.current;
-      // ── Menu floating cubes — two glass cubes, left and right ──
       if (mOpen && !menuCubesShown) {
         menuCubesShown = true;
         const cubeSize = (c.glassCubeSize || 3.6) * 0.55;
         const cr = c.glassCornerRadius || 0.08;
         const zones = [
-          { x: [-1.5, 1.5], y: [1.5, 3.5], z: [-5, -3] }, // above, behind
-          { x: [-1.5, 1.5], y: [-3.5, -1.5], z: [-5, -3] }, // below, behind
+          { x: [-1.5, 1.5], y: [1.5, 3.5], z: [-5, -3] },
+          { x: [-1.5, 1.5], y: [-3.5, -1.5], z: [-5, -3] },
         ];
         zones.forEach((zone, i) => {
           const px = zone.x[0] + Math.random() * (zone.x[1] - zone.x[0]);
@@ -626,7 +592,7 @@ export default function Scene({
         const age = (performance.now() - mc.mesh.userData.born) / 1000;
         const delay = mc.mesh.userData.delay || 0;
         const t = Math.max(0, age - delay);
-        const entrance = Math.min(1, t / 1.0); // slower entrance
+        const entrance = Math.min(1, t / 1.0);
         const ease = entrance * entrance * (3 - 2 * entrance);
         const targetOp = mOpen ? (isMobile ? 0.12 : 0.88) * ease : 0;
         const targetLineOp = mOpen ? 0.1 * ease : 0;
@@ -661,11 +627,9 @@ export default function Scene({
       const dsM = targetS - menuScale;
       menuScaleVel += (dsM * stiffness - menuScaleVel * damping) * dt;
       menuScale += menuScaleVel * dt;
-      // Chat Z spring (separate)
       const dzM = targetZ - chatZ;
       chatZVel += (dzM * stiffness - chatZVel * damping) * dt;
       chatZ += chatZVel * dt;
-      // Parabolic arc: push away + leftward, then curve back
       const arcStiff = c.chatArcStiffness || 2.0;
       const arcDamp = c.chatArcDamping || 2.5;
       chatArcVel += (0 - chatArc) * arcStiff * dt - chatArcVel * arcDamp * dt;
@@ -681,7 +645,6 @@ export default function Scene({
         chatArcX = 0;
         chatArcXVel = 0;
       }
-      // Chat spin — big spin burst on enter
       if (inChat && !wasInChat) {
         chatSpinBurst = c.chatSpinKick || 5.0;
         chatArcVel = c.chatArcKickZ || -6;
@@ -701,14 +664,12 @@ export default function Scene({
       chatSpinBurst *= Math.max(0, 1 - (c.chatSpinDecay || 1.4) * dt);
       rotAngle += chatSpinBurst * dt;
       angVel.y += chatSpinBurst * 0.5 * dt;
-      // Mouse → camera-space torque on angular velocity (always consistent)
       const mdx = mouse.x - prevMouseX,
         mdy = mouse.y - prevMouseY;
       prevMouseX = mouse.x;
       prevMouseY = mouse.y;
       const validMouse = mouse.x > -900 && prevMouseX > -900;
 
-      // Mouse-driven spin
       if (validMouse && cubeProx > 0.5 && birth > 0.95) {
         const speed = Math.sqrt(mdx * mdx + mdy * mdy);
         const proxStrength = Math.pow(cubeProx, 2);
@@ -717,36 +678,28 @@ export default function Scene({
         angVel.y += (mdx * strength) / mass;
         angVel.x += (-mdy * strength * 0.8) / mass;
       }
-      // Gentle base rotation
       if (birth > 0.98) {
         angVel.y += (c.glassRotSpeedY || 0.36) * 0.08 * dt;
         angVel.x += (c.glassRotSpeedX || 0.62) * 0.08 * dt;
       }
-      // Drag
       const drag = 0.75;
       angVel.x -= angVel.x * drag * dt;
       angVel.y -= angVel.y * drag * dt;
       angVel.z -= angVel.z * drag * dt;
-      // Clamp
       angVel.clampLength(0, 8);
-      // Apply angular velocity to quaternion (world-space rotation)
       const avLen = angVel.length();
 
-      // ── Smiley / wave visualizer ──
       const dizzyTarget = Math.min(1, Math.max(0, (avLen - 1.5) / 3.5));
       dizzySmooth +=
         (dizzyTarget - dizzySmooth) *
         (dizzyTarget > dizzySmooth ? 3 : 1.5) *
         dt;
-      // Smooth morph: 0 = smiley face, 1 = wave visualizer
       const morphTarget = chatModeRef.current ? 1 : 0;
       chatMorph += (morphTarget - chatMorph) * 1.8 * dt;
-      // Happy face when returning from chat
       if (prevChatMode && !chatModeRef.current) happySmooth = 1;
       prevChatMode = chatModeRef.current;
-      happySmooth = Math.max(0, happySmooth - dt * 0.3); // decay over ~3s
-      // ── Expression triggers (extracted to expressionTriggers.js) ──
-      // Safe mouse coords (0,0 if cursor hasn't entered yet)
+      happySmooth = Math.max(0, happySmooth - dt * 0.3);
+
       const safeMx = mouse.x < -900 ? 0 : mouse.x;
       const safeMy = mouse.y < -900 ? 0 : mouse.y;
       const { anyActive: exprShowing } = updateExpressions(
@@ -765,13 +718,10 @@ export default function Scene({
           lookY: safeMy,
         }
       );
-      // #K — Use smoothed look-at from expression state
       const smoothMx = exprTriggerState.smoothLookX;
       const smoothMy = exprTriggerState.smoothLookY;
 
-      // Blink — natural timing: ~300ms close-to-open, occasional double-blink
       if (exprShowing || sleepSmooth > 0.3) {
-        // Suppress new blinks during expressions/sleep, but let current blink finish
         blinkTimer = 0;
       } else {
         blinkTimer += dt;
@@ -779,11 +729,9 @@ export default function Scene({
           blinkAmount = 1;
           blinkTimer = 0;
           nextBlink = 2.5 + Math.random() * 4;
-          // 15% chance of double-blink
           if (Math.random() < 0.15) doubleBlink = 0.25;
         }
       }
-      // Double-blink countdown
       if (doubleBlink > 0) {
         doubleBlink -= dt;
         if (doubleBlink <= 0 && blinkAmount < 0.2) {
@@ -791,17 +739,14 @@ export default function Scene({
           doubleBlink = 0;
         }
       }
-      // Decay: ~300ms to fully reopen (dt * 3.5)
       blinkAmount = Math.max(0, blinkAmount - dt * 3.5);
 
-      // Sleep — BUG4 FIX: use max of lastActivity and lastExpressionTime
       const effectiveLastActive = Math.max(
         lastActivity,
         exprTriggerState.lastExpressionTime || 0
       );
       const idleTime = (performance.now() - effectiveLastActive) / 1000;
       const sleepTarget = idleTime > 15 ? Math.min(1, (idleTime - 15) / 3) : 0;
-      // Fast wake: if an expression fires while sleeping, snap awake quickly
       const sleepLerp = exprShowing && sleepSmooth > 0.2 ? 8 : 2;
       sleepSmooth += (sleepTarget - sleepSmooth) * sleepLerp * dt;
       const themeColors = [
@@ -810,14 +755,12 @@ export default function Scene({
         c.gradColor3,
         c.gradColor4,
       ];
-      // Pass idle micro-expression state through expr object for renderer
       expr._driftX = exprTriggerState.eyeDriftX;
       expr._driftY = exprTriggerState.eyeDriftY;
       expr._mouthVar = exprTriggerState.mouthVar;
-      // Hold progress for loading circle — only starts after the click
-      // threshold (150ms) so quick taps never flash the ring.
+
       const holdElapsed = performance.now() - holdStartTime;
-      const holdDeadZone = 150; // matches click threshold in onUp
+      const holdDeadZone = 150;
       const holdProgress =
         isHolding && !holdFired && holdElapsed > holdDeadZone
           ? Math.max(
@@ -826,9 +769,7 @@ export default function Scene({
             )
           : 0;
 
-      // #16 — skip smiley redraw when nothing is changing
       const isGold = (c.gradColor1 || "").toLowerCase() === "#b8860b";
-      // Gold sparkles animate slowly — redraw every 3 frames, not every frame
       const goldNeedsRedraw = isGold && ++goldSparkleFrame % 3 === 0;
       const exprActive =
         expr.curious > 0.01 ||
@@ -878,14 +819,12 @@ export default function Scene({
         cubeQuat.premultiply(_dq);
         cubeQuat.normalize();
       }
-      // Showcase transition: cube gently zooms toward camera and enlarges
+
       if (showcaseTransRef.current || showcaseOpenRef.current) {
-        scZoom = Math.min(1, scZoom + dt * 0.5); // ~2s to fully zoom
+        scZoom = Math.min(1, scZoom + dt * 0.5);
       } else if (scZoom > 0) {
-        // Snap back instantly — scene is revealed by checker, no time to animate
         scZoom = 0;
       }
-      // Ease the raw scZoom for smooth acceleration/deceleration
       const zoomEased =
         scZoom < 0.5
           ? 2 * scZoom * scZoom
@@ -897,14 +836,12 @@ export default function Scene({
       const baseY = menuPos.y + birthY + birthYOffset + birthArc;
       const baseZ = birthZ - bounceZ + chatZ + chatArc;
 
-      // Gently center as it zooms
       const px = baseX * (1 - zoomEased);
       const py = baseY * (1 - zoomEased * 0.4);
       const pz = baseZ + zoomZ;
 
       glassCube.position.set(px, py, pz);
 
-      // Glass cube — hidden when fully zoomed into showcase
       const cubeVisible = zoomEased < 0.99;
       glassCube.visible = cubeVisible;
 
@@ -923,21 +860,19 @@ export default function Scene({
           .multiplyScalar(
             bR * menuScale * clickScale * birthScaleCurve * zoomScale
           );
-        // Desktop: opacity is a secondary fade over the transmission effect
-        // Mobile: opacity IS the glass effect — cap at 0.15 to stay translucent
         glassMat.opacity = isMobile
           ? 0.18 * birthOpacity * (1 - zoomEased)
           : birthOpacity * (1 - zoomEased);
-        glassMat.roughness = c.glassRoughness || 0;
+        glassMat.roughness = c.glassRoughness ?? 0;
         if (!isMobile) {
-          glassMat.ior = c.glassIOR || 1.8;
-          glassMat.thickness = c.glassThickness || 3.5;
+          glassMat.ior = c.glassIOR ?? 1.8;
+          glassMat.thickness = c.glassThickness ?? 3.5;
+          glassMat.envMapIntensity = c.glassEnvMapIntensity ?? 2.5;
           glassMat.transmission =
             c.glassTransmission != null ? c.glassTransmission : 1;
         }
       }
 
-      // Single-pass render — MeshPhysicalMaterial handles transmission internally
       renderer.render(scene, camera);
     }
     loop();

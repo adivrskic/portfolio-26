@@ -162,9 +162,6 @@ const defaultGreeting = () => {
       : "Night owl?";
   return `${g} I'm Qb — ask me anything about Adi's work, projects, or how this site was built.`;
 };
-// Module-level state to persist chat across panel open/close cycles.
-// Intentionally survives unmount so conversation isn't lost when panel closes.
-// Note: also survives HMR in dev — refresh the page to reset.
 let persistedMessages = [{ role: "assistant", text: defaultGreeting() }];
 let persistedHistory = [];
 
@@ -181,7 +178,6 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
   const historyRef = useRef(persistedHistory);
   const panelRef = useRef(null);
 
-  // Sync to persisted on every change
   useEffect(() => {
     persistedMessages = messages;
     persistedHistory = historyRef.current;
@@ -224,7 +220,6 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
         blur: 30,
         maxDelay: 250,
         onComplete: () => {
-          // Tiles done — swap to real bg (seamless, identical look)
           checkerRef.current = null;
           bg.style.removeProperty("backdrop-filter");
           bg.style.removeProperty("-webkit-backdrop-filter");
@@ -235,7 +230,6 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
       });
       checkerRef.current = checker.cleanup;
 
-      // Content fades in overlapping the last tiles (starts 450ms in)
       setTimeout(() => {
         const tl = gsap.timeline();
         tlRef.current = tl;
@@ -266,7 +260,6 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
         tl.call(() => inputRef.current?.focus(), [], 0.4);
       }, 450);
     } else {
-      // Fade out content
       const tl = gsap.timeline();
       tlRef.current = tl;
       if (cb)
@@ -289,7 +282,6 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
           { opacity: 0, y: -6, duration: 0.15, ease: "power2.in" },
           0.06
         );
-      // Glass tiles appear covering the panel, then bg hides, then tiles dissolve
       tl.call(
         () => {
           const checker = checkerDissolve(panel, {
@@ -302,7 +294,6 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
               setActive(false);
             },
           });
-          // Tiles are at scale 1 covering panel — hide bg behind them
           gsap.set(bg, { opacity: 0 });
           checkerRef.current = checker.cleanup;
         },
@@ -328,7 +319,6 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
       setShowHelp(false);
       setTyping(true);
 
-      // Build conversation history for the API
       historyRef.current = [
         ...historyRef.current,
         { role: "user", content: txt },
@@ -354,8 +344,6 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
 
         if (!response.ok) throw new Error("API error");
 
-        // Stream into isolated state — only the streaming bubble re-renders,
-        // not the entire message list
         setTyping(false);
         setStreamingText("");
 
@@ -391,7 +379,6 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
           }
         }
 
-        // Handle email tag in final reply
         const emailMatch = fullReply.match(/<!--EMAIL:(.*?)-->/);
         if (emailMatch) {
           try {
@@ -416,7 +403,6 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
           fullReply = fullReply.replace(/<!--EMAIL:.*?-->/, "").trim();
         }
 
-        // Streaming complete — commit final message to array (single re-render)
         setStreamingText(null);
         setMessages((m) => [...m, { role: "assistant", text: fullReply }]);
 
@@ -581,7 +567,10 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
             </div>
           )}
 
-          <div className="chat-panel__input-row">
+          <div
+            className="chat-panel__input-row"
+            onClick={() => inputRef.current?.focus()}
+          >
             <input
               ref={inputRef}
               value={input}
@@ -591,23 +580,20 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
               className="chat-panel__text-input"
             />
             <button
-              onClick={send}
-              className="chat-panel__send-btn"
-              style={{
-                background: input.trim()
-                  ? "rgba(18,18,40,0.06)"
-                  : "transparent",
-                cursor: input.trim() ? "pointer" : "default",
+              onClick={(e) => {
+                e.stopPropagation();
+                send();
               }}
+              className={`chat-panel__send-btn ${
+                input.trim() ? "chat-panel__send-btn--active" : ""
+              }`}
             >
               <svg
                 width="14"
                 height="14"
                 viewBox="0 0 24 24"
                 fill="none"
-                stroke={
-                  input.trim() ? "rgba(18,18,40,0.4)" : "rgba(18,18,40,0.1)"
-                }
+                stroke="currentColor"
                 strokeWidth="2"
                 strokeLinecap="round"
               >

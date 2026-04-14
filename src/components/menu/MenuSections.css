@@ -28,6 +28,7 @@
   font-weight: 300;
   line-height: 2;
   margin: 0;
+  max-width: 500px;
 }
 .menu-about__bio--primary {
   color: rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.7);
@@ -189,4 +190,37 @@
   color: rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.6);
   border-color: rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.2);
   background: rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.03);
+}
+
+/* ── Visit site link ── */
+.menu-work__meta-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+.menu-work__visit {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--mf, "Inter", sans-serif);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.35);
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 0.5px solid rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.1);
+  transition: color 0.3s, border-color 0.3s, background 0.3s;
+}
+.menu-work__visit:hover {
+  color: rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.6);
+  border-color: rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.2);
+  background: rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.04);
+}
+.menu-work__visit--sm {
+  margin-top: 8px;
+  font-size: 9px;
 }

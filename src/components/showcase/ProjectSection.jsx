@@ -1,4 +1,4 @@
-import { Suspense, useRef } from "react";
+import { Suspense, useRef, Component } from "react";
 import { Color, MathUtils, SRGBColorSpace, TextureLoader } from "three";
 import { useThree, useFrame, useLoader } from "@react-three/fiber";
 import { Text as DreiText } from "@react-three/drei";
@@ -48,11 +48,41 @@ export function CameraScroll() {
 function Img({ url, w, h }) {
   const tex = useLoader(TextureLoader, url);
   tex.colorSpace = SRGBColorSpace;
+
+  // Contain: fit image inside w×h without stretching
+  const imgW = tex.image?.width || 1;
+  const imgH = tex.image?.height || 1;
+  const imgAspect = imgW / imgH;
+  const boxAspect = w / h;
+  const planeW = imgAspect > boxAspect ? w : h * imgAspect;
+  const planeH = imgAspect > boxAspect ? w / imgAspect : h;
+
   return (
     <mesh>
-      <planeGeometry args={[w, h]} />
+      <planeGeometry args={[planeW, planeH]} />
       <meshBasicMaterial map={tex} toneMapped={false} />
     </mesh>
+  );
+}
+
+// Error boundary so a single failed image doesn't crash the whole showcase
+class ImgBoundary extends Component {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
+function SafeImg(props) {
+  return (
+    <ImgBoundary>
+      <Suspense fallback={null}>
+        <Img {...props} />
+      </Suspense>
+    </ImgBoundary>
   );
 }
 
@@ -60,6 +90,7 @@ function FadeIn({ children }) {
   return <group>{children}</group>;
 }
 
+// ── Solid section background — #e8e8ee at full opacity ──
 function GlassCard({ w, h }) {
   return (
     <group>
@@ -67,7 +98,7 @@ function GlassCard({ w, h }) {
         <planeGeometry args={[w, h]} />
         <meshBasicMaterial
           color="#e8e8ee"
-          transparent
+          transparent={false}
           opacity={1}
           depthWrite={false}
         />
@@ -82,7 +113,7 @@ function GlassCard({ w, h }) {
           <mesh key={i} position={[x, y, z]}>
             <planeGeometry args={[bw, bh]} />
             <meshBasicMaterial
-              color="#e8e8ee"
+              color="#ffffff"
               transparent
               opacity={L.card.borderOpacity}
             />
@@ -96,9 +127,8 @@ function GlassCard({ w, h }) {
 export function ProjectSection({ project, index, s, vw, vh }) {
   const sectionY = -(L.heroH + index * L.sectionH);
 
-  // Minimal padding — just clearance for the progress bar on the right
-  const rightClear = vw * 0.04; // progress bar space
-  const edgePad = vw * 0.008; // tiny breathing room
+  const rightClear = vw * 0.04;
+  const edgePad = vw * 0.008;
   const cardW = vw - edgePad - rightClear;
   const cardH = vh - edgePad * 2;
   const gap = vw * 0.004;
@@ -106,7 +136,6 @@ export function ProjectSection({ project, index, s, vw, vh }) {
 
   const flipped = index % 2 === 1;
 
-  // Pre-compute sizes to match what flex will allocate
   const imgFrac = 0.55;
   const usableW = cardW - cardPad * 2 - gap;
   const usableH = cardH - cardPad * 2;
@@ -116,10 +145,8 @@ export function ProjectSection({ project, index, s, vw, vh }) {
   const stackH = (usableH - gap) * 0.4;
   const stackItemW = (imgColW - gap) / 2;
 
-  // Card is offset slightly left (more space on right for progress bar)
   const cardOffsetX = -(rightClear - edgePad) / 2;
 
-  // Fork point for cube (in world space, accounting for card offset)
   const imgColCenterX =
     cardOffsetX +
     (flipped
@@ -146,30 +173,25 @@ export function ProjectSection({ project, index, s, vw, vh }) {
         <Box
           flex={imgFrac}
           flexDirection="column"
+          alignItems="center"
           marginRight={flipped ? 0 : gap}
           marginLeft={flipped ? gap : 0}
         >
           <Box flex={0.6} marginBottom={gap} centerAnchor>
             <FadeIn sectionY={sectionY} delay={0}>
-              <Suspense fallback={null}>
-                <Img url={project.images[0]} w={imgColW} h={heroH} />
-              </Suspense>
+              <SafeImg url={project.images[0]} w={imgColW} h={heroH} />
             </FadeIn>
           </Box>
 
-          <Box flex={0.4} flexDirection="row">
+          <Box flex={0.4} flexDirection="row" alignItems="center">
             <Box flex={1} marginRight={gap / 2} centerAnchor>
               <FadeIn sectionY={sectionY} delay={1}>
-                <Suspense fallback={null}>
-                  <Img url={project.images[1]} w={stackItemW} h={stackH} />
-                </Suspense>
+                <SafeImg url={project.images[1]} w={stackItemW} h={stackH} />
               </FadeIn>
             </Box>
             <Box flex={1} marginLeft={gap / 2} centerAnchor>
               <FadeIn sectionY={sectionY} delay={2}>
-                <Suspense fallback={null}>
-                  <Img url={project.images[2]} w={stackItemW} h={stackH} />
-                </Suspense>
+                <SafeImg url={project.images[2]} w={stackItemW} h={stackH} />
               </FadeIn>
             </Box>
           </Box>
@@ -183,7 +205,6 @@ export function ProjectSection({ project, index, s, vw, vh }) {
           paddingLeft={vw * 0.015}
           paddingRight={vw * 0.005}
         >
-          {/* Ghost number */}
           <Box height={2.2}>
             <FadeIn sectionY={sectionY} delay={0}>
               <Text
@@ -199,7 +220,6 @@ export function ProjectSection({ project, index, s, vw, vh }) {
             </FadeIn>
           </Box>
 
-          {/* Tag */}
           <Box height={0.3}>
             <FadeIn sectionY={sectionY} delay={1}>
               <Text
@@ -215,7 +235,6 @@ export function ProjectSection({ project, index, s, vw, vh }) {
             </FadeIn>
           </Box>
 
-          {/* Title */}
           <Box height={1.2}>
             <FadeIn sectionY={sectionY} delay={2}>
               <Text
@@ -234,7 +253,6 @@ export function ProjectSection({ project, index, s, vw, vh }) {
             </FadeIn>
           </Box>
 
-          {/* Description */}
           <Box height={2.4}>
             <FadeIn sectionY={sectionY} delay={3}>
               <Text
@@ -252,7 +270,6 @@ export function ProjectSection({ project, index, s, vw, vh }) {
             </FadeIn>
           </Box>
 
-          {/* Skills */}
           <Box height={0.3}>
             <FadeIn sectionY={sectionY} delay={4}>
               <Text
@@ -268,7 +285,6 @@ export function ProjectSection({ project, index, s, vw, vh }) {
             </FadeIn>
           </Box>
 
-          {/* Project link */}
           <Box height={0.4} marginTop={0.3}>
             <FadeIn sectionY={sectionY} delay={5}>
               <Text

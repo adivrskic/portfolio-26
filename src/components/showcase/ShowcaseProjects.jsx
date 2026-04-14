@@ -8,9 +8,9 @@ export const SHOWCASE_PROJECTS = [
     skills: ["React", "Supabase", "Claude API", "Stripe", "Vite"],
     link: "https://nimbuswebsites.com",
     images: [
-      "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=1200&h=800&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1200&h=800&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=1200&h=800&fit=crop&q=80",
+      "/projects/nimbus1.webp",
+      "/projects/nimbus2.webp",
+      "/projects/nimbus3.webp",
     ],
   },
   {
@@ -20,11 +20,11 @@ export const SHOWCASE_PROJECTS = [
     text: "Accessibility auditing platform with AI analysis, Slack alerts, and WCAG compliance tracking at scale. Scans pages on a schedule, flags violations by severity, and pushes actionable fixes directly to your team's Slack channels.",
     accent: "#8b5cf6",
     skills: ["React", "AI Analysis", "Slack API", "WCAG"],
-    link: "https://github.com/adivrskic/xsbl",
+    link: "https://xsbl.io",
     images: [
-      "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&h=800&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=1200&h=800&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=1200&h=800&fit=crop&q=80",
+      "/projects/xsbl1.webp",
+      "/projects/xsbl2.webp",
+      "/projects/xsbl3.webp",
     ],
   },
   {
@@ -34,11 +34,11 @@ export const SHOWCASE_PROJECTS = [
     text: "Inventory platform with AI demand forecasting, intelligent routing, and native mobile apps. Predicts stock needs weeks ahead using historical sales data, then auto-routes shipments across warehouses to minimize delivery time.",
     accent: "#10b981",
     skills: ["React Native", "AI Forecasting", "Node.js", "PostgreSQL"],
-    link: "https://github.com/adivrskic/nimbus-wms",
+    link: "https://nimbus-landing.netlify.app",
     images: [
-      "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&h=800&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=1200&h=800&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1565688534245-05d6b5be184a?w=1200&h=800&fit=crop&q=80",
+      "/projects/nimbuswms1.webp",
+      "/projects/nimbuswms2.webp",
+      "/projects/nimbuswms3.webp",
     ],
   },
   {
@@ -48,11 +48,11 @@ export const SHOWCASE_PROJECTS = [
     text: "Neumorphism React library with soft UI design, customizable theming, and composable API. Ships 30+ components with built-in dark mode, fluid animations, and a token system that lets you reshape the entire look with a single config object.",
     accent: "#f59e0b",
     skills: ["React", "CSS-in-JS", "Theming", "npm"],
-    link: "https://github.com/adivrskic/pillow",
+    link: "https://pillow-ui.netlify.app",
     images: [
-      "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&h=800&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1545235617-9465d2a55698?w=1200&h=800&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=1200&h=800&fit=crop&q=80",
+      "/projects/pillow1.webp",
+      "/projects/pillow2.webp",
+      "/projects/pillow3.webp",
     ],
   },
   {
@@ -62,11 +62,11 @@ export const SHOWCASE_PROJECTS = [
     text: "Creative coding — neon text around a 3D object with dynamic lighting in WebGL. Custom GLSL shaders drive the glow and refraction, with the text geometry procedurally wrapping the surface and responding to mouse movement in real time.",
     accent: "#a855f7",
     skills: ["Three.js", "WebGL", "GLSL", "Creative Coding"],
-    link: "https://github.com/adivrskic",
+    link: "https://halo-effect.netlify.app",
     images: [
-      "https://images.unsplash.com/photo-1633356122102-3fe601e05bd2?w=1200&h=800&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=1200&h=800&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=1200&h=800&fit=crop&q=80",
+      "/projects/halo1.webp",
+      "/projects/halo2.webp",
+      "/projects/halo3.webp",
     ],
   },
 ];

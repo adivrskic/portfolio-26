@@ -8,7 +8,6 @@ import {
   N8AO,
 } from "@react-three/postprocessing";
 import ContactForm from "../contact/ContactForm";
-import ShowcaseDebug from "../debug/ShowcaseDebug";
 
 import { SHOWCASE_PROJECTS } from "./ShowcaseProjects";
 import { L, state, FONT_URL, TOTAL_SECTIONS, N } from "./ShowcaseLayout";
@@ -41,16 +40,18 @@ const preloadPromise =
 
 SHOWCASE_PROJECTS.forEach((p) => {
   p.images.forEach((url) => {
-    useLoader.preload(TextureLoader, url);
+    try {
+      useLoader.preload(TextureLoader, url);
+    } catch (e) {}
   });
 });
 
 // ── Dynamic depth of field ──
+// ONLY on hero. Everything else: zero blur, instantly.
 state.focusZ = 0;
 
 function DynamicDof() {
   const dofRef = useRef();
-  const smoothZ = useRef(0);
   const smoothBokeh = useRef(L.post.dofBokehScale);
   const smoothRange = useRef(L.post.dofFocusRange);
 
@@ -59,26 +60,28 @@ function DynamicDof() {
 
     const sec = state.section;
     const onHero = sec === 0;
-    const hovered = state.focusZ > 0 && onHero;
-
-    let targetBokeh, targetRange;
 
     if (!onHero) {
-      // Project sections + settle — kill DOF
-      targetBokeh = 0;
-      targetRange = 100;
-    } else if (hovered) {
-      // Hero with cube hover — eliminate blur for sharp cube view
-      targetBokeh = 0;
-      targetRange = 100;
+      // NOT hero — snap DOF to zero immediately, no lerp
+      smoothBokeh.current = 0;
+      smoothRange.current = 100;
+    } else if (state.focusZ > 0) {
+      // Hero with cube hover — no blur
+      smoothBokeh.current = ThrMath.lerp(smoothBokeh.current, 0, 0.15);
+      smoothRange.current = ThrMath.lerp(smoothRange.current, 100, 0.15);
     } else {
       // Hero idle — normal DoF
-      targetBokeh = L.post.dofBokehScale;
-      targetRange = L.post.dofFocusRange;
+      smoothBokeh.current = ThrMath.lerp(
+        smoothBokeh.current,
+        L.post.dofBokehScale,
+        0.1
+      );
+      smoothRange.current = ThrMath.lerp(
+        smoothRange.current,
+        L.post.dofFocusRange,
+        0.1
+      );
     }
-
-    smoothBokeh.current = ThrMath.lerp(smoothBokeh.current, targetBokeh, 0.1);
-    smoothRange.current = ThrMath.lerp(smoothRange.current, targetRange, 0.1);
 
     dofRef.current.target.set(0, camera.position.y, 0);
     dofRef.current.bokehScale = smoothBokeh.current;
@@ -106,7 +109,6 @@ function Content({ onVpHeight, themeColor }) {
   const vh = lockedRef.current?.h || viewport.height;
   const s = Math.min(1, vw / 16);
 
-  // Make each section exactly one viewport tall
   if (vh > 1) {
     L.heroH = vh;
     L.sectionH = vh;
@@ -170,13 +172,11 @@ export default function ShowcaseCanvas({
   }
 
   const triggerCheckerClose = useCallback(() => {
-    const container = containerRef.current;
     const w = window.innerWidth;
     const h = window.innerHeight;
     const cellW = w / COLS;
     const cellH = h / ROWS;
 
-    // Use pre-made screenshot for the current section
     const curSec = state.section;
     const imgIdx = String(curSec).padStart(2, "0");
     const imgUrl =
@@ -215,7 +215,6 @@ export default function ShowcaseCanvas({
       if (containerRef.current)
         containerRef.current.style.visibility = "hidden";
       setVisible(false);
-
       requestAnimationFrame(() => {
         const delays = cellDelaysRef.current;
         for (let i = 0; i < cells.length; i++) {
@@ -250,7 +249,6 @@ export default function ShowcaseCanvas({
         sectionGridRef.current = null;
       }
       sectionTransitioning.current = false;
-      // Reset direct DOM visibility override
       if (containerRef.current) containerRef.current.style.visibility = "";
       setVisible(true);
       setLoaderVisible(true);
@@ -259,7 +257,7 @@ export default function ShowcaseCanvas({
     } else {
       closingRef.current = false;
       setLoaderVisible(false);
-      if (!hasOpened.current) return; // don't animate on initial mount
+      if (!hasOpened.current) return;
       triggerCheckerClose();
       const t = setTimeout(() => {
         clearChecker();
@@ -282,7 +280,6 @@ export default function ShowcaseCanvas({
 
   const handleVpHeight = useCallback((h) => setVpHeight(h), []);
 
-  // ── Section checker transition (inside showcase) ──
   const sectionGridRef = useRef(null);
   const sectionTransitioning = useRef(false);
 
@@ -301,7 +298,6 @@ export default function ShowcaseCanvas({
     const cellW = w / COLS;
     const cellH = h / ROWS;
 
-    // Use pre-made screenshot for the current section (before transition)
     const curSec = state.section;
     const imgIdx = String(curSec).padStart(2, "0");
     const imgUrl =
@@ -346,7 +342,6 @@ export default function ShowcaseCanvas({
           cells[i].style.transitionDelay = delays[i] * 600 + "ms";
           cells[i].style.transform = "scale(0)";
         }
-
         setTimeout(() => {
           if (sectionGridRef.current) {
             sectionGridRef.current.remove();
@@ -453,7 +448,7 @@ export default function ShowcaseCanvas({
         </EffectComposer>
       </Canvas>
 
-      {/* Fingerprint loading overlay */}
+      {/* Fingerprint loading overlay — theme gradient fill */}
       {isShown && (
         <div
           className={`showcase__loader ${
