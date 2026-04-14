@@ -119,8 +119,8 @@
 /* Numbers + action icons beneath the ticks */
 .sc-progress__nums {
   position: absolute;
-  right: -4px;
-  bottom: -200px;
+  right: 0px;
+  bottom: -240px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;

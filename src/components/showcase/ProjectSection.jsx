@@ -149,7 +149,13 @@ function MobileSection({ project, index, vw, vh }) {
         padding={cardPad}
       >
         {/* Hero image */}
-        <Box height={imgH} marginBottom={gap} centerAnchor alignItems="center">
+        <Box
+          height={imgH}
+          marginBottom={gap}
+          centerAnchor
+          alignItems="center"
+          justifyContent="center"
+        >
           <FadeIn>
             <SafeImg url={project.images[0]} w={usableW} h={imgH} />
           </FadeIn>
@@ -320,22 +326,46 @@ function DesktopSection({ project, index, s, vw, vh }) {
           flex={imgFrac}
           flexDirection="column"
           alignItems="center"
+          justifyContent="center"
           marginRight={flipped ? 0 : gap}
           marginLeft={flipped ? gap : 0}
         >
-          <Box flex={0.6} marginBottom={gap} centerAnchor>
+          <Box
+            flex={0.6}
+            marginBottom={gap}
+            centerAnchor
+            justifyContent="center"
+            alignItems="center"
+          >
             <FadeIn>
               <SafeImg url={project.images[0]} w={imgColW} h={heroH} />
             </FadeIn>
           </Box>
 
-          <Box flex={0.4} flexDirection="row" alignItems="center">
-            <Box flex={1} marginRight={gap / 2} centerAnchor>
+          <Box
+            flex={0.4}
+            flexDirection="row"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Box
+              flex={1}
+              marginRight={gap / 2}
+              centerAnchor
+              justifyContent="center"
+              alignItems="center"
+            >
               <FadeIn>
                 <SafeImg url={project.images[1]} w={stackItemW} h={stackH} />
               </FadeIn>
             </Box>
-            <Box flex={1} marginLeft={gap / 2} centerAnchor>
+            <Box
+              flex={1}
+              marginLeft={gap / 2}
+              centerAnchor
+              justifyContent="center"
+              alignItems="center"
+            >
               <FadeIn>
                 <SafeImg url={project.images[2]} w={stackItemW} h={stackH} />
               </FadeIn>
