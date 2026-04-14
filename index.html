@@ -9,6 +9,11 @@
       name="description"
       content="Full-stack creative developer building AI-powered products, immersive 3D web experiences, and large-scale applications. React, Three.js, AI integration."
     />
+    <link rel="canonical" href="https://adivrskic.dev" />
+    <meta name="author" content="Adi Vrskic" />
+    <meta name="robots" content="index, follow" />
+
+    <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Adi Vrskic — Creative Developer" />
     <meta
@@ -17,12 +22,139 @@
     />
     <meta property="og:url" content="https://adivrskic.dev" />
     <meta property="og:image" content="https://adivrskic.dev/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:site_name" content="Adi Vrskic" />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Adi Vrskic — Creative Developer" />
     <meta
       name="twitter:description"
       content="Full-stack engineer specializing in React, Three.js, and AI."
     />
+    <meta name="twitter:image" content="https://adivrskic.dev/og-image.png" />
+
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Person",
+        "name": "Adi Vrskic",
+        "url": "https://adivrskic.dev",
+        "jobTitle": "Full-Stack Creative Developer",
+        "description": "Full-stack creative developer with 8+ years building AI-powered products, immersive 3D web experiences, and large-scale applications.",
+        "sameAs": [
+          "https://github.com/adivrskic",
+          "https://linkedin.com/in/adi-vrskic"
+        ],
+        "knowsAbout": [
+          "React",
+          "TypeScript",
+          "Three.js",
+          "WebGL",
+          "GLSL",
+          "Node.js",
+          "AI Integration",
+          "Supabase",
+          "Next.js",
+          "GSAP",
+          "Creative Coding",
+          "Full-Stack Development"
+        ],
+        "alumniOf": {
+          "@type": "CollegeOrUniversity",
+          "name": "Kennesaw State University"
+        },
+        "makesOffer": {
+          "@type": "Offer",
+          "itemOffered": {
+            "@type": "Service",
+            "name": "Full-Stack Web Development & AI Integration",
+            "description": "Custom web applications, AI-powered products, 3D interactive experiences, and creative frontend development."
+          }
+        }
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        "name": "Projects by Adi Vrskic",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "item": {
+              "@type": "SoftwareApplication",
+              "name": "Nimbus",
+              "url": "https://nimbuswebsites.com",
+              "description": "Full-stack AI application that generates production-ready websites from plain-English prompts with real-time streaming and 60+ design controls.",
+              "applicationCategory": "WebApplication",
+              "operatingSystem": "Web"
+            }
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "item": {
+              "@type": "SoftwareApplication",
+              "name": "XSBL",
+              "url": "https://xsbl.io",
+              "description": "Web accessibility auditing platform with AI analysis, Slack alerts, and WCAG compliance tracking.",
+              "applicationCategory": "WebApplication",
+              "operatingSystem": "Web"
+            }
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "item": {
+              "@type": "SoftwareApplication",
+              "name": "Nimbus WMS",
+              "url": "https://nimbus-landing.netlify.app",
+              "description": "AI-powered inventory and warehouse management with demand forecasting and native mobile apps.",
+              "applicationCategory": "WebApplication",
+              "operatingSystem": "Web"
+            }
+          },
+          {
+            "@type": "ListItem",
+            "position": 4,
+            "item": {
+              "@type": "SoftwareApplication",
+              "name": "Pillow",
+              "url": "https://pillow-ui.netlify.app",
+              "description": "Neumorphism-style React component library with soft UI design system and customizable theming.",
+              "applicationCategory": "DeveloperApplication",
+              "operatingSystem": "Web"
+            }
+          },
+          {
+            "@type": "ListItem",
+            "position": 5,
+            "item": {
+              "@type": "SoftwareApplication",
+              "name": "Halo",
+              "url": "https://halo-effect.netlify.app",
+              "description": "Creative coding experiment — neon text around a 3D object with dynamic lighting in WebGL and custom GLSL shaders.",
+              "applicationCategory": "WebApplication",
+              "operatingSystem": "Web"
+            }
+          }
+        ]
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Adi Vrskic — Creative Developer",
+        "url": "https://adivrskic.dev",
+        "description": "Portfolio of Adi Vrskic, a full-stack creative developer specializing in React, Three.js, and AI integration."
+      }
+    </script>
 
     <!-- Icons -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -32,8 +164,7 @@
     <!-- Print stylesheet -->
     <link rel="stylesheet" href="/print.css" media="print" />
 
-    <!-- Preconnect to image CDN -->
-    <link rel="preconnect" href="https://images.unsplash.com" />
+    <!-- Preconnect -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 
     <!-- Fonts -->
@@ -125,6 +256,58 @@
           stroke-dashoffset: 0;
         }
       }
+      /* Noscript fallback */
+      .noscript-content {
+        max-width: 680px;
+        margin: 0 auto;
+        padding: 60px 24px;
+        font-family: "Inter", -apple-system, sans-serif;
+        color: #1a1a2e;
+      }
+      .noscript-content h1 {
+        font-size: 36px;
+        font-weight: 200;
+        letter-spacing: -0.02em;
+        margin-bottom: 8px;
+      }
+      .noscript-content h2 {
+        font-size: 14px;
+        font-weight: 300;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        opacity: 0.5;
+        margin-bottom: 32px;
+      }
+      .noscript-content p {
+        font-size: 15px;
+        font-weight: 300;
+        line-height: 1.8;
+        opacity: 0.75;
+        margin-bottom: 16px;
+      }
+      .noscript-content h3 {
+        font-size: 12px;
+        font-weight: 400;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        opacity: 0.4;
+        margin: 32px 0 12px;
+      }
+      .noscript-content ul {
+        list-style: none;
+        padding: 0;
+      }
+      .noscript-content li {
+        font-size: 14px;
+        font-weight: 300;
+        line-height: 1.6;
+        opacity: 0.65;
+        padding: 4px 0;
+      }
+      .noscript-content a {
+        color: #1a1a2e;
+        opacity: 0.8;
+      }
     </style>
   </head>
   <body>
@@ -158,6 +341,74 @@
     </div>
 
     <div id="root"></div>
+
+    <!-- Noscript fallback — crawlers that don't execute JS index this -->
+    <noscript>
+      <div class="noscript-content">
+        <h1>Adi Vrskic</h1>
+        <h2>Full-Stack Creative Developer</h2>
+        <p>
+          Full-stack creative developer with 8+ years building large-scale web
+          apps, immersive 3D experiences, and AI-powered products. Currently
+          engineering front-end solutions at a Fortune 50 retailer, building
+          features used by millions of customers.
+        </p>
+        <p>
+          Specializing in React, TypeScript, Three.js, WebGL, and AI
+          integration. Open to freelance, contract, and full-time opportunities.
+        </p>
+
+        <h3>Projects</h3>
+        <ul>
+          <li>
+            <a href="https://nimbuswebsites.com">Nimbus</a> — AI website
+            generator with real-time streaming, 60+ design controls, and
+            multi-format export. React, Supabase, Claude API, Stripe.
+          </li>
+          <li>
+            <a href="https://xsbl.io">XSBL</a> — Web accessibility auditing
+            platform with AI analysis, Slack alerts, and WCAG compliance
+            tracking.
+          </li>
+          <li>
+            <a href="https://nimbus-landing.netlify.app">Nimbus WMS</a> —
+            AI-powered inventory and warehouse management with demand
+            forecasting and native mobile apps.
+          </li>
+          <li>
+            <a href="https://pillow-ui.netlify.app">Pillow</a> — Neumorphism
+            React component library with soft UI design system and customizable
+            theming.
+          </li>
+          <li>
+            <a href="https://halo-effect.netlify.app">Halo</a> — Creative coding
+            — neon text around a 3D object with dynamic lighting in WebGL.
+          </li>
+        </ul>
+
+        <h3>Skills</h3>
+        <ul>
+          <li>
+            Frontend: React, TypeScript, Next.js, Three.js, WebGL, GLSL, GSAP,
+            Tailwind
+          </li>
+          <li>
+            Backend: Node.js, Supabase, Edge Functions, REST APIs, PostgreSQL
+          </li>
+          <li>
+            AI: Anthropic Claude API, OpenAI API, prompt engineering, streaming
+          </li>
+          <li>Other: Stripe, OAuth, Git, CI/CD, React Native</li>
+        </ul>
+
+        <h3>Contact</h3>
+        <ul>
+          <li><a href="https://github.com/adivrskic">GitHub</a></li>
+          <li><a href="https://linkedin.com/in/adi-vrskic">LinkedIn</a></li>
+        </ul>
+      </div>
+    </noscript>
+
     <script type="module" src="/src/main.jsx"></script>
     <script>
       // Fade out loader once React renders
