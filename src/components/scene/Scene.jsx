@@ -31,6 +31,7 @@ import { sphereFragmentShader } from "./shaders/sphereFragment.glsl.js";
 // Glass cube now uses MeshPhysicalMaterial with transmission (no custom shader)
 import { createCubeFaceRenderer } from "./cubeFaceRenderer";
 import { createExpressionState, updateExpressions } from "./expressionTriggers";
+import { createGlassEnvironment } from "./glassEnv";
 
 // Shaders imported from ./shaders/ — see sphereVertexShader, sphereFragmentShader, etc.
 const FV = sphereVertexShader;
@@ -112,6 +113,7 @@ export default function Scene({
     renderer.toneMappingExposure = 1.1;
     container.appendChild(renderer.domElement);
     const scene = new THREEScene();
+    const envMap = createGlassEnvironment(renderer, scene);
     const camera = new PerspectiveCamera(50, W() / H(), 0.1, 200);
     camera.position.set(0, 0, 8);
 
@@ -951,6 +953,7 @@ export default function Scene({
       window.removeEventListener("touchcancel", onTouchUp);
       container.removeChild(renderer.domElement);
       renderer.dispose();
+      envMap.dispose();
       sphereGeo.dispose();
       glassGeo.dispose();
       glassMat.dispose();
