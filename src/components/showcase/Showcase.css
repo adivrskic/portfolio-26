@@ -92,25 +92,6 @@
   z-index: 5;
   pointer-events: none;
 }
-.sc-progress__close {
-  position: absolute;
-  right: -28px;
-  top: -115px;
-  transform: rotate(-90deg);
-  transform-origin: center center;
-  font-size: 11px;
-  color: rgba(26, 26, 46, 0.6);
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 4px 8px;
-  pointer-events: auto;
-  transition: color 0.3s;
-  white-space: nowrap;
-}
-.sc-progress__close:hover {
-  color: rgba(26, 26, 46, 0.85);
-}
 .sc-progress__endpoint {
   position: absolute;
   right: 0;
@@ -134,15 +115,17 @@
   transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.5s,
     background-color 0.5s;
 }
+
+/* Numbers + action icons beneath the ticks */
 .sc-progress__nums {
   position: absolute;
-  right: -4px;
-  bottom: -200px;
+  right: 0px;
+  bottom: -240px;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
+  align-items: flex-end;
   pointer-events: auto;
-  gap: 12px;
+  gap: 10px;
 }
 .sc-progress__num {
   font-family: "Inter", -apple-system, sans-serif;
@@ -156,9 +139,26 @@
   cursor: pointer;
   transition: opacity 0.3s;
   white-space: nowrap;
+  padding: 2px 0;
 }
 .sc-progress__num:hover {
   opacity: 0.5 !important;
+}
+
+/* Action icon buttons (contact, close) */
+.sc-progress__action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: rgba(26, 26, 46, 0.25);
+  padding: 6px 0;
+  transition: color 0.3s;
+}
+.sc-progress__action:hover {
+  color: rgba(26, 26, 46, 0.55);
 }
 
 /* ── SettleFooter ── */

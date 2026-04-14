@@ -1,77 +1,296 @@
-import { useRef, useMemo } from "react";
-import { Color, Vector3 } from "three";
+import { useRef, useMemo, useEffect, useState } from "react";
+import { Color } from "three";
 import { useThree, useFrame } from "@react-three/fiber";
 import {
-  Text as DreiText,
+  Text3D,
+  Center,
   MeshTransmissionMaterial,
   RoundedBox,
+  Instance,
+  Instances,
+  Html,
 } from "@react-three/drei";
 import { Physics, RigidBody, CuboidCollider } from "@react-three/rapier";
-import { L, state, clamp, FONT_URL, N } from "./ShowcaseLayout";
+import { L, state, clamp, N } from "./ShowcaseLayout";
 
-function Text(props) {
-  return <DreiText font={FONT_URL} {...props} />;
-}
-
-const LETTERS = "ADI VRSKIC".split("");
-const CUBE_SIZE = 1.2;
+const CUBE_SIZE = 1.0;
 const HALF = CUBE_SIZE / 2;
+const FONT_3D = "/Inter_Medium_Regular.json";
 
-const CHAR_W = {
-  A: 0.62,
-  D: 0.64,
-  I: 0.24,
-  " ": 0.25,
-  V: 0.6,
-  R: 0.58,
-  S: 0.54,
-  K: 0.58,
-  C: 0.58,
+// ── Mutable config — debug sliders write here, useFrame reads every frame ──
+const S = {
+  // Scene rotation (isometric tilt)
+  rotX: -0.65,
+  rotY: -0.35,
+  rotZ: 0,
+  // Scene position offset
+  sceneX: 0,
+  sceneY: 0,
+  sceneZ: 0,
+  // Text
+  textX: -4.5,
+  textY: 0.02,
+  textZ: 0,
+  textScale: 3.5,
+  textGap: 3.3,
+  // Cubes area
+  cubeOffX: 5,
+  cubeOffZ: 0,
+  cubeSpread: 3,
+  // Ground
+  groundShow: true,
+  groundSize: 60,
+  groundOpacity: 0.03,
+  groundY: -0.01,
+  // Grid
+  gridShow: true,
+  gridCount: 17,
+  // Key light
+  keyX: 8,
+  keyY: 12,
+  keyZ: 8,
+  keyIntensity: 4,
+  // Fill light
+  fillX: -8,
+  fillY: 6,
+  fillZ: 4,
+  fillIntensity: 1.5,
+  // Rim light
+  rimX: 0,
+  rimY: 4,
+  rimZ: -8,
+  rimIntensity: 1,
 };
 
-// ── Perspective letter positions ──
-// Letters spread horizontally with individual offsets for perspective depth.
-function getLetterPositions(vw) {
-  const fontSize = vw * 0.12;
-  const spacing = 1 - 0.03;
-  const positions = [];
-  let x = 0;
-  for (let i = 0; i < LETTERS.length; i++) {
-    const ch = LETTERS[i];
-    const w = (CHAR_W[ch] || 0.5) * fontSize * spacing;
-    if (ch !== " ") {
-      positions.push({ x: x + w / 2, char: ch, idx: positions.length });
-    }
-    x += w;
-  }
-  const offset = x / 2;
-  for (const p of positions) p.x -= offset;
-  return positions;
+// Glass config
+const GLASS_TEXT = {
+  backside: true,
+  backsideThickness: 0.15,
+  transmission: 1,
+  clearcoat: 1,
+  clearcoatRoughness: 0,
+  thickness: 0.3,
+  chromaticAberration: 0.15,
+  anisotropy: 0.25,
+  roughness: 0,
+  distortion: 0.5,
+  distortionScale: 0.1,
+  temporalDistortion: 0,
+  ior: 1.25,
+  color: "white",
+  samples: 8,
+  resolution: 512,
+};
+
+// ── Debug Panel (HTML overlay) ──
+function SettleDebug() {
+  const [, forceUpdate] = useState(0);
+  const refresh = () => forceUpdate((n) => n + 1);
+
+  const slider = (label, key, min, max, step = 0.01) => (
+    <div key={key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <label style={{ width: 90, fontSize: 10, opacity: 0.7 }}>{label}</label>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        defaultValue={S[key]}
+        onChange={(e) => {
+          S[key] = parseFloat(e.target.value);
+          refresh();
+        }}
+        style={{ flex: 1, height: 2 }}
+      />
+      <span
+        style={{ width: 42, fontSize: 9, textAlign: "right", opacity: 0.5 }}
+      >
+        {S[key].toFixed(2)}
+      </span>
+    </div>
+  );
+
+  const toggle = (label, key) => (
+    <div key={key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <label style={{ width: 90, fontSize: 10, opacity: 0.7 }}>{label}</label>
+      <input
+        type="checkbox"
+        defaultChecked={S[key]}
+        onChange={(e) => {
+          S[key] = e.target.checked;
+          refresh();
+        }}
+      />
+    </div>
+  );
+
+  const section = (title, items) => (
+    <div key={title} style={{ marginBottom: 8 }}>
+      <div
+        style={{
+          fontSize: 9,
+          fontWeight: 600,
+          opacity: 0.4,
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+          marginBottom: 4,
+        }}
+      >
+        {title}
+      </div>
+      {items}
+    </div>
+  );
+
+  const copy = () => {
+    const out = {};
+    for (const k in S)
+      out[k] = typeof S[k] === "number" ? +S[k].toFixed(3) : S[k];
+    navigator.clipboard?.writeText(JSON.stringify(out, null, 2));
+  };
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: 16,
+        left: 16,
+        zIndex: 9999,
+        background: "rgba(255,255,255,0.92)",
+        backdropFilter: "blur(12px)",
+        borderRadius: 8,
+        padding: "10px 14px",
+        width: 280,
+        maxHeight: "90vh",
+        overflowY: "auto",
+        fontFamily: "Inter, sans-serif",
+        fontSize: 11,
+        color: "#1a1a2e",
+        boxShadow: "0 2px 20px rgba(0,0,0,0.08)",
+        pointerEvents: "auto",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginBottom: 8,
+        }}
+      >
+        <span style={{ fontWeight: 600, fontSize: 11 }}>Settle Debug</span>
+        <button
+          onClick={copy}
+          style={{
+            fontSize: 9,
+            opacity: 0.5,
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+          }}
+        >
+          Copy
+        </button>
+      </div>
+
+      {section("Scene Rotation", [
+        slider("Tilt X", "rotX", -Math.PI, Math.PI),
+        slider("Tilt Y", "rotY", -Math.PI, Math.PI),
+        slider("Tilt Z", "rotZ", -Math.PI, Math.PI),
+      ])}
+      {section("Scene Offset", [
+        slider("X", "sceneX", -20, 20),
+        slider("Y", "sceneY", -20, 20),
+        slider("Z", "sceneZ", -20, 20),
+      ])}
+      {section("Text", [
+        slider("X", "textX", -15, 15),
+        slider("Y", "textY", -5, 5),
+        slider("Z", "textZ", -15, 15),
+        slider("Scale", "textScale", 0.5, 10),
+        slider("Line gap", "textGap", 0.5, 8),
+      ])}
+      {section("Cubes", [
+        slider("Offset X", "cubeOffX", -15, 15),
+        slider("Offset Z", "cubeOffZ", -15, 15),
+        slider("Spread", "cubeSpread", 1, 8),
+      ])}
+      {section("Ground", [
+        toggle("Show", "groundShow"),
+        slider("Size", "groundSize", 10, 200, 1),
+        slider("Opacity", "groundOpacity", 0, 0.2),
+        slider("Y", "groundY", -5, 5),
+      ])}
+      {section("Grid", [
+        toggle("Show", "gridShow"),
+        slider("Count", "gridCount", 5, 30, 1),
+      ])}
+      {section("Key Light", [
+        slider("X", "keyX", -20, 20),
+        slider("Y", "keyY", -20, 20),
+        slider("Z", "keyZ", -20, 20),
+        slider("Intensity", "keyIntensity", 0, 10),
+      ])}
+      {section("Fill Light", [
+        slider("X", "fillX", -20, 20),
+        slider("Y", "fillY", -20, 20),
+        slider("Z", "fillZ", -20, 20),
+        slider("Intensity", "fillIntensity", 0, 10),
+      ])}
+      {section("Rim Light", [
+        slider("X", "rimX", -20, 20),
+        slider("Y", "rimY", -20, 20),
+        slider("Z", "rimZ", -20, 20),
+        slider("Intensity", "rimIntensity", 0, 10),
+      ])}
+    </div>
+  );
 }
 
-// ── Pyramid cube layout ──
-// 8 cubes in a perspective pyramid: wide base close to camera, apex further back.
-// Each row steps up in Y and back in Z for natural depth.
-const PYRAMID = [
-  { count: 4, rowY: 0, rowZ: 0 },
-  { count: 3, rowY: 1, rowZ: -0.7 },
-  { count: 1, rowY: 2, rowZ: -1.4 },
-];
+// ── Grid of crosses ──
+function Grid({ opSmooth }) {
+  const matRef = useRef();
+  const groupRef = useRef();
+  useFrame(() => {
+    if (matRef.current) matRef.current.opacity = (opSmooth?.current || 0) * 0.3;
+  });
+  const n = Math.round(S.gridCount);
+  if (!S.gridShow) return null;
+  return (
+    <Instances position={[0, -0.01, 0]} limit={n * n * 2}>
+      <planeGeometry args={[0.026, 0.5]} />
+      <meshBasicMaterial ref={matRef} color="#999" transparent opacity={0} />
+      {Array.from({ length: n }, (_, y) =>
+        Array.from({ length: n }, (_, x) => (
+          <group
+            key={x + ":" + y}
+            position={[
+              x * 2 - Math.floor(n / 2) * 2,
+              0,
+              y * 2 - Math.floor(n / 2) * 2,
+            ]}
+          >
+            <Instance rotation={[-Math.PI / 2, 0, 0]} />
+            <Instance rotation={[-Math.PI / 2, 0, Math.PI / 2]} />
+          </group>
+        ))
+      )}
+    </Instances>
+  );
+}
 
-function getPyramidPositions(baseY, baseZ, spacing) {
-  const positions = [];
-  for (const row of PYRAMID) {
-    const totalW = (row.count - 1) * spacing;
-    const startX = -totalW / 2;
-    for (let i = 0; i < row.count; i++) {
-      positions.push([
-        startX + i * spacing,
-        baseY + row.rowY * (CUBE_SIZE + 0.08),
-        baseZ + row.rowZ,
-      ]);
-    }
-  }
-  return positions;
+// ── Scattered cube positions ──
+function getScatteredCubes(baseY) {
+  return [
+    [1.5, baseY, 1.5],
+    [3.0, baseY, -1.0],
+    [2.0, baseY, -3.5],
+    [4.5, baseY, 0.5],
+    [0.5, baseY, -2.0],
+    [3.5, baseY, 2.5],
+    [5.0, baseY, -2.5],
+    [2.0, baseY + CUBE_SIZE + 0.05, -3.5],
+    [3.0, baseY + CUBE_SIZE + 0.05, -1.0],
+  ];
 }
 
 function PhysicsCube({ position, opSmooth, mouseRef }) {
@@ -80,27 +299,22 @@ function PhysicsCube({ position, opSmooth, mouseRef }) {
 
   useFrame(() => {
     if (!rbRef.current || !meshRef.current) return;
-
     const mesh = meshRef.current.children?.[0];
     if (mesh?.material && mesh.material.opacity !== undefined) {
       mesh.material.opacity = opSmooth.current * 0.9;
     }
-
     const m = mouseRef.current;
     if (!m.active) return;
-
     const pos = rbRef.current.translation();
     const dx = pos.x - m.x;
     const dz = pos.z - m.z;
     const dist = Math.sqrt(dx * dx + dz * dz);
-
     const pr = L.physics.pushRadius;
     if (dist < pr && dist > 0.01) {
       const pen = 1 - dist / pr;
       const mag = pen * pen * L.physics.pushStrength;
       const nx = dx / dist;
       const nz = dz / dist;
-
       rbRef.current.applyImpulse({ x: nx * mag, y: 0, z: nz * mag }, true);
       rbRef.current.applyTorqueImpulse(
         { x: nz * mag * 0.4, y: nx * mag * 0.2, z: -nx * mag * 0.4 },
@@ -126,7 +340,7 @@ function PhysicsCube({ position, opSmooth, mouseRef }) {
       <group ref={meshRef}>
         <RoundedBox
           args={[CUBE_SIZE, CUBE_SIZE, CUBE_SIZE]}
-          radius={0.12}
+          radius={0.1}
           smoothness={3}
           castShadow
           receiveShadow
@@ -153,50 +367,38 @@ function PhysicsCube({ position, opSmooth, mouseRef }) {
   );
 }
 
-export function SettleFloor({ themeColor }) {
-  const groupRef = useRef();
+// ── Inner 3D scene (reads from S every frame) ──
+function SettleScene({ themeColor, opSmooth }) {
+  const sceneRef = useRef();
   const textRef = useRef();
+  const floorRef = useRef();
+  const keyRef = useRef();
+  const fillRef = useRef();
+  const rimRef = useRef();
   const { viewport, pointer } = useThree();
-  const opSmooth = useRef(0);
-  const floorMatRef = useRef();
-  const lineMatRef = useRef();
   const mouseRef = useRef({ x: 0, z: 0, active: false });
 
-  const lockedVw = useRef(null);
-  if (viewport.width > 1 && lockedVw.current === null)
-    lockedVw.current = viewport.width;
-  const vw = lockedVw.current || viewport.width;
-  const vh = viewport.height;
-
-  const letterPos = useMemo(() => getLetterPositions(vw), [vw]);
-  const floorY = -vh * 0.35;
-  const cubeY = floorY + HALF + 0.05;
-  const cubeZ = 2.0;
+  const cubeY = HALF + 0.05;
+  const baseCubes = useMemo(() => getScatteredCubes(cubeY), [cubeY]);
   const themeColorObj = useMemo(
     () => new Color(themeColor || "#1a1a2e"),
     [themeColor]
   );
 
-  // Pyramid positions instead of a flat row
-  const cubePositions = useMemo(
-    () => getPyramidPositions(cubeY, cubeZ, CUBE_SIZE * 1.05),
-    [cubeY, cubeZ]
-  );
-
-  useFrame(({ camera }) => {
-    const isSettle = state.section >= N + 1;
-    const camDist = Math.abs(-camera.position.y - (L.heroH + N * L.sectionH));
-    const targetOp = isSettle ? clamp(1 - camDist / 4, 0, 1) : 0;
-    opSmooth.current += (targetOp - opSmooth.current) * 0.04;
-
-    if (floorMatRef.current) {
-      floorMatRef.current.opacity = opSmooth.current * 0.045;
-      floorMatRef.current.color.lerp(themeColorObj, 0.05);
+  useFrame(() => {
+    // Scene tilt
+    if (sceneRef.current) {
+      sceneRef.current.rotation.set(S.rotX, S.rotY, S.rotZ);
+      sceneRef.current.position.set(S.sceneX, S.sceneY, S.sceneZ);
     }
-    if (lineMatRef.current) {
-      lineMatRef.current.opacity = opSmooth.current * 0.12;
-      lineMatRef.current.color.lerp(themeColorObj, 0.05);
+    // Ground
+    if (floorRef.current) {
+      floorRef.current.visible = S.groundShow;
+      floorRef.current.position.y = S.groundY;
+      floorRef.current.material.opacity = opSmooth.current * S.groundOpacity;
+      floorRef.current.material.color.lerp(themeColorObj, 0.05);
     }
+    // Text fade
     if (textRef.current) {
       textRef.current.traverse((child) => {
         if (child.material && child.material.opacity !== undefined) {
@@ -205,29 +407,47 @@ export function SettleFloor({ themeColor }) {
         }
       });
     }
+    // Lights
+    if (keyRef.current) {
+      keyRef.current.position.set(S.keyX, S.keyY, S.keyZ);
+      keyRef.current.intensity = S.keyIntensity;
+    }
+    if (fillRef.current) {
+      fillRef.current.position.set(S.fillX, S.fillY, S.fillZ);
+      fillRef.current.intensity = S.fillIntensity;
+    }
+    if (rimRef.current) {
+      rimRef.current.position.set(S.rimX, S.rimY, S.rimZ);
+      rimRef.current.intensity = S.rimIntensity;
+    }
 
+    // Mouse
+    const isSettle = state.section >= N + 1;
     const mxW = (pointer.x * viewport.width) / 2;
     const myW = (pointer.y * viewport.height) / 2;
-    mouseRef.current.x = mxW;
-    mouseRef.current.z = cubeZ + myW * 0.3;
+    mouseRef.current.x = mxW * 1.5 + S.cubeOffX;
+    mouseRef.current.z = myW * -1.5 + S.cubeOffZ;
     mouseRef.current.active = isSettle;
   });
 
-  const fontSize = vw * 0.12;
-  const letterCount = letterPos.length;
-  const midIdx = (letterCount - 1) / 2;
+  // Offset cube positions by the debug controls
+  const cubePositions = baseCubes.map(([x, y, z]) => [
+    x + S.cubeOffX - 5,
+    y,
+    z + S.cubeOffZ,
+  ]);
 
   return (
-    <group ref={groupRef} position={[0, -(L.heroH + N * L.sectionH), -3]}>
-      {/* ── Floor plane ── */}
+    <group ref={sceneRef}>
+      {/* Ground */}
       <mesh
+        ref={floorRef}
         rotation-x={-Math.PI / 2}
-        position={[0, floorY - 0.01, 0]}
+        position={[0, S.groundY, 0]}
         receiveShadow
       >
-        <planeGeometry args={[vw * 2, 30]} />
+        <planeGeometry args={[S.groundSize, S.groundSize]} />
         <meshStandardMaterial
-          ref={floorMatRef}
           color={themeColor || "#1a1a2e"}
           transparent
           opacity={0}
@@ -235,79 +455,82 @@ export function SettleFloor({ themeColor }) {
         />
       </mesh>
 
-      {/* ── Ground accent line ── */}
-      <mesh position={[0, floorY + 0.005, cubeZ]}>
-        <planeGeometry args={[vw * 1.2, 0.012]} />
-        <meshBasicMaterial
-          ref={lineMatRef}
-          color={themeColor || "#1a1a2e"}
-          transparent
-          opacity={0}
-        />
-      </mesh>
+      {/* Text */}
+      <group ref={textRef} position={[S.textX, S.textY, S.textZ]}>
+        <Center
+          position={[0, 0, S.textGap / 2]}
+          rotation={[-Math.PI / 2, 0, 0]}
+        >
+          <Text3D
+            castShadow
+            bevelEnabled
+            font={FONT_3D}
+            scale={S.textScale}
+            letterSpacing={-0.03}
+            height={0.25}
+            bevelSize={0.01}
+            bevelSegments={10}
+            curveSegments={128}
+            bevelThickness={0.01}
+          >
+            ADI
+            <MeshTransmissionMaterial {...GLASS_TEXT} />
+          </Text3D>
+        </Center>
 
-      {/* ── Perspective text ──
-          Letters laid out side by side (not stacked) on a tilted plane.
-          Each letter gets a subtle Z-push and Y-rotation based on distance
-          from center, creating a gentle arc that recedes into depth. */}
-      <group
-        ref={textRef}
-        position={[0, floorY, -1.5]}
-        rotation={[-0.32, 0, 0]}
-      >
-        {letterPos.map((lp, i) => {
-          // Normalized distance from center: -0.5 … +0.5
-          const fromCenter = (lp.idx - midIdx) / letterCount;
-          return (
-            <Text
-              key={i}
-              position={[
-                lp.x,
-                0,
-                // Push edge letters further back for curved depth
-                Math.abs(fromCenter) * 1.8,
-              ]}
-              // Splay each letter outward from center
-              rotation={[0, fromCenter * -0.18, 0]}
-              fontSize={fontSize}
-              letterSpacing={-0.04}
-              anchorX="center"
-              anchorY="bottom"
-              color="#1a1a2e"
-            >
-              {lp.char}
-            </Text>
-          );
-        })}
+        <Center
+          position={[0, 0, -S.textGap / 2]}
+          rotation={[-Math.PI / 2, 0, 0]}
+        >
+          <Text3D
+            castShadow
+            bevelEnabled
+            font={FONT_3D}
+            scale={S.textScale}
+            letterSpacing={-0.03}
+            height={0.25}
+            bevelSize={0.01}
+            bevelSegments={10}
+            curveSegments={128}
+            bevelThickness={0.01}
+          >
+            VRSKIC
+            <MeshTransmissionMaterial {...GLASS_TEXT} />
+          </Text3D>
+        </Center>
       </group>
 
-      {/* ── Realistic lighting ──
-          Three-point setup local to the settle scene for dimensional cubes. */}
-      {/* Key light — warm, upper right, hard shadows */}
+      {/* Grid */}
+      <Grid opSmooth={opSmooth} />
+
+      {/* Lighting */}
       <spotLight
-        position={[6, 8, 8]}
-        intensity={3}
-        angle={0.6}
-        penumbra={0.7}
+        ref={keyRef}
+        position={[S.keyX, S.keyY, S.keyZ]}
+        intensity={S.keyIntensity}
+        angle={0.5}
+        penumbra={0.8}
         color="#fff5e0"
         castShadow
         shadow-mapSize={[512, 512]}
         shadow-bias={-0.0002}
       />
-      {/* Fill — cool blue from left, no shadows */}
-      <pointLight position={[-5, 4, 5]} intensity={1.2} color="#c8daf0" />
-      {/* Rim / back light — edge definition against the background */}
-      <pointLight position={[0, 3, -4]} intensity={0.8} color="#e0e0ff" />
+      <pointLight
+        ref={fillRef}
+        position={[S.fillX, S.fillY, S.fillZ]}
+        intensity={S.fillIntensity}
+        color="#c8daf0"
+      />
+      <pointLight
+        ref={rimRef}
+        position={[S.rimX, S.rimY, S.rimZ]}
+        intensity={S.rimIntensity}
+        color="#e0e0ff"
+      />
 
-      {/* ── Pyramid cube stack ──
-          4-3-1 formation. Base row closest to camera (z=cubeZ),
-          each row steps up (Y) and further back (Z). */}
+      {/* Physics cubes */}
       <Physics gravity={[0, L.physics.gravity, 0]} colliders={false}>
-        <RigidBody
-          type="fixed"
-          position={[0, floorY - 0.5, 0]}
-          colliders={false}
-        >
+        <RigidBody type="fixed" position={[0, -0.5, 0]} colliders={false}>
           <CuboidCollider
             args={[50, 0.5, 50]}
             friction={L.physics.floorFriction}
@@ -325,5 +548,58 @@ export function SettleFloor({ themeColor }) {
         ))}
       </Physics>
     </group>
+  );
+}
+
+// ── Main export ──
+export function SettleFloor({ themeColor }) {
+  const groupRef = useRef();
+  const { viewport } = useThree();
+  const opSmooth = useRef(0);
+  const [showDebug, setShowDebug] = useState(false);
+
+  const lockedVw = useRef(null);
+  if (viewport.width > 1 && lockedVw.current === null)
+    lockedVw.current = viewport.width;
+  const vw = lockedVw.current || viewport.width;
+
+  // Set text scale based on viewport
+  S.textScale = Math.max(1.5, vw * 0.2);
+
+  useFrame(({ camera }) => {
+    const isSettle = state.section >= N + 1;
+    const camDist = Math.abs(-camera.position.y - (L.heroH + N * L.sectionH));
+    const targetOp = isSettle ? clamp(1 - camDist / 4, 0, 1) : 0;
+    opSmooth.current += (targetOp - opSmooth.current) * 0.04;
+
+    // Toggle debug with 'D' key
+    if (!showDebug && isSettle && window.__settleDebugKey) {
+      setShowDebug(true);
+      window.__settleDebugKey = false;
+    }
+  });
+
+  // Keyboard listener for debug toggle
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "d" && e.shiftKey) {
+        setShowDebug((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  return (
+    <>
+      <group ref={groupRef} position={[0, -(L.heroH + N * L.sectionH), -3]}>
+        <SettleScene themeColor={themeColor} opSmooth={opSmooth} />
+      </group>
+      {showDebug && (
+        <Html fullscreen zIndexRange={[9999, 9999]}>
+          <SettleDebug />
+        </Html>
+      )}
+    </>
   );
 }

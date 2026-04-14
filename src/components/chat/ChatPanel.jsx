@@ -220,8 +220,8 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
       if (cb) gsap.set(cb, { scale: 0, opacity: 0 });
 
       const checker = checkerReveal(panel, {
-        color: "rgba(232,232,238,0.74)",
-        blur: 50,
+        color: "rgba(232,232,238,0.2)",
+        blur: 30,
         maxDelay: 250,
         onComplete: () => {
           // Tiles done — swap to real bg (seamless, identical look)
@@ -293,8 +293,8 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
       tl.call(
         () => {
           const checker = checkerDissolve(panel, {
-            color: "rgba(232,232,238,0.74)",
-            blur: 50,
+            color: "rgba(232,232,238,0.2)",
+            blur: 30,
             maxDelay: 250,
             onComplete: () => {
               checkerRef.current = null;
@@ -465,6 +465,7 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
           className={`chat-panel__bg ${
             isMobile ? "chat-panel__bg--mobile" : "chat-panel__bg--desktop"
           }`}
+          style={{ opacity: 0 }}
         />
 
         <div

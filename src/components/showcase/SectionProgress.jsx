@@ -1,4 +1,5 @@
 import { useRef, useEffect } from "react";
+import { Mail, X } from "lucide-react";
 import { state } from "./ShowcaseLayout";
 import "./Showcase.css";
 
@@ -51,8 +52,8 @@ export function SectionProgress({
   const BASE_W = 6;
   const MAX_W = 48;
   const totalH = TOTAL_TICKS * TICK_SPACING;
-  // Project sections: 1 through totalSections-2 (skip hero=0 and settle=last)
   const projectCount = Math.max(0, totalSections - 2);
+  const settleIdx = totalSections - 1;
 
   useEffect(() => {
     let raf;
@@ -78,7 +79,6 @@ export function SectionProgress({
         el.style.backgroundColor =
           gauss > 0.15 ? `rgba(${themeRgb},1)` : "rgba(26,26,46,1)";
       }
-      // Highlight the active number
       for (let p = 0; p < projectCount; p++) {
         const el = numRefs.current[p];
         if (!el) continue;
@@ -96,9 +96,6 @@ export function SectionProgress({
 
   return (
     <div className="sc-progress" style={{ height: totalH }}>
-      <button className="sc-progress__close sc-label" onClick={onClose}>
-        Close
-      </button>
       <div
         ref={startRef}
         className="sc-progress__endpoint sc-progress__endpoint--start sc-label"
@@ -117,7 +114,14 @@ export function SectionProgress({
         />
       ))}
 
-      {/* Numbered jump buttons beneath the tick bar */}
+      <div
+        ref={endRef}
+        className="sc-progress__endpoint sc-progress__endpoint--end sc-label"
+      >
+        End
+      </div>
+
+      {/* Section numbers + actions beneath the ticks */}
       <div className="sc-progress__nums">
         {Array.from({ length: projectCount }, (_, p) => {
           const sectionIdx = p + 1;
@@ -134,13 +138,20 @@ export function SectionProgress({
             </button>
           );
         })}
-      </div>
 
-      <div
-        ref={endRef}
-        className="sc-progress__endpoint sc-progress__endpoint--end sc-label"
-      >
-        End
+        {/* Contact — jump to settle section */}
+        <button
+          className="sc-progress__action"
+          onClick={() => onJump && onJump(settleIdx)}
+          title="Contact"
+        >
+          <Mail size={13} strokeWidth={1.5} />
+        </button>
+
+        {/* Close */}
+        <button className="sc-progress__action" onClick={onClose} title="Close">
+          <X size={13} strokeWidth={1.5} />
+        </button>
       </div>
     </div>
   );
