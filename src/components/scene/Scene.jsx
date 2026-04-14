@@ -2,9 +2,11 @@ import { useEffect, useRef } from "react";
 import {
   ACESFilmicToneMapping,
   AdditiveBlending,
+  AmbientLight,
   CanvasTexture,
   Clock,
   Color,
+  DirectionalLight as ThreeDirectionalLight,
   EdgesGeometry,
   FrontSide,
   IcosahedronGeometry,
@@ -13,6 +15,8 @@ import {
   Mesh,
   MeshPhysicalMaterial,
   PerspectiveCamera,
+  Plane,
+  PMREMGenerator,
   Quaternion,
   Raycaster,
   Scene as THREEScene,
@@ -26,6 +30,7 @@ import {
 } from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { getCurrentSeason } from "../../config/defaults";
+import { easeOutSoft } from "../../utils/math";
 import { sphereVertexShader } from "./shaders/sphereVertex.glsl.js";
 import { sphereFragmentShader } from "./shaders/sphereFragment.glsl.js";
 // Glass cube now uses MeshPhysicalMaterial with transmission (no custom shader)
@@ -115,6 +120,25 @@ export default function Scene({
     const camera = new PerspectiveCamera(50, W() / H(), 0.1, 200);
     camera.position.set(0, 0, 8);
 
+    // ── Environment map — gives glass something to refract ──
+    const pmrem = new PMREMGenerator(renderer);
+    pmrem.compileEquirectangularShader();
+    const envScene = new THREEScene();
+    envScene.background = new Color("#e8e8ee");
+    const envL1 = new ThreeDirectionalLight(0xffffff, 3);
+    envL1.position.set(5, 8, 5);
+    envScene.add(envL1);
+    const envL2 = new ThreeDirectionalLight(0xddeeff, 2);
+    envL2.position.set(-5, 3, -8);
+    envScene.add(envL2);
+    const envL3 = new ThreeDirectionalLight(0xffe8d0, 1.5);
+    envL3.position.set(0, -4, 6);
+    envScene.add(envL3);
+    envScene.add(new AmbientLight(0xf0f0ff, 1));
+    const envMap = pmrem.fromScene(envScene, 0, 0.1, 100).texture;
+    scene.environment = envMap;
+    pmrem.dispose();
+
     // ── Mesh ──
     const sphereGeo = new IcosahedronGeometry(1, 64);
     const fU = {
@@ -181,45 +205,39 @@ export default function Scene({
       })
     );
     sphere.renderOrder = 0;
-    sphere.visible = false; // sphere is replaced by glass cube — kept only for disposal
     scene.add(sphere);
 
-    // ── Glass cube ──
-    // Mobile: skip transmission (renders scene twice internally). Use a lightweight
-    // transparent material that looks 80% as good at half the GPU cost.
+    // ── Glass cube (MeshPhysicalMaterial with transmission) ──
     const glassGeo = new RoundedBoxGeometry(1, 1, 1, 4, 0.08);
-    const glassMat = isMobile
-      ? new MeshPhysicalMaterial({
-          transparent: true,
-          opacity: 0.18,
-          roughness: 0.02,
-          metalness: 0.05,
-          envMapIntensity: 2.0,
-          clearcoat: 1,
-          clearcoatRoughness: 0.05,
-          color: 0xffffff,
-          side: FrontSide,
-          depthWrite: false,
-        })
-      : new MeshPhysicalMaterial({
-          transmission: 1,
-          roughness: 0,
-          ior: 1.8,
-          thickness: 3.5,
-          transparent: true,
-          metalness: 0,
-          envMapIntensity: 2.0,
-          specularIntensity: 1,
-          specularColor: 0xffffff,
-          clearcoat: 0.3,
-          clearcoatRoughness: 0,
-          color: 0xffffff,
-          side: FrontSide,
-          depthWrite: false,
-        });
+    const glassMat = new MeshPhysicalMaterial({
+      transmission: 1,
+      roughness: 0.03,
+      ior: 1.5,
+      thickness: 3.0,
+      transparent: true,
+      metalness: 0,
+      envMapIntensity: 2.5,
+      specularIntensity: 1.5,
+      specularColor: 0xffffff,
+      clearcoat: 0.5,
+      clearcoatRoughness: 0.05,
+      color: 0xffffff,
+      side: FrontSide,
+      depthWrite: false,
+    });
     const glassCube = new Mesh(glassGeo, glassMat);
     glassCube.renderOrder = 10;
     scene.add(glassCube);
+
+    const glassEdgeGeo = new EdgesGeometry(glassGeo);
+    const glassEdgeMat = new LineBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.12,
+    });
+    const glassEdges = new LineSegments(glassEdgeGeo, glassEdgeMat);
+    glassEdges.renderOrder = 11;
+    glassCube.add(glassEdges);
 
     // ── Glowing smiley / audio wave inside the cube ──
     const smileyCanvas = document.createElement("canvas");
@@ -233,10 +251,9 @@ export default function Scene({
     let sleepSmooth = 0; // 0 = awake, 1 = sleeping
     let happySmooth = 0; // 0 = normal, 1 = happy (after chat closes)
     let prevChatMode = false;
-    let blinkTimer = 0;
+    let blinkTimer = 0; // countdown to next blink
     let blinkAmount = 0; // 0 = open, 1 = closed
-    let nextBlink = 2 + Math.random() * 4;
-    let doubleBlink = 0; // countdown for second blink (0 = none pending)
+    let nextBlink = 2 + Math.random() * 4; // seconds until next blink
     // ── New expressions ──
     let expr = {
       curious: 0, // near-hover without click
@@ -280,16 +297,14 @@ export default function Scene({
     const cubeQuat = new Quaternion();
     const angVel = new Vector3(0, 0, 0); // angular velocity in world space
 
-    const mouse = new Vector2(-999, -999);
+    // ── No scroll — shatter/helix removed ──
+    const scrollProg = 0;
+    const mouse = new Vector2(-999, -999),
+      mouseWorld = new Vector3(),
+      mouseSmooth = new Vector3();
     let lastActivity = performance.now();
     const raycaster = new Raycaster(),
       mSp = new Sphere(new Vector3(), 1);
-    // ── Reusable math objects — avoids per-frame allocations in the render loop ──
-    const _screenPos = new Vector3();
-    const _axis = new Vector3();
-    const _dq = new Quaternion();
-    const _testMouse = new Vector2();
-    const _testHit = new Vector3();
     const onMM = (e) => {
       mouse.x = (e.clientX / W()) * 2 - 1;
       mouse.y = -(e.clientY / H()) * 2 + 1;
@@ -317,8 +332,8 @@ export default function Scene({
     const testCubeHit = (e) => {
       const mx = (e.clientX / W()) * 2 - 1,
         my = -(e.clientY / H()) * 2 + 1;
-      raycaster.setFromCamera(_testMouse.set(mx, my), camera);
-      return raycaster.ray.intersectSphere(mSp, _testHit);
+      raycaster.setFromCamera(new Vector2(mx, my), camera);
+      return raycaster.ray.intersectSphere(mSp, new Vector3());
     };
     const onDown = (e) => {
       lastActivity = performance.now();
@@ -388,7 +403,6 @@ export default function Scene({
     window.addEventListener("resize", onResize);
     const clock = new Clock();
     let raf;
-    let goldSparkleFrame = 0;
     let birthStart = performance.now();
     let birthPhewFired = false;
     let lastReplayKey = 0;
@@ -467,6 +481,8 @@ export default function Scene({
       }
       // Fly-in from behind camera, settles slightly upward
       const bR = c.sphereRadius;
+      const bA = c.noiseAmp;
+      const bM = c.mouseStrength * birth;
       const birthYDist = c.birthFloatDist ?? 1.2;
       const birthY = -birthYDist * (1 - birth);
       const birthZDist = c.birthFlyInDist ?? 7;
@@ -522,17 +538,23 @@ export default function Scene({
         }
       }
 
-      // Proximity reporting — project cube to screen, measure distance from mouse
+      sphere.rotation.y = rotAngle;
+      sphere.rotation.x =
+        Math.sin(el * (c.birthTiltSpeed || 0.2)) *
+        (c.birthTiltAmp || 0.04) *
+        birth;
+
+      // Proximity reporting — project sphere to screen, measure distance from mouse
       let cubeProx = 0;
       if (birth > 0.5 && onCubeProximityRef.current) {
-        _screenPos.copy(glassCube.position).project(camera);
-        const dx = _screenPos.x - mouse.x,
-          dy = _screenPos.y - mouse.y;
+        const screenPos = sphere.position.clone().project(camera);
+        const dx = screenPos.x - mouse.x,
+          dy = screenPos.y - mouse.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         cubeProx = Math.max(0, 1 - dist / (c.reticleRange || 1.2));
         onCubeProximityRef.current(cubeProx);
-        // Update bounding sphere for click detection
-        mSp.set(glassCube.position, bR * (c.shapeScale || 1) * menuScale * 1.3);
+        // Update sphere for click detection
+        mSp.set(sphere.position, bR * (c.shapeScale || 1) * menuScale * 1.3);
       }
 
       // ── Position animation: damped spring ──
@@ -557,26 +579,17 @@ export default function Scene({
             4,
             cr * cubeSize
           );
-          const m = isMobile
-            ? new MeshPhysicalMaterial({
-                transparent: true,
-                opacity: 0,
-                roughness: 0.05,
-                metalness: 0.1,
-                envMapIntensity: 1.2,
-                color: 0xffffff,
-              })
-            : new MeshPhysicalMaterial({
-                transmission: 0.92,
-                roughness: 0.05,
-                ior: 1.5,
-                thickness: 1.2,
-                transparent: true,
-                opacity: 0,
-                metalness: 0,
-                envMapIntensity: 1.2,
-                color: 0xffffff,
-              });
+          const m = new MeshPhysicalMaterial({
+            transmission: 0.92,
+            roughness: 0.05,
+            ior: 1.5,
+            thickness: 1.2,
+            transparent: true,
+            opacity: 0,
+            metalness: 0,
+            envMapIntensity: 1.2,
+            color: 0xffffff,
+          });
           const edgeGeo = new EdgesGeometry(g);
           const lineMat = new LineBasicMaterial({
             color: 0xffffff,
@@ -626,7 +639,7 @@ export default function Scene({
         const t = Math.max(0, age - delay);
         const entrance = Math.min(1, t / 1.0); // slower entrance
         const ease = entrance * entrance * (3 - 2 * entrance);
-        const targetOp = mOpen ? (isMobile ? 0.12 : 0.88) * ease : 0;
+        const targetOp = mOpen ? 0.88 * ease : 0;
         const targetLineOp = mOpen ? 0.1 * ease : 0;
         const targetS = mOpen ? ease : 0;
         mc.mat.opacity += (targetOp - mc.mat.opacity) * 2.5 * dt;
@@ -744,9 +757,6 @@ export default function Scene({
       prevChatMode = chatModeRef.current;
       happySmooth = Math.max(0, happySmooth - dt * 0.3); // decay over ~3s
       // ── Expression triggers (extracted to expressionTriggers.js) ──
-      // Safe mouse coords (0,0 if cursor hasn't entered yet)
-      const safeMx = mouse.x < -900 ? 0 : mouse.x;
-      const safeMy = mouse.y < -900 ? 0 : mouse.y;
       const { anyActive: exprShowing } = updateExpressions(
         expr,
         exprTriggerState,
@@ -759,38 +769,22 @@ export default function Scene({
           angVelY: angVel.y,
           showcaseOpen: showcaseOpenRef.current,
           now: performance.now(),
-          lookX: safeMx,
-          lookY: safeMy,
         }
       );
-      // #K — Use smoothed look-at from expression state
-      const smoothMx = exprTriggerState.smoothLookX;
-      const smoothMy = exprTriggerState.smoothLookY;
 
-      // Blink — natural timing: ~300ms close-to-open, occasional double-blink
-      if (exprShowing || sleepSmooth > 0.3) {
-        // Suppress new blinks during expressions/sleep, but let current blink finish
+      // Blink — BUG1 FIX: reset timer while any expression is showing
+      if (exprShowing || happySmooth > 0.3 || sleepSmooth > 0.3) {
         blinkTimer = 0;
+        blinkAmount = Math.max(0, blinkAmount - dt * 8);
       } else {
         blinkTimer += dt;
         if (blinkTimer >= nextBlink) {
           blinkAmount = 1;
           blinkTimer = 0;
           nextBlink = 2.5 + Math.random() * 4;
-          // 15% chance of double-blink
-          if (Math.random() < 0.15) doubleBlink = 0.25;
         }
+        blinkAmount = Math.max(0, blinkAmount - dt * 8);
       }
-      // Double-blink countdown
-      if (doubleBlink > 0) {
-        doubleBlink -= dt;
-        if (doubleBlink <= 0 && blinkAmount < 0.2) {
-          blinkAmount = 1;
-          doubleBlink = 0;
-        }
-      }
-      // Decay: ~300ms to fully reopen (dt * 3.5)
-      blinkAmount = Math.max(0, blinkAmount - dt * 3.5);
 
       // Sleep — BUG4 FIX: use max of lastActivity and lastExpressionTime
       const effectiveLastActive = Math.max(
@@ -799,35 +793,23 @@ export default function Scene({
       );
       const idleTime = (performance.now() - effectiveLastActive) / 1000;
       const sleepTarget = idleTime > 15 ? Math.min(1, (idleTime - 15) / 3) : 0;
-      // Fast wake: if an expression fires while sleeping, snap awake quickly
-      const sleepLerp = exprShowing && sleepSmooth > 0.2 ? 8 : 2;
-      sleepSmooth += (sleepTarget - sleepSmooth) * sleepLerp * dt;
+      sleepSmooth += (sleepTarget - sleepSmooth) * 2 * dt;
+      // Safe mouse coords (0,0 if cursor hasn't entered yet)
+      const safeMx = mouse.x < -900 ? 0 : mouse.x;
+      const safeMy = mouse.y < -900 ? 0 : mouse.y;
       const themeColors = [
         c.gradColor1,
         c.gradColor2,
         c.gradColor3,
         c.gradColor4,
       ];
-      // Pass idle micro-expression state through expr object for renderer
-      expr._driftX = exprTriggerState.eyeDriftX;
-      expr._driftY = exprTriggerState.eyeDriftY;
-      expr._mouthVar = exprTriggerState.mouthVar;
-      // Hold progress for loading circle — only starts after the click
-      // threshold (150ms) so quick taps never flash the ring.
-      const holdElapsed = performance.now() - holdStartTime;
-      const holdDeadZone = 150; // matches click threshold in onUp
       const holdProgress =
-        isHolding && !holdFired && holdElapsed > holdDeadZone
-          ? Math.max(
-              0,
-              Math.min(1, (holdElapsed - holdDeadZone) / (600 - holdDeadZone))
-            )
+        isHolding && !holdFired
+          ? Math.max(0, Math.min(1, (performance.now() - holdStartTime) / 600))
           : 0;
 
       // #16 — skip smiley redraw when nothing is changing
       const isGold = (c.gradColor1 || "").toLowerCase() === "#b8860b";
-      // Gold sparkles animate slowly — redraw every 3 frames, not every frame
-      const goldNeedsRedraw = isGold && ++goldSparkleFrame % 3 === 0;
       const exprActive =
         expr.curious > 0.01 ||
         expr.wink > 0.01 ||
@@ -846,18 +828,18 @@ export default function Scene({
         Math.abs(sleepSmooth - (sleepTarget > 0.5 ? 1 : 0)) > 0.01 ||
         holdProgress > 0 ||
         scZoom > 0.01 ||
-        goldNeedsRedraw ||
-        Math.abs(smoothMx - (prevMx || 0)) > 0.01 ||
-        Math.abs(smoothMy - (prevMy || 0)) > 0.01;
-      prevMx = smoothMx;
-      prevMy = smoothMy;
+        isGold ||
+        Math.abs(safeMx - (prevMx || 0)) > 0.001 ||
+        Math.abs(safeMy - (prevMy || 0)) > 0.001;
+      prevMx = safeMx;
+      prevMy = safeMy;
 
       if (smileyDirty) {
         drawCubeFace(
           dizzySmooth,
           el,
-          smoothMx,
-          smoothMy,
+          safeMx,
+          safeMy,
           chatMorph,
           themeColors,
           scZoom,
@@ -871,9 +853,9 @@ export default function Scene({
       }
 
       if (avLen > 0.0001) {
-        _axis.copy(angVel).normalize();
-        _dq.setFromAxisAngle(_axis, avLen * dt);
-        cubeQuat.premultiply(_dq);
+        const axis = angVel.clone().normalize();
+        const dq = new Quaternion().setFromAxisAngle(axis, avLen * dt);
+        cubeQuat.premultiply(dq);
         cubeQuat.normalize();
       }
       // Showcase transition: cube gently zooms toward camera and enlarges
@@ -900,11 +882,13 @@ export default function Scene({
       const py = baseY * (1 - zoomEased * 0.4);
       const pz = baseZ + zoomZ;
 
+      sphere.position.set(px, py, pz);
       glassCube.position.set(px, py, pz);
 
       // Glass cube — hidden when fully zoomed into showcase
       const cubeVisible = zoomEased < 0.99;
       glassCube.visible = cubeVisible;
+      glassEdges.visible = cubeVisible;
 
       {
         const cr = c.glassCornerRadius || 0.08;
@@ -913,6 +897,9 @@ export default function Scene({
           const newGeo = new RoundedBoxGeometry(1, 1, 1, 4, cr);
           glassCube.geometry.dispose();
           glassCube.geometry = newGeo;
+          const newEdgeGeo = new EdgesGeometry(newGeo);
+          glassEdges.geometry.dispose();
+          glassEdges.geometry = newEdgeGeo;
         }
         glassCube.quaternion.copy(cubeQuat);
         const gSize = c.glassCubeSize || 3.6;
@@ -921,18 +908,83 @@ export default function Scene({
           .multiplyScalar(
             bR * menuScale * clickScale * birthScaleCurve * zoomScale
           );
-        // Desktop: opacity is a secondary fade over the transmission effect
-        // Mobile: opacity IS the glass effect — cap at 0.15 to stay translucent
-        glassMat.opacity = isMobile
-          ? 0.18 * birthOpacity * (1 - zoomEased)
-          : birthOpacity * (1 - zoomEased);
-        glassMat.roughness = c.glassRoughness || 0;
-        if (!isMobile) {
-          glassMat.ior = c.glassIOR || 1.8;
-          glassMat.thickness = c.glassThickness || 3.5;
-          glassMat.transmission =
-            c.glassTransmission != null ? c.glassTransmission : 1;
+        glassMat.opacity = birthOpacity * (1 - zoomEased);
+        glassMat.roughness = c.glassRoughness ?? 0.03;
+        glassMat.ior = c.glassIOR ?? 1.5;
+        glassMat.thickness = c.glassThickness ?? 3.0;
+        glassMat.envMapIntensity = c.glassEnvMapIntensity ?? 2.5;
+        glassMat.transmission =
+          c.glassTransmission != null ? c.glassTransmission : 1;
+        glassEdgeMat.opacity = (c.glassEdgeOpacity ?? 0.12) * (1 - zoomEased);
+        const halfSide = (c.glassCubeSize || 3.6) * 0.5;
+        fU.uBounds.value = halfSide - 0.15;
+      }
+
+      // Sphere — hidden, particles replace it
+      sphere.visible = false;
+      sphere.scale.setScalar(bR * (c.shapeScale || 1) * menuScale * clickScale);
+      fU.uTime.value = el;
+      fU.uScrollProgress.value = scrollProg;
+      fU.uShape.value = 0;
+      fU.uMeshAlpha.value = birthOpacity;
+      fU.uTetraScale.value = c.tetraScale;
+      fU.uCubeScale.value = c.cubeScale;
+      fU.uShapeTiltX.value = c.shapeTiltX || 0;
+      fU.uShapeTiltY.value = c.shapeTiltY || 0;
+      fU.uGC1.value.set(c.gradColor1 || "#1a0a3e");
+      fU.uGC2.value.set(c.gradColor2 || "#d41878");
+      fU.uGC3.value.set(c.gradColor3 || "#08b4a8");
+      fU.uGC4.value.set(c.gradColor4 || "#f5a623");
+      fU.uNoiseFreq.value = c.noiseFreq;
+      fU.uNoiseAmp.value = bA;
+      fU.uNoiseSpeed.value = c.noiseSpeed;
+      fU.uNoiseOctaves.value = c.noiseOctaves;
+      fU.uNoiseLac.value = c.noiseLacunarity;
+      fU.uNoisePers.value = c.noisePersistence;
+      fU.uSpikeSharp.value = c.spikeSharpness;
+      fU.uNoiseWarp.value = c.noiseWarp;
+      fU.uMouseStrength.value = bM;
+      fU.uMouseRadius.value = c.mouseRadius;
+      fU.uMouseFalloff.value = c.mouseFalloff;
+      fU.uMouseNoiseBoost.value = c.mouseNoiseBoost;
+      fU.uMouseNoiseFreq.value = c.mouseNoiseFreq;
+      fU.uMouseAttract.value = c.mouseAttract;
+      fU.uBaseBrightStart.value = c.baseBrightStart;
+      fU.uBaseBrightEnd.value = c.baseBrightEnd;
+      fU.uRoughness.value = c.roughness;
+      fU.uMetallic.value = c.metallic;
+      fU.uSpecularIntensity.value = c.specularIntensity;
+      fU.uFresnelPower.value = c.fresnelPower;
+      fU.uFresnelIntensity.value = c.fresnelIntensity;
+      fU.uIridescence.value = c.iridescence;
+      fU.uEnvReflect.value = c.envReflect;
+      fU.uEnvBrightness.value = c.envBrightness;
+      fU.uAoStrength.value = c.aoStrength;
+      fU.uAoRange.value = c.aoRange;
+      fU.uRimStrength.value = c.rimStrength;
+      fU.uRimColor.value.set(c.rimColor);
+      fU.uAmbientIntensity.value = c.ambientIntensity;
+      fU.uLight1Pos.value.set(c.light1X, c.light1Y, c.light1Z);
+      fU.uLight1Int.value = c.light1Intensity;
+      fU.uLight2Pos.value.set(c.light2X, c.light2Y, c.light2Z);
+      fU.uLight2Int.value = c.light2Intensity;
+      fU.uLight3Pos.value.set(c.light3X, c.light3Y, c.light3Z);
+      fU.uLight3Int.value = c.light3Intensity;
+      fU.uWaveformMix.value = 0;
+      fU.uWaveTime.value = el;
+      if (birth > 0.95) {
+        raycaster.setFromCamera(mouse, camera);
+        mSp.set(sphere.position, bR * 1.5);
+        const hit = new Vector3();
+        if (raycaster.ray.intersectSphere(mSp, hit)) mouseWorld.copy(hit);
+        else {
+          const pl = new Plane(new Vector3(0, 0, 1), 0);
+          raycaster.ray.intersectPlane(pl, mouseWorld);
         }
+        mouseSmooth.lerp(mouseWorld, 0.08);
+        fU.uMouseWorld.value.copy(
+          mouseSmooth.clone().sub(sphere.position).divideScalar(bR)
+        );
       }
 
       // Single-pass render — MeshPhysicalMaterial handles transmission internally
@@ -951,9 +1003,12 @@ export default function Scene({
       window.removeEventListener("touchcancel", onTouchUp);
       container.removeChild(renderer.domElement);
       renderer.dispose();
+      envMap.dispose();
       sphereGeo.dispose();
       glassGeo.dispose();
       glassMat.dispose();
+      glassEdgeGeo.dispose();
+      glassEdgeMat.dispose();
       menuCubes.forEach((mc) => {
         scene.remove(mc.mesh);
         mc.geo.dispose();

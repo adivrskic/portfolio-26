@@ -46,8 +46,6 @@ SHOWCASE_PROJECTS.forEach((p) => {
 });
 
 // ── Dynamic depth of field ──
-// Hero + settle: normal DoF with hover sharpening
-// Project sections: no DoF effect at all
 state.focusZ = 0;
 
 function DynamicDof() {
@@ -60,21 +58,21 @@ function DynamicDof() {
     if (!dofRef.current) return;
 
     const sec = state.section;
-    const onHeroOrSettle = sec === 0 || sec > N;
-    const hovered = state.focusZ > 0 && onHeroOrSettle;
+    const onHero = sec === 0;
+    const hovered = state.focusZ > 0 && onHero;
 
     let targetBokeh, targetRange;
 
-    if (!onHeroOrSettle) {
-      // Project sections — kill the effect
+    if (!onHero) {
+      // Project sections + settle — kill DOF
       targetBokeh = 0;
       targetRange = 100;
     } else if (hovered) {
-      // Hero/settle with cube hover — eliminate blur for sharp cube view
+      // Hero with cube hover — eliminate blur for sharp cube view
       targetBokeh = 0;
       targetRange = 100;
     } else {
-      // Hero/settle idle — normal DoF
+      // Hero idle — normal DoF
       targetBokeh = L.post.dofBokehScale;
       targetRange = L.post.dofFocusRange;
     }

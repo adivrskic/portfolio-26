@@ -24,14 +24,15 @@ export default function PrintContent() {
       <p>
         Full-stack creative developer with 8+ years of experience building
         large-scale web applications, immersive 3D experiences, and AI-powered
-        products. Currently engineering front-end solutions at The Home Depot.
+        products. Currently engineering front-end solutions at a Fortune 50
+        retailer.
       </p>
 
       <hr />
 
       <h2>Experience</h2>
       <div className="project">
-        <h3>The Home Depot — Software Engineer</h3>
+        <h3>Fortune 50 Retailer — Software Engineer</h3>
         <p>
           Led front-end development of exchange subdomain ($20M+ revenue). Built
           prompt engineering workflows for AI-assisted development. Mentored

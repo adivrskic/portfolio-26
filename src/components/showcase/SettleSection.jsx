@@ -1,6 +1,7 @@
 import { useRef, useMemo, useEffect, useState } from "react";
 import { Color } from "three";
-import { useThree, useFrame } from "@react-three/fiber";
+import { RGBELoader } from "three-stdlib";
+import { useThree, useFrame, useLoader } from "@react-three/fiber";
 import {
   Text3D,
   Center,
@@ -8,64 +9,80 @@ import {
   RoundedBox,
   Instance,
   Instances,
-  Html,
 } from "@react-three/drei";
-import { Physics, RigidBody, CuboidCollider } from "@react-three/rapier";
 import { L, state, clamp, N } from "./ShowcaseLayout";
 
 const CUBE_SIZE = 1.0;
-const HALF = CUBE_SIZE / 2;
 const FONT_3D = "/Inter_Medium_Regular.json";
+const HDRI_URL =
+  "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/aerodynamics_workshop_1k.hdr";
 
-// ── Mutable config — debug sliders write here, useFrame reads every frame ──
+// ── Mutable config — ALL scene values live here ──
 const S = {
-  // Scene rotation (isometric tilt)
-  rotX: -0.65,
-  rotY: -0.35,
-  rotZ: 0,
-  // Scene position offset
-  sceneX: 0,
-  sceneY: 0,
+  rotX: 0.82,
+  rotY: -0.52,
+  rotZ: 0.17,
+  sceneX: -0.47,
+  sceneY: -0.79,
   sceneZ: 0,
-  // Text
-  textX: -4.5,
-  textY: 0.02,
-  textZ: 0,
-  textScale: 3.5,
-  textGap: 3.3,
-  // Cubes area
-  cubeOffX: 5,
-  cubeOffZ: 0,
-  cubeSpread: 3,
-  // Ground
+  zoom: 0.64,
+  adiX: 7.09,
+  adiY: -1.02,
+  adiZ: -2.99,
+  adiScale: 2.22,
+  adiRotX: -1.5707963267948966,
+  adiRotY: 0,
+  adiRotZ: 0,
+  vrsX: 6.77,
+  vrsY: -1,
+  vrsZ: 0,
+  vrsScale: 2.22,
+  vrsRotX: -1.66,
+  vrsRotY: 0,
+  vrsRotZ: 0,
   groundShow: true,
-  groundSize: 60,
-  groundOpacity: 0.03,
-  groundY: -0.01,
-  // Grid
+  groundSize: 146,
+  groundOpacity: 0.04,
+  groundY: -1.01,
   gridShow: true,
-  gridCount: 17,
-  // Key light
-  keyX: 8,
-  keyY: 12,
-  keyZ: 8,
-  keyIntensity: 4,
-  // Fill light
-  fillX: -8,
-  fillY: 6,
-  fillZ: 4,
-  fillIntensity: 1.5,
-  // Rim light
-  rimX: 0,
-  rimY: 4,
-  rimZ: -8,
-  rimIntensity: 1,
+  gridCount: 40,
+  gridY: -1.02,
+  shadowColor: "#94cbff",
+  dofEnabled: true,
+  dofFocus: 10.08,
+  dofAperture: 6.1,
+  dofMaxBlur: 0.031,
+  cubes: [
+    { x: -6.89, y: -0.4, z: 3 },
+    { x: -8.91, y: -0.4, z: 1 },
+    { x: -6.55, y: -0.4, z: -1.5 },
+    { x: -6.22, y: -0.4, z: 2 },
+    { x: -7.56, y: -0.4, z: 0 },
+    { x: -9.58, y: -0.4, z: 4 },
+    { x: -6.22, y: -0.4, z: -0.5 },
+    { x: -9.58, y: 0.65, z: -1.5 },
+    { x: -2.86, y: 0.65, z: 1 },
+  ],
+  keyX: 0,
+  keyY: 10,
+  keyZ: -10,
+  keyIntensity: 1,
+  fillX: -5,
+  fillY: 1,
+  fillZ: -1,
+  fillIntensity: 0.5,
+  rimX: 10,
+  rimY: 1,
+  rimZ: 0,
+  rimIntensity: 0.5,
 };
 
 // Glass config
-const GLASS_TEXT = {
+const GLASS_CONFIG = {
   backside: true,
   backsideThickness: 0.15,
+  samples: 16,
+  resolution: 1024,
   transmission: 1,
   clearcoat: 1,
   clearcoatRoughness: 0,
@@ -78,336 +95,517 @@ const GLASS_TEXT = {
   temporalDistortion: 0,
   ior: 1.25,
   color: "white",
-  samples: 8,
-  resolution: 512,
 };
 
-// ── Debug Panel (HTML overlay) ──
-function SettleDebug() {
-  const [, forceUpdate] = useState(0);
-  const refresh = () => forceUpdate((n) => n + 1);
+// ═══════════════════════════════════════════════════════
+// Pure-DOM debug panel
+// ═══════════════════════════════════════════════════════
+function mountDebugPanel(forceRender) {
+  if (document.getElementById("settle-debug"))
+    return document.getElementById("settle-debug");
+  const root = document.createElement("div");
+  root.id = "settle-debug";
+  Object.assign(root.style, {
+    position: "fixed",
+    top: "16px",
+    left: "16px",
+    zIndex: "99999",
+    background: "rgba(255,255,255,0.95)",
+    backdropFilter: "blur(12px)",
+    borderRadius: "8px",
+    padding: "10px 14px",
+    width: "295px",
+    maxHeight: "92vh",
+    overflowY: "auto",
+    fontFamily: "Inter, system-ui, sans-serif",
+    fontSize: "11px",
+    color: "#1a1a2e",
+    boxShadow: "0 2px 20px rgba(0,0,0,0.1)",
+    pointerEvents: "auto",
+    cursor: "default",
+  });
 
-  const slider = (label, key, min, max, step = 0.01) => (
-    <div key={key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-      <label style={{ width: 90, fontSize: 10, opacity: 0.7 }}>{label}</label>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        defaultValue={S[key]}
-        onChange={(e) => {
-          S[key] = parseFloat(e.target.value);
-          refresh();
-        }}
-        style={{ flex: 1, height: 2 }}
+  const heading = (text) => {
+    const h = document.createElement("div");
+    Object.assign(h.style, {
+      fontSize: "9px",
+      fontWeight: "600",
+      opacity: "0.35",
+      letterSpacing: "0.1em",
+      textTransform: "uppercase",
+      margin: "10px 0 4px",
+    });
+    h.textContent = text;
+    return h;
+  };
+
+  const makeSlider = (label, get, set, min, max, step = 0.01) => {
+    const row = document.createElement("div");
+    Object.assign(row.style, {
+      display: "flex",
+      alignItems: "center",
+      gap: "6px",
+      marginBottom: "2px",
+    });
+    const lbl = document.createElement("label");
+    Object.assign(lbl.style, {
+      width: "70px",
+      fontSize: "10px",
+      opacity: "0.6",
+      flexShrink: "0",
+    });
+    lbl.textContent = label;
+    const inp = document.createElement("input");
+    inp.type = "range";
+    inp.min = min;
+    inp.max = max;
+    inp.step = step;
+    inp.value = get();
+    Object.assign(inp.style, {
+      flex: "1",
+      height: "2px",
+      accentColor: "#4a6fa5",
+    });
+    const val = document.createElement("span");
+    Object.assign(val.style, {
+      width: "44px",
+      fontSize: "9px",
+      textAlign: "right",
+      opacity: "0.45",
+      flexShrink: "0",
+    });
+    val.textContent = Number(get()).toFixed(2);
+    inp.addEventListener("input", () => {
+      set(parseFloat(inp.value));
+      val.textContent = parseFloat(inp.value).toFixed(2);
+    });
+    row.appendChild(lbl);
+    row.appendChild(inp);
+    row.appendChild(val);
+    return row;
+  };
+
+  const ss = (label, key, min, max, step) =>
+    makeSlider(
+      label,
+      () => S[key],
+      (v) => {
+        S[key] = v;
+      },
+      min,
+      max,
+      step
+    );
+
+  const toggle = (label, key) => {
+    const row = document.createElement("div");
+    Object.assign(row.style, {
+      display: "flex",
+      alignItems: "center",
+      gap: "6px",
+      marginBottom: "2px",
+    });
+    const lbl = document.createElement("label");
+    Object.assign(lbl.style, {
+      width: "70px",
+      fontSize: "10px",
+      opacity: "0.6",
+    });
+    lbl.textContent = label;
+    const inp = document.createElement("input");
+    inp.type = "checkbox";
+    inp.checked = S[key];
+    inp.addEventListener("change", () => {
+      S[key] = inp.checked;
+      if (forceRender) forceRender();
+    });
+    row.appendChild(lbl);
+    row.appendChild(inp);
+    return row;
+  };
+
+  const hdr = document.createElement("div");
+  Object.assign(hdr.style, {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "4px",
+  });
+  const title = document.createElement("span");
+  title.textContent = "Settle Debug";
+  Object.assign(title.style, { fontWeight: "600" });
+  const copyBtn = document.createElement("button");
+  copyBtn.textContent = "Copy";
+  Object.assign(copyBtn.style, {
+    fontSize: "9px",
+    opacity: "0.5",
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+  });
+  copyBtn.onclick = () => {
+    navigator.clipboard?.writeText(JSON.stringify(S, null, 2));
+    copyBtn.textContent = "✓";
+    setTimeout(() => {
+      copyBtn.textContent = "Copy";
+    }, 1000);
+  };
+  hdr.appendChild(title);
+  hdr.appendChild(copyBtn);
+  root.appendChild(hdr);
+
+  root.appendChild(heading("Camera / Scene"));
+  root.appendChild(ss("Tilt X", "rotX", -3.14, 3.14));
+  root.appendChild(ss("Tilt Y", "rotY", -3.14, 3.14));
+  root.appendChild(ss("Tilt Z", "rotZ", -3.14, 3.14));
+  root.appendChild(ss("Offset X", "sceneX", -20, 20));
+  root.appendChild(ss("Offset Y", "sceneY", -20, 20));
+  root.appendChild(ss("Offset Z", "sceneZ", -20, 20));
+  root.appendChild(ss("Zoom", "zoom", 0.1, 5));
+
+  root.appendChild(heading("ADI Text"));
+  root.appendChild(ss("X", "adiX", -20, 20));
+  root.appendChild(ss("Y", "adiY", -10, 10));
+  root.appendChild(ss("Z", "adiZ", -20, 20));
+  root.appendChild(ss("Scale", "adiScale", 0.5, 12));
+  root.appendChild(ss("Rot X", "adiRotX", -3.14, 3.14));
+  root.appendChild(ss("Rot Y", "adiRotY", -3.14, 3.14));
+  root.appendChild(ss("Rot Z", "adiRotZ", -3.14, 3.14));
+
+  root.appendChild(heading("VRSKIC Text"));
+  root.appendChild(ss("X", "vrsX", -20, 20));
+  root.appendChild(ss("Y", "vrsY", -10, 10));
+  root.appendChild(ss("Z", "vrsZ", -20, 20));
+  root.appendChild(ss("Scale", "vrsScale", 0.5, 12));
+  root.appendChild(ss("Rot X", "vrsRotX", -3.14, 3.14));
+  root.appendChild(ss("Rot Y", "vrsRotY", -3.14, 3.14));
+  root.appendChild(ss("Rot Z", "vrsRotZ", -3.14, 3.14));
+
+  root.appendChild(heading("Tilt-Shift DOF"));
+  root.appendChild(toggle("Enabled", "dofEnabled"));
+  root.appendChild(ss("Focus", "dofFocus", 0, 20));
+  root.appendChild(ss("Aperture", "dofAperture", 0.1, 10));
+  root.appendChild(ss("Max Blur", "dofMaxBlur", 0, 0.1, 0.001));
+
+  root.appendChild(heading("Ground"));
+  root.appendChild(toggle("Show", "groundShow"));
+  root.appendChild(ss("Size", "groundSize", 10, 200, 1));
+  root.appendChild(ss("Opacity", "groundOpacity", 0, 0.3));
+  root.appendChild(ss("Y", "groundY", -10, 10));
+
+  root.appendChild(heading("Grid"));
+  root.appendChild(toggle("Show", "gridShow"));
+  root.appendChild(ss("Count", "gridCount", 5, 60, 1));
+  root.appendChild(ss("Y", "gridY", -10, 10));
+
+  root.appendChild(heading("Cubes"));
+  S.cubes.forEach((c, i) => {
+    const wrap = document.createElement("div");
+    Object.assign(wrap.style, {
+      marginBottom: "6px",
+      paddingLeft: "6px",
+      borderLeft: "2px solid rgba(0,0,0,0.06)",
+    });
+    const lbl = document.createElement("div");
+    lbl.textContent = `Cube ${i}`;
+    Object.assign(lbl.style, {
+      fontSize: "9px",
+      fontWeight: "500",
+      opacity: "0.45",
+      marginBottom: "2px",
+    });
+    wrap.appendChild(lbl);
+    wrap.appendChild(
+      makeSlider(
+        "X",
+        () => c.x,
+        (v) => {
+          c.x = v;
+        },
+        -20,
+        20
+      )
+    );
+    wrap.appendChild(
+      makeSlider(
+        "Y",
+        () => c.y,
+        (v) => {
+          c.y = v;
+        },
+        -5,
+        5
+      )
+    );
+    wrap.appendChild(
+      makeSlider(
+        "Z",
+        () => c.z,
+        (v) => {
+          c.z = v;
+        },
+        -20,
+        20
+      )
+    );
+    root.appendChild(wrap);
+  });
+
+  root.appendChild(heading("Key Light"));
+  root.appendChild(ss("X", "keyX", -20, 20));
+  root.appendChild(ss("Y", "keyY", -20, 20));
+  root.appendChild(ss("Z", "keyZ", -20, 20));
+  root.appendChild(ss("Intensity", "keyIntensity", 0, 10));
+  root.appendChild(heading("Fill Light"));
+  root.appendChild(ss("X", "fillX", -20, 20));
+  root.appendChild(ss("Y", "fillY", -20, 20));
+  root.appendChild(ss("Z", "fillZ", -20, 20));
+  root.appendChild(ss("Intensity", "fillIntensity", 0, 10));
+  root.appendChild(heading("Rim Light"));
+  root.appendChild(ss("X", "rimX", -20, 20));
+  root.appendChild(ss("Y", "rimY", -20, 20));
+  root.appendChild(ss("Z", "rimZ", -20, 20));
+  root.appendChild(ss("Intensity", "rimIntensity", 0, 10));
+
+  document.body.appendChild(root);
+  return root;
+}
+
+// ═══════════════════════════════════════════════════════
+// Grid — theme-colored, auto-fills viewport
+// ═══════════════════════════════════════════════════════
+function Grid({ opSmooth, themeColor }) {
+  const matRef = useRef();
+  const gridHelperRef = useRef();
+  const groupRef = useRef();
+
+  // Parse theme color for rgba usage
+  const tc = useMemo(() => {
+    const hex = themeColor || "#1a1a2e";
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return { hex, r, g, b };
+  }, [themeColor]);
+
+  useFrame(() => {
+    if (matRef.current) {
+      matRef.current.opacity = (opSmooth?.current || 0) * 0.4;
+      matRef.current.color.setStyle(tc.hex);
+    }
+    if (gridHelperRef.current) {
+      // gridHelper stores colors in its material array
+      const mats = gridHelperRef.current.material;
+      const col = new Color(tc.hex);
+      if (Array.isArray(mats)) {
+        mats.forEach((m) => {
+          m.color.copy(col);
+          m.opacity = (opSmooth?.current || 0) * 0.15;
+          m.transparent = true;
+        });
+      } else if (mats) {
+        mats.color.copy(col);
+        mats.opacity = (opSmooth?.current || 0) * 0.15;
+        mats.transparent = true;
+      }
+    }
+    if (groupRef.current) groupRef.current.position.y = S.gridY;
+  });
+
+  const n = Math.round(S.gridCount);
+  if (!S.gridShow) return null;
+
+  // Spacing of 4 units between crosses — covers 4x more area per cross than 2-unit spacing
+  const spacing = 4;
+  const span = n * spacing;
+
+  return (
+    <group ref={groupRef} position={[0, S.gridY, 0]}>
+      <Instances limit={n * n * 2}>
+        <planeGeometry args={[0.026, 0.5]} />
+        <meshBasicMaterial
+          ref={matRef}
+          color={tc.hex}
+          transparent
+          opacity={0}
+        />
+        {Array.from({ length: n }, (_, y) =>
+          Array.from({ length: n }, (_, x) => (
+            <group
+              key={x + ":" + y}
+              position={[
+                x * spacing - Math.floor(n / 2) * spacing,
+                -0.01,
+                y * spacing - Math.floor(n / 2) * spacing,
+              ]}
+            >
+              <Instance rotation={[-Math.PI / 2, 0, 0]} />
+              <Instance rotation={[-Math.PI / 2, 0, Math.PI / 2]} />
+            </group>
+          ))
+        )}
+      </Instances>
+      <gridHelper
+        ref={gridHelperRef}
+        args={[span, span, tc.hex, tc.hex]}
+        position={[0, -0.01, 0]}
       />
-      <span
-        style={{ width: 42, fontSize: 9, textAlign: "right", opacity: 0.5 }}
-      >
-        {S[key].toFixed(2)}
-      </span>
-    </div>
+    </group>
   );
+}
 
-  const toggle = (label, key) => (
-    <div key={key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-      <label style={{ width: 90, fontSize: 10, opacity: 0.7 }}>{label}</label>
-      <input
-        type="checkbox"
-        defaultChecked={S[key]}
-        onChange={(e) => {
-          S[key] = e.target.checked;
-          refresh();
-        }}
-      />
-    </div>
-  );
+// ═══════════════════════════════════════════════════════
+// Single glass text line
+// ═══════════════════════════════════════════════════════
+function GlassTextLine({ text, posKey, scaleKey, rotKey, opSmooth }) {
+  const groupRef = useRef();
+  let texture = null;
+  try {
+    texture = useLoader(RGBELoader, HDRI_URL);
+  } catch (e) {}
 
-  const section = (title, items) => (
-    <div key={title} style={{ marginBottom: 8 }}>
-      <div
-        style={{
-          fontSize: 9,
-          fontWeight: 600,
-          opacity: 0.4,
-          letterSpacing: "0.1em",
-          textTransform: "uppercase",
-          marginBottom: 4,
-        }}
-      >
-        {title}
-      </div>
-      {items}
-    </div>
-  );
+  useFrame(() => {
+    if (!groupRef.current) return;
+    groupRef.current.position.set(
+      S[posKey + "X"],
+      S[posKey + "Y"],
+      S[posKey + "Z"]
+    );
+    groupRef.current.rotation.set(
+      S[rotKey + "X"],
+      S[rotKey + "Y"],
+      S[rotKey + "Z"]
+    );
+    groupRef.current.scale.setScalar(S[scaleKey] / 5);
+    groupRef.current.traverse((child) => {
+      if (child.material && child.material.opacity !== undefined) {
+        child.material.opacity = opSmooth.current;
+        child.material.transparent = true;
+      }
+    });
+  });
 
-  const copy = () => {
-    const out = {};
-    for (const k in S)
-      out[k] = typeof S[k] === "number" ? +S[k].toFixed(3) : S[k];
-    navigator.clipboard?.writeText(JSON.stringify(out, null, 2));
+  const matProps = {
+    ...GLASS_CONFIG,
+    ...(texture ? { background: texture } : {}),
   };
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: 16,
-        left: 16,
-        zIndex: 9999,
-        background: "rgba(255,255,255,0.92)",
-        backdropFilter: "blur(12px)",
-        borderRadius: 8,
-        padding: "10px 14px",
-        width: 280,
-        maxHeight: "90vh",
-        overflowY: "auto",
-        fontFamily: "Inter, sans-serif",
-        fontSize: 11,
-        color: "#1a1a2e",
-        boxShadow: "0 2px 20px rgba(0,0,0,0.08)",
-        pointerEvents: "auto",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          marginBottom: 8,
-        }}
-      >
-        <span style={{ fontWeight: 600, fontSize: 11 }}>Settle Debug</span>
-        <button
-          onClick={copy}
-          style={{
-            fontSize: 9,
-            opacity: 0.5,
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-          }}
-        >
-          Copy
-        </button>
-      </div>
-
-      {section("Scene Rotation", [
-        slider("Tilt X", "rotX", -Math.PI, Math.PI),
-        slider("Tilt Y", "rotY", -Math.PI, Math.PI),
-        slider("Tilt Z", "rotZ", -Math.PI, Math.PI),
-      ])}
-      {section("Scene Offset", [
-        slider("X", "sceneX", -20, 20),
-        slider("Y", "sceneY", -20, 20),
-        slider("Z", "sceneZ", -20, 20),
-      ])}
-      {section("Text", [
-        slider("X", "textX", -15, 15),
-        slider("Y", "textY", -5, 5),
-        slider("Z", "textZ", -15, 15),
-        slider("Scale", "textScale", 0.5, 10),
-        slider("Line gap", "textGap", 0.5, 8),
-      ])}
-      {section("Cubes", [
-        slider("Offset X", "cubeOffX", -15, 15),
-        slider("Offset Z", "cubeOffZ", -15, 15),
-        slider("Spread", "cubeSpread", 1, 8),
-      ])}
-      {section("Ground", [
-        toggle("Show", "groundShow"),
-        slider("Size", "groundSize", 10, 200, 1),
-        slider("Opacity", "groundOpacity", 0, 0.2),
-        slider("Y", "groundY", -5, 5),
-      ])}
-      {section("Grid", [
-        toggle("Show", "gridShow"),
-        slider("Count", "gridCount", 5, 30, 1),
-      ])}
-      {section("Key Light", [
-        slider("X", "keyX", -20, 20),
-        slider("Y", "keyY", -20, 20),
-        slider("Z", "keyZ", -20, 20),
-        slider("Intensity", "keyIntensity", 0, 10),
-      ])}
-      {section("Fill Light", [
-        slider("X", "fillX", -20, 20),
-        slider("Y", "fillY", -20, 20),
-        slider("Z", "fillZ", -20, 20),
-        slider("Intensity", "fillIntensity", 0, 10),
-      ])}
-      {section("Rim Light", [
-        slider("X", "rimX", -20, 20),
-        slider("Y", "rimY", -20, 20),
-        slider("Z", "rimZ", -20, 20),
-        slider("Intensity", "rimIntensity", 0, 10),
-      ])}
-    </div>
-  );
-}
-
-// ── Grid of crosses ──
-function Grid({ opSmooth }) {
-  const matRef = useRef();
-  const groupRef = useRef();
-  useFrame(() => {
-    if (matRef.current) matRef.current.opacity = (opSmooth?.current || 0) * 0.3;
-  });
-  const n = Math.round(S.gridCount);
-  if (!S.gridShow) return null;
-  return (
-    <Instances position={[0, -0.01, 0]} limit={n * n * 2}>
-      <planeGeometry args={[0.026, 0.5]} />
-      <meshBasicMaterial ref={matRef} color="#999" transparent opacity={0} />
-      {Array.from({ length: n }, (_, y) =>
-        Array.from({ length: n }, (_, x) => (
-          <group
-            key={x + ":" + y}
-            position={[
-              x * 2 - Math.floor(n / 2) * 2,
-              0,
-              y * 2 - Math.floor(n / 2) * 2,
-            ]}
-          >
-            <Instance rotation={[-Math.PI / 2, 0, 0]} />
-            <Instance rotation={[-Math.PI / 2, 0, Math.PI / 2]} />
-          </group>
-        ))
-      )}
-    </Instances>
-  );
-}
-
-// ── Scattered cube positions ──
-function getScatteredCubes(baseY) {
-  return [
-    [1.5, baseY, 1.5],
-    [3.0, baseY, -1.0],
-    [2.0, baseY, -3.5],
-    [4.5, baseY, 0.5],
-    [0.5, baseY, -2.0],
-    [3.5, baseY, 2.5],
-    [5.0, baseY, -2.5],
-    [2.0, baseY + CUBE_SIZE + 0.05, -3.5],
-    [3.0, baseY + CUBE_SIZE + 0.05, -1.0],
-  ];
-}
-
-function PhysicsCube({ position, opSmooth, mouseRef }) {
-  const rbRef = useRef();
-  const meshRef = useRef();
-
-  useFrame(() => {
-    if (!rbRef.current || !meshRef.current) return;
-    const mesh = meshRef.current.children?.[0];
-    if (mesh?.material && mesh.material.opacity !== undefined) {
-      mesh.material.opacity = opSmooth.current * 0.9;
-    }
-    const m = mouseRef.current;
-    if (!m.active) return;
-    const pos = rbRef.current.translation();
-    const dx = pos.x - m.x;
-    const dz = pos.z - m.z;
-    const dist = Math.sqrt(dx * dx + dz * dz);
-    const pr = L.physics.pushRadius;
-    if (dist < pr && dist > 0.01) {
-      const pen = 1 - dist / pr;
-      const mag = pen * pen * L.physics.pushStrength;
-      const nx = dx / dist;
-      const nz = dz / dist;
-      rbRef.current.applyImpulse({ x: nx * mag, y: 0, z: nz * mag }, true);
-      rbRef.current.applyTorqueImpulse(
-        { x: nz * mag * 0.4, y: nx * mag * 0.2, z: -nx * mag * 0.4 },
-        true
-      );
-    }
-  });
-
-  return (
-    <RigidBody
-      ref={rbRef}
-      position={position}
-      colliders={false}
-      mass={L.physics.cubeMass}
-      linearDamping={L.physics.linearDamping}
-      angularDamping={L.physics.angularDamping}
-    >
-      <CuboidCollider
-        args={[HALF, HALF, HALF]}
-        friction={L.physics.cubeFriction}
-        restitution={L.physics.restitution}
-      />
-      <group ref={meshRef}>
-        <RoundedBox
-          args={[CUBE_SIZE, CUBE_SIZE, CUBE_SIZE]}
-          radius={0.1}
-          smoothness={3}
+    <group ref={groupRef}>
+      <Center scale={[0.8, 1, 1]} front top>
+        <Text3D
           castShadow
-          receiveShadow
+          bevelEnabled
+          font={FONT_3D}
+          scale={5}
+          letterSpacing={-0.03}
+          height={0.25}
+          bevelSize={0.01}
+          bevelSegments={10}
+          curveSegments={128}
+          bevelThickness={0.01}
         >
-          <MeshTransmissionMaterial
-            backside
-            backsideThickness={L.glass.backsideThickness}
-            thickness={L.glass.thickness}
-            transmission={1}
-            roughness={L.glass.roughness}
-            ior={L.glass.ior}
-            chromaticAberration={L.glass.chromaticAberration}
-            anisotropicBlur={L.glass.anisotropicBlur}
-            samples={L.glass.samples}
-            resolution={L.glass.resolution}
-            color="#ffffff"
-            transparent
-            opacity={0}
-            toneMapped
-          />
-        </RoundedBox>
-      </group>
-    </RigidBody>
+          {text}
+          <MeshTransmissionMaterial {...matProps} />
+        </Text3D>
+      </Center>
+    </group>
   );
 }
 
-// ── Inner 3D scene (reads from S every frame) ──
-function SettleScene({ themeColor, opSmooth }) {
+// ═══════════════════════════════════════════════════════
+// Glass cube
+// ═══════════════════════════════════════════════════════
+function GlassCube({ cubeData, opSmooth }) {
+  const ref = useRef();
+  useFrame(() => {
+    if (!ref.current) return;
+    ref.current.position.set(cubeData.x, cubeData.y, cubeData.z);
+    const mat = ref.current.children?.[0]?.material;
+    if (mat) mat.opacity = opSmooth.current * 0.9;
+  });
+  return (
+    <group ref={ref}>
+      <RoundedBox
+        args={[CUBE_SIZE, CUBE_SIZE, CUBE_SIZE]}
+        radius={0.1}
+        smoothness={3}
+        castShadow
+        receiveShadow
+      >
+        <MeshTransmissionMaterial
+          backside
+          backsideThickness={0.15}
+          thickness={0.3}
+          transmission={1}
+          roughness={0}
+          ior={1.25}
+          chromaticAberration={0.15}
+          samples={6}
+          resolution={256}
+          color="#ffffff"
+          transparent
+          opacity={0}
+          toneMapped
+        />
+      </RoundedBox>
+    </group>
+  );
+}
+
+// ═══════════════════════════════════════════════════════
+// Main export
+// ═══════════════════════════════════════════════════════
+export function SettleFloor({ themeColor }) {
+  const groupRef = useRef();
   const sceneRef = useRef();
-  const textRef = useRef();
   const floorRef = useRef();
   const keyRef = useRef();
   const fillRef = useRef();
   const rimRef = useRef();
-  const { viewport, pointer } = useThree();
-  const mouseRef = useRef({ x: 0, z: 0, active: false });
+  const { viewport } = useThree();
+  const opSmooth = useRef(0);
+  const debugRef = useRef(null);
+  const [, forceRender] = useState(0);
 
-  const cubeY = HALF + 0.05;
-  const baseCubes = useMemo(() => getScatteredCubes(cubeY), [cubeY]);
-  const themeColorObj = useMemo(
-    () => new Color(themeColor || "#1a1a2e"),
-    [themeColor]
-  );
+  // Shift+D toggles debug
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "D" && e.shiftKey) {
+        if (debugRef.current) {
+          debugRef.current.remove();
+          debugRef.current = null;
+        } else {
+          debugRef.current = mountDebugPanel(() => forceRender((n) => n + 1));
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      if (debugRef.current) {
+        debugRef.current.remove();
+        debugRef.current = null;
+      }
+    };
+  }, []);
 
-  useFrame(() => {
-    // Scene tilt
+  useFrame(({ camera }) => {
+    const isSettle = state.section >= N + 1;
+    const camDist = Math.abs(-camera.position.y - (L.heroH + N * L.sectionH));
+    const targetOp = isSettle ? clamp(1 - camDist / 4, 0, 1) : 0;
+    opSmooth.current += (targetOp - opSmooth.current) * 0.04;
+
     if (sceneRef.current) {
       sceneRef.current.rotation.set(S.rotX, S.rotY, S.rotZ);
       sceneRef.current.position.set(S.sceneX, S.sceneY, S.sceneZ);
+      sceneRef.current.scale.setScalar(S.zoom);
     }
-    // Ground
     if (floorRef.current) {
       floorRef.current.visible = S.groundShow;
       floorRef.current.position.y = S.groundY;
       floorRef.current.material.opacity = opSmooth.current * S.groundOpacity;
-      floorRef.current.material.color.lerp(themeColorObj, 0.05);
     }
-    // Text fade
-    if (textRef.current) {
-      textRef.current.traverse((child) => {
-        if (child.material && child.material.opacity !== undefined) {
-          child.material.opacity = opSmooth.current;
-          child.material.transparent = true;
-        }
-      });
-    }
-    // Lights
     if (keyRef.current) {
       keyRef.current.position.set(S.keyX, S.keyY, S.keyZ);
       keyRef.current.intensity = S.keyIntensity;
@@ -420,186 +618,69 @@ function SettleScene({ themeColor, opSmooth }) {
       rimRef.current.position.set(S.rimX, S.rimY, S.rimZ);
       rimRef.current.intensity = S.rimIntensity;
     }
-
-    // Mouse
-    const isSettle = state.section >= N + 1;
-    const mxW = (pointer.x * viewport.width) / 2;
-    const myW = (pointer.y * viewport.height) / 2;
-    mouseRef.current.x = mxW * 1.5 + S.cubeOffX;
-    mouseRef.current.z = myW * -1.5 + S.cubeOffZ;
-    mouseRef.current.active = isSettle;
   });
 
-  // Offset cube positions by the debug controls
-  const cubePositions = baseCubes.map(([x, y, z]) => [
-    x + S.cubeOffX - 5,
-    y,
-    z + S.cubeOffZ,
-  ]);
-
   return (
-    <group ref={sceneRef}>
-      {/* Ground */}
-      <mesh
-        ref={floorRef}
-        rotation-x={-Math.PI / 2}
-        position={[0, S.groundY, 0]}
-        receiveShadow
-      >
-        <planeGeometry args={[S.groundSize, S.groundSize]} />
-        <meshStandardMaterial
-          color={themeColor || "#1a1a2e"}
-          transparent
-          opacity={0}
-          depthWrite={false}
+    <group ref={groupRef} position={[0, -(L.heroH + N * L.sectionH), -3]}>
+      <group ref={sceneRef}>
+        {/* Ground */}
+        <mesh
+          ref={floorRef}
+          rotation-x={-Math.PI / 2}
+          position={[0, S.groundY, 0]}
+          receiveShadow
+        >
+          <planeGeometry args={[S.groundSize, S.groundSize]} />
+          <meshStandardMaterial
+            color="#e8e8ee"
+            transparent
+            opacity={0}
+            depthWrite={false}
+          />
+        </mesh>
+
+        <GlassTextLine
+          text="ADI"
+          posKey="adi"
+          scaleKey="adiScale"
+          rotKey="adiRot"
+          opSmooth={opSmooth}
         />
-      </mesh>
+        <GlassTextLine
+          text="VRSKIC"
+          posKey="vrs"
+          scaleKey="vrsScale"
+          rotKey="vrsRot"
+          opSmooth={opSmooth}
+        />
 
-      {/* Text */}
-      <group ref={textRef} position={[S.textX, S.textY, S.textZ]}>
-        <Center
-          position={[0, 0, S.textGap / 2]}
-          rotation={[-Math.PI / 2, 0, 0]}
-        >
-          <Text3D
-            castShadow
-            bevelEnabled
-            font={FONT_3D}
-            scale={S.textScale}
-            letterSpacing={-0.03}
-            height={0.25}
-            bevelSize={0.01}
-            bevelSegments={10}
-            curveSegments={128}
-            bevelThickness={0.01}
-          >
-            ADI
-            <MeshTransmissionMaterial {...GLASS_TEXT} />
-          </Text3D>
-        </Center>
+        {/* Grid — theme-colored, fills viewport */}
+        <Grid opSmooth={opSmooth} themeColor={themeColor} />
 
-        <Center
-          position={[0, 0, -S.textGap / 2]}
-          rotation={[-Math.PI / 2, 0, 0]}
-        >
-          <Text3D
-            castShadow
-            bevelEnabled
-            font={FONT_3D}
-            scale={S.textScale}
-            letterSpacing={-0.03}
-            height={0.25}
-            bevelSize={0.01}
-            bevelSegments={10}
-            curveSegments={128}
-            bevelThickness={0.01}
-          >
-            VRSKIC
-            <MeshTransmissionMaterial {...GLASS_TEXT} />
-          </Text3D>
-        </Center>
-      </group>
+        {/* Lights */}
+        <directionalLight
+          ref={keyRef}
+          position={[S.keyX, S.keyY, S.keyZ]}
+          intensity={S.keyIntensity}
+          castShadow
+        />
+        <pointLight
+          ref={fillRef}
+          position={[S.fillX, S.fillY, S.fillZ]}
+          intensity={S.fillIntensity}
+          color="#c8daf0"
+        />
+        <pointLight
+          ref={rimRef}
+          position={[S.rimX, S.rimY, S.rimZ]}
+          intensity={S.rimIntensity}
+          color="#e0e0ff"
+        />
 
-      {/* Grid */}
-      <Grid opSmooth={opSmooth} />
-
-      {/* Lighting */}
-      <spotLight
-        ref={keyRef}
-        position={[S.keyX, S.keyY, S.keyZ]}
-        intensity={S.keyIntensity}
-        angle={0.5}
-        penumbra={0.8}
-        color="#fff5e0"
-        castShadow
-        shadow-mapSize={[512, 512]}
-        shadow-bias={-0.0002}
-      />
-      <pointLight
-        ref={fillRef}
-        position={[S.fillX, S.fillY, S.fillZ]}
-        intensity={S.fillIntensity}
-        color="#c8daf0"
-      />
-      <pointLight
-        ref={rimRef}
-        position={[S.rimX, S.rimY, S.rimZ]}
-        intensity={S.rimIntensity}
-        color="#e0e0ff"
-      />
-
-      {/* Physics cubes */}
-      <Physics gravity={[0, L.physics.gravity, 0]} colliders={false}>
-        <RigidBody type="fixed" position={[0, -0.5, 0]} colliders={false}>
-          <CuboidCollider
-            args={[50, 0.5, 50]}
-            friction={L.physics.floorFriction}
-            restitution={0.05}
-          />
-        </RigidBody>
-
-        {cubePositions.map((pos, i) => (
-          <PhysicsCube
-            key={i}
-            position={pos}
-            opSmooth={opSmooth}
-            mouseRef={mouseRef}
-          />
+        {S.cubes.map((c, i) => (
+          <GlassCube key={i} cubeData={c} opSmooth={opSmooth} />
         ))}
-      </Physics>
-    </group>
-  );
-}
-
-// ── Main export ──
-export function SettleFloor({ themeColor }) {
-  const groupRef = useRef();
-  const { viewport } = useThree();
-  const opSmooth = useRef(0);
-  const [showDebug, setShowDebug] = useState(false);
-
-  const lockedVw = useRef(null);
-  if (viewport.width > 1 && lockedVw.current === null)
-    lockedVw.current = viewport.width;
-  const vw = lockedVw.current || viewport.width;
-
-  // Set text scale based on viewport
-  S.textScale = Math.max(1.5, vw * 0.2);
-
-  useFrame(({ camera }) => {
-    const isSettle = state.section >= N + 1;
-    const camDist = Math.abs(-camera.position.y - (L.heroH + N * L.sectionH));
-    const targetOp = isSettle ? clamp(1 - camDist / 4, 0, 1) : 0;
-    opSmooth.current += (targetOp - opSmooth.current) * 0.04;
-
-    // Toggle debug with 'D' key
-    if (!showDebug && isSettle && window.__settleDebugKey) {
-      setShowDebug(true);
-      window.__settleDebugKey = false;
-    }
-  });
-
-  // Keyboard listener for debug toggle
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === "d" && e.shiftKey) {
-        setShowDebug((v) => !v);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
-  return (
-    <>
-      <group ref={groupRef} position={[0, -(L.heroH + N * L.sectionH), -3]}>
-        <SettleScene themeColor={themeColor} opSmooth={opSmooth} />
       </group>
-      {showDebug && (
-        <Html fullscreen zIndexRange={[9999, 9999]}>
-          <SettleDebug />
-        </Html>
-      )}
-    </>
+    </group>
   );
 }

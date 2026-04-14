@@ -15,8 +15,8 @@ export default function MenuAbout() {
         <p className="menu-about__bio menu-about__bio--primary">
           Full-stack creative developer with 8+ years of experience in React,
           TypeScript, Three.js, and AI integration. Currently engineering
-          front-end solutions at The Home Depot, building features used by
-          millions of customers.
+          front-end solutions at a Fortune 50 retailer, building features used
+          by millions of customers.
         </p>
       </div>
       <div data-stg style={{ marginBottom: 28 }}>

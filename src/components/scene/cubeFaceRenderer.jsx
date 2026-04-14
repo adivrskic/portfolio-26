@@ -2,7 +2,7 @@
  * cubeFaceRenderer.js
  *
  * Factory that creates all the face/wave drawing functions for the glass cube.
- * Encapsulates sparkle state, glitch state, and the full drawing pipeline.
+ * Encapsulates sparkle state and the full drawing pipeline.
  *
  * Usage:
  *   const renderer = createCubeFaceRenderer(canvas);
@@ -13,10 +13,6 @@ export function createCubeFaceRenderer(canvas) {
   const sCtx = canvas.getContext("2d");
   const smCx = 128,
     smCy = 128;
-
-  let glitchTimer = 0;
-  let glitchOffset = 0;
-  let glitchSlice = -1;
 
   // Gold theme sparkles — pre-rendered to avoid per-frame shadowBlur
   const SPARKLE_COUNT = 24;
@@ -631,59 +627,7 @@ export function createCubeFaceRenderer(canvas) {
       sCtx.restore();
     }
 
-    // Glitch triggers
-    glitchTimer -= 1;
-    if (glitchTimer <= 0) {
-      glitchTimer =
-        dizzy > 0.3
-          ? Math.floor(2 + Math.random() * 4)
-          : Math.floor(8 + Math.random() * 20);
-      glitchOffset = (Math.random() - 0.5) * (6 + dizzy * 20);
-      glitchSlice =
-        Math.random() < 0.15 + dizzy * 0.4
-          ? Math.floor(Math.random() * 200 + 28)
-          : -1;
-    }
-
-    const glitchAmt = dizzy * 0.4 + (Math.abs(glitchOffset) > 4 ? 0.3 : 0);
-    if (glitchAmt > 0.1) {
-      const split = 2 + glitchAmt * 5;
-      sCtx.globalCompositeOperation = "lighter";
-      drawFace(-split, 0, face2Color(glitchAmt * 0.5), glitchAmt * 0.5);
-      drawFace(split, 0, faceColor(glitchAmt * 0.5), glitchAmt * 0.5);
-      sCtx.globalCompositeOperation = "source-over";
-    }
     drawFace(0, 0, faceColor(0.9), 0.75 + dizzy * 0.15);
-
-    if (glitchSlice > 0 && Math.abs(glitchOffset) > 2) {
-      const sliceH = Math.floor(8 + Math.random() * 16);
-      // Canvas self-draw — avoids getImageData GPU→CPU stall
-      sCtx.drawImage(
-        canvas,
-        0,
-        glitchSlice,
-        256,
-        sliceH,
-        glitchOffset,
-        glitchSlice,
-        256,
-        sliceH
-      );
-      // Clear the gap left behind
-      if (glitchOffset > 0)
-        sCtx.clearRect(0, glitchSlice, glitchOffset, sliceH);
-      else
-        sCtx.clearRect(256 + glitchOffset, glitchSlice, -glitchOffset, sliceH);
-    }
-    sCtx.fillStyle = "rgba(0,0,0,0.04)";
-    if (Math.random() < 0.03 + dizzy * 0.3) {
-      sCtx.fillRect(
-        0,
-        Math.random() * 256,
-        256,
-        1 + Math.random() * (dizzy * 4)
-      );
-    }
 
     // ── Gold sparkles ──
     drawGoldSparkles(time, colors);
