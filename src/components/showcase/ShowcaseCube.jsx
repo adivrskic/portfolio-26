@@ -54,7 +54,15 @@ export default function ShowcaseCube() {
         }
 
         const panels = state.panels && state.panels[projIdx];
-        // L.cube.centerX tweaks the horizontal centering (viewport-relative, flips for alternating layouts)
+
+        if (panels?.numberRightX != null) {
+          // Anchor cube to the right of the project number "01"
+          const targetX = panels.numberRightX + 0.6;
+          const targetY = sectionCenterY + (panels.numberY || vh * 0.25);
+          return { x: targetX, y: targetY, scale: 0.2 };
+        }
+
+        // Fallback if panels not ready
         const flipSign = projIdx % 2 === 1 ? -1 : 1;
         const targetX = panels
           ? panels.seamX + L.cube.centerX * vw * flipSign

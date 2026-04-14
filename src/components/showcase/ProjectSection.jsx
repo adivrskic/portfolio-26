@@ -310,8 +310,24 @@ function DesktopSection({ project, index, s, vw, vh }) {
       : -(cardW / 2 - cardPad - imgColW / 2));
   const forkY = usableH / 2 - heroH - gap / 2;
 
+  // Compute where the project number "01" sits so the cube can anchor beside it
+  const txtColLeftX = flipped
+    ? cardOffsetX - cardW / 2 + cardPad
+    : cardOffsetX - cardW / 2 + cardPad + imgColW + gap;
+  const numberLeftX = txtColLeftX + vw * 0.015; // paddingLeft
+  const numberRightX = numberLeftX + 2.8; // approximate "01" width at fontSize 2.0
+  // Y: number is near the top of the vertically-centered text column
+  const numberY = cardH * 0.28;
+
   if (!state.panels) state.panels = {};
-  state.panels[index] = { seamX: imgColCenterX, forkY, sectionY };
+  state.panels[index] = {
+    seamX: imgColCenterX,
+    forkY,
+    sectionY,
+    numberRightX,
+    numberY,
+    flipped,
+  };
 
   const D = "#1a1a2e";
   const D_TAG = "#1e1e34";
