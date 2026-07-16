@@ -849,7 +849,7 @@ export default function Scene({
       }
 
       if (showcaseTransRef.current || showcaseOpenRef.current) {
-        scZoom = Math.min(1, scZoom + dt * 0.5);
+        scZoom = Math.min(1, scZoom + dt * 1.1);
       } else if (scZoom > 0) {
         scZoom = 0;
       }

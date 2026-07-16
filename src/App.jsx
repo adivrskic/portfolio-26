@@ -14,6 +14,7 @@ import TextOverlay from "./components/text/TextOverlay";
 import MenuOverlay from "./components/menu/MenuOverlay";
 import ChatPanel from "./components/chat/ChatPanel";
 import ShowcaseHTML from "./components/showcase/ShowcaseHTML";
+import { SHOWCASE_PROJECTS } from "./components/showcase/ShowcaseProjects";
 import PrintContent from "./components/print/PrintContent";
 import "./App.css";
 
@@ -72,6 +73,25 @@ export default function App() {
 
   const handleCanvasReady = useCallback((canvas) => setGradCanvas(canvas), []);
 
+  // Warm the browser cache for showcase images once the intro has settled,
+  // so the first open shows them instantly (~770KB of webp, idle-time only)
+  useEffect(() => {
+    if (!birthComplete) return;
+    const preload = () =>
+      SHOWCASE_PROJECTS.forEach((p) =>
+        p.images.forEach((url) => {
+          const img = new Image();
+          img.src = url;
+        })
+      );
+    if ("requestIdleCallback" in window) {
+      const id = requestIdleCallback(preload, { timeout: 4000 });
+      return () => cancelIdleCallback(id);
+    }
+    const t = setTimeout(preload, 1500);
+    return () => clearTimeout(t);
+  }, [birthComplete]);
+
   const handleThemeChange = useCallback((colors, seasonId) => {
     setConfig((prev) => ({ ...prev, ...colors }));
     if (seasonId) setActiveSeason(seasonId);
@@ -101,11 +121,13 @@ export default function App() {
     setShowcaseMounted(true);
     setShowcaseTransition(true);
     if (showcaseOpenTimer.current) clearTimeout(showcaseOpenTimer.current);
+    // Long enough for the cube fly-in (~0.9s) plus a beat — the DOM showcase
+    // itself opens instantly (the old 3.2s covered a lazy R3F chunk download)
     showcaseOpenTimer.current = setTimeout(() => {
       showcaseOpenTimer.current = null;
       setShowcaseOpen(true);
       setShowcaseTransition(false);
-    }, 3200);
+    }, 1400);
   }, []);
 
   const handleCloseShowcase = useCallback(() => {
@@ -115,11 +137,11 @@ export default function App() {
       setShowcaseTransition(false);
     }
     setShowcaseOpen(false);
-    // Keep mounted for 2.5s so the checker-grid close animation can finish
+    // Keep mounted until the checker dissolve (~0.8s) finishes
     showcaseUnmountTimer.current = setTimeout(() => {
       setShowcaseMounted(false);
       showcaseUnmountTimer.current = null;
-    }, 2500);
+    }, 1200);
   }, []);
 
   const handleCubeProximity = useCallback((p) => {
@@ -188,7 +210,7 @@ export default function App() {
         <div
           style={{
             opacity: fading ? 0 : 1,
-            transition: fading ? "opacity 1.2s ease" : "none",
+            transition: fading ? "opacity 0.7s ease" : "none",
             pointerEvents: fading ? "none" : "auto",
           }}
         >

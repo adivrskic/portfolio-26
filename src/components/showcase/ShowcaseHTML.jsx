@@ -105,7 +105,13 @@ function ProjectSection({ project, index, sectionRef }) {
               <img
                 src={url}
                 alt={`${project.title} — screen ${i + 1}`}
-                loading="lazy"
+                loading={index === 0 ? "eager" : "lazy"}
+                decoding="async"
+                ref={(el) => {
+                  // Cached images can be complete before onLoad attaches
+                  if (el && el.complete && el.naturalWidth)
+                    el.classList.add("shx-img--loaded");
+                }}
                 onLoad={(e) => e.currentTarget.classList.add("shx-img--loaded")}
               />
             </div>
