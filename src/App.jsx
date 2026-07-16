@@ -46,7 +46,24 @@ export default function App() {
   const showcaseEverTriggered = useRef(false);
   const [showcaseInitSection, setShowcaseInitSection] = useState(0);
   const showcaseUnmountTimer = useRef(null);
+  const showcaseOpenTimer = useRef(null);
+  const chatUnmountTimer = useRef(null);
+  const menuShowcaseTimer = useRef(null);
   const configRef = useRef(config);
+
+  // Clear any pending transition timers if the app unmounts mid-animation
+  useEffect(() => {
+    return () => {
+      [
+        showcaseUnmountTimer,
+        showcaseOpenTimer,
+        chatUnmountTimer,
+        menuShowcaseTimer,
+      ].forEach((t) => {
+        if (t.current) clearTimeout(t.current);
+      });
+    };
+  }, []);
 
   useEffect(() => {
     configRef.current = config;
@@ -69,6 +86,12 @@ export default function App() {
 
   const handleCubeClick = useCallback(() => {
     if (!chatMode) {
+      // Cancel a pending close-unmount so reopening within 1.4s of closing
+      // doesn't unmount the freshly opened chat
+      if (chatUnmountTimer.current) {
+        clearTimeout(chatUnmountTimer.current);
+        chatUnmountTimer.current = null;
+      }
       setChatMode(true);
       setChatMounted(true);
     }
@@ -84,13 +107,20 @@ export default function App() {
     }
     setShowcaseMounted(true);
     setShowcaseTransition(true);
-    setTimeout(() => {
+    if (showcaseOpenTimer.current) clearTimeout(showcaseOpenTimer.current);
+    showcaseOpenTimer.current = setTimeout(() => {
+      showcaseOpenTimer.current = null;
       setShowcaseOpen(true);
       setShowcaseTransition(false);
     }, 3200);
   }, []);
 
   const handleCloseShowcase = useCallback(() => {
+    if (showcaseOpenTimer.current) {
+      clearTimeout(showcaseOpenTimer.current);
+      showcaseOpenTimer.current = null;
+      setShowcaseTransition(false);
+    }
     setShowcaseOpen(false);
     // Keep mounted for 2.5s so the checker-grid close animation can finish
     showcaseUnmountTimer.current = setTimeout(() => {
@@ -105,7 +135,11 @@ export default function App() {
 
   const handleCloseChat = useCallback(() => {
     setChatMode(false);
-    setTimeout(() => setChatMounted(false), 1400);
+    if (chatUnmountTimer.current) clearTimeout(chatUnmountTimer.current);
+    chatUnmountTimer.current = setTimeout(() => {
+      chatUnmountTimer.current = null;
+      setChatMounted(false);
+    }, 1400);
   }, []);
 
   const handleMenuToggle = useCallback(() => setMenuOpen((v) => !v), []);
@@ -113,7 +147,11 @@ export default function App() {
   const handleMenuShowcase = useCallback(
     (section) => {
       setMenuOpen(false);
-      setTimeout(() => handleCubeShowcase(section), 600);
+      if (menuShowcaseTimer.current) clearTimeout(menuShowcaseTimer.current);
+      menuShowcaseTimer.current = setTimeout(() => {
+        menuShowcaseTimer.current = null;
+        handleCubeShowcase(section);
+      }, 600);
     },
     [handleCubeShowcase]
   );
@@ -129,6 +167,7 @@ export default function App() {
             onClose={handleCloseShowcase}
             config={config}
             initialSection={showcaseInitSection}
+            gradientCanvas={gradCanvas}
           />
         </Suspense>
       )}

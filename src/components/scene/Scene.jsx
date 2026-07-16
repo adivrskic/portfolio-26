@@ -324,6 +324,14 @@ export default function Scene({
         showcaseTransRef.current
       )
         return;
+      // Ignore presses that land on real UI (menu button, chat, overlays) —
+      // this listener is on window, so it fires for every mousedown and would
+      // otherwise also trigger the cube when it drifts behind a button.
+      if (
+        e.target?.closest &&
+        e.target.closest("button, a, input, textarea, select, [role='dialog']")
+      )
+        return;
       if (!testCubeHit(e)) return;
       isHolding = true;
       holdFired = false;
@@ -355,7 +363,7 @@ export default function Scene({
     const onTouchDown = (e) => {
       if (e.touches.length !== 1) return;
       const t = e.touches[0];
-      onDown({ clientX: t.clientX, clientY: t.clientY });
+      onDown({ clientX: t.clientX, clientY: t.clientY, target: e.target });
     };
     const onTouchUp = () => onUp();
     window.addEventListener("touchstart", onTouchDown, { passive: true });

@@ -88,6 +88,9 @@ export default function ContactForm({ compact, textColor, inputColor }) {
 
       if (!res.ok) throw new Error("Failed to send");
 
+      // Scene.jsx listens for this to play the smiley "love" expression
+      window.dispatchEvent(new Event("contact-sent"));
+
       setSent(true);
       setTimeout(() => {
         setSent(false);
