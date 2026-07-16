@@ -58,8 +58,7 @@ export default function ContactForm({ compact, textColor, inputColor }) {
   };
 
   const CONTACT_URL =
-    import.meta.env.VITE_CONTACT_ENDPOINT ||
-    "https://xpyjqeghjxucubtaakda.supabase.co/functions/v1/contact";
+    import.meta.env.VITE_CONTACT_ENDPOINT || "/api/contact";
 
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState(null);

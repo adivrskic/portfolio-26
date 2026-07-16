@@ -276,8 +276,7 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
           try {
             const emailData = JSON.parse(emailMatch[1]);
             await fetch(
-              import.meta.env.VITE_CONTACT_ENDPOINT ||
-                "https://xpyjqeghjxucubtaakda.supabase.co/functions/v1/contact",
+              import.meta.env.VITE_CONTACT_ENDPOINT || "/api/contact",
               {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
