@@ -7,17 +7,6 @@
   left: 0;
   cursor: crosshair;
 }
-@keyframes gradShift {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
 .app-root.hide-cursor {
   cursor: crosshair;
 }
@@ -58,4 +47,16 @@ input[type="range"]::-moz-range-thumb {
 ::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.1);
   border-radius: 2px;
+}
+
+/* Motion sensitivity: stop decorative CSS animations/transitions.
+   (WebGL motion is inherent to the piece; this covers the DOM layer.) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
