@@ -12,6 +12,7 @@ import {
   HERO_H,
   SECTION_H,
 } from "./ShowcaseLayout";
+import { mixHex } from "../../utils/color";
 
 function Text(props) {
   return <DreiText font={FONT_URL} {...props} />;
@@ -88,16 +89,17 @@ function FadeIn({ children }) {
   return <group>{children}</group>;
 }
 
-// ── Solid section background ──
+// ── Frosted card over the gradient backdrop — reads like the menu/chat
+// panels' frosted glass, tying the showcase to the rest of the site ──
 function GlassCard({ w, h }) {
   return (
     <group>
       <mesh position={[0, 0, -0.5]}>
         <planeGeometry args={[w, h]} />
         <meshBasicMaterial
-          color="#e8e8ee"
-          transparent={false}
-          opacity={1}
+          color="#ffffff"
+          transparent
+          opacity={0.48}
           depthWrite={false}
         />
       </mesh>
@@ -110,11 +112,7 @@ function GlassCard({ w, h }) {
         ].map(([x, y, z, bw, bh], i) => (
           <mesh key={i} position={[x, y, z]}>
             <planeGeometry args={[bw, bh]} />
-            <meshBasicMaterial
-              color="#ffffff"
-              transparent
-              opacity={L.card.borderOpacity}
-            />
+            <meshBasicMaterial color="#ffffff" transparent opacity={0.5} />
           </mesh>
         ))}
       </group>
@@ -134,10 +132,12 @@ function MobileSection({ project, index, vw, vh }) {
   state.panels[index] = { seamX: 0, forkY: 0, sectionY };
 
   const D = "#1a1a2e";
-  const D_TAG = "#1e1e34";
   const D_BODY = "#222240";
   const D_SEC = "#333355";
-  const D_GHOST = "#c8c8d8";
+  // Per-project accent, pulled toward the base palette for contrast
+  const D_TAG = mixHex(project.accent, "#1a1a2e", 0.3);
+  const D_GHOST = mixHex(project.accent, "#ffffff", 0.62);
+  const D_LINK = mixHex(project.accent, "#1a1a2e", 0.4);
   const usableW = cardW - cardPad * 2;
   const imgH = cardH * 0.35;
   const gap = vw * 0.01;
@@ -256,7 +256,7 @@ function MobileSection({ project, index, vw, vh }) {
             <Text
               fontSize={0.09}
               letterSpacing={0.1}
-              color={D_SEC}
+              color={D_LINK}
               anchorX="left"
               anchorY="top"
               fillOpacity={1}
@@ -330,10 +330,12 @@ function DesktopSection({ project, index, s, vw, vh }) {
   };
 
   const D = "#1a1a2e";
-  const D_TAG = "#1e1e34";
   const D_BODY = "#222240";
   const D_SEC = "#333355";
-  const D_GHOST = "#c8c8d8";
+  // Per-project accent, pulled toward the base palette for contrast
+  const D_TAG = mixHex(project.accent, "#1a1a2e", 0.3);
+  const D_GHOST = mixHex(project.accent, "#ffffff", 0.62);
+  const D_LINK = mixHex(project.accent, "#1a1a2e", 0.4);
 
   return (
     <group position={[cardOffsetX, sectionY, 0]}>
@@ -490,7 +492,7 @@ function DesktopSection({ project, index, s, vw, vh }) {
               <Text
                 fontSize={0.11}
                 letterSpacing={0.1}
-                color={D_SEC}
+                color={D_LINK}
                 anchorX="left"
                 anchorY="top"
                 fillOpacity={1}

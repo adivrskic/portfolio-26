@@ -1,7 +1,8 @@
 import { SHOWCASE_PROJECTS } from "./ShowcaseProjects";
 
-export const FONT_URL =
-  "https://cdn.jsdelivr.net/npm/@fontsource/inter@5.1.1/files/inter-latin-300-normal.woff";
+// Self-hosted (public/fonts) — a CDN outage or dropped package version would
+// otherwise take out every text label in the showcase at runtime
+export const FONT_URL = "/fonts/inter-latin-300-normal.woff";
 
 export const state = {
   top: 0,

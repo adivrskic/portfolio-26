@@ -59,6 +59,19 @@ export function hexToRgba(hex) {
   return `rgba(${r},${g},${b},`;
 }
 
+/**
+ * Mix two hex colors: t=0 returns a, t=1 returns b.
+ */
+export function mixHex(a, b, t) {
+  const [ar, ag, ab] = hexRGB(a);
+  const [br, bg, bb] = hexRGB(b);
+  const c = (x, y) =>
+    Math.round(x + (y - x) * t)
+      .toString(16)
+      .padStart(2, "0");
+  return `#${c(ar, br)}${c(ag, bg)}${c(ab, bb)}`;
+}
+
 export function hexRGB(hex) {
   return [
     parseInt(hex.slice(1, 3), 16),

@@ -1,6 +1,19 @@
-import { Suspense, useRef, useState, useEffect, useCallback } from "react";
+import {
+  Suspense,
+  useRef,
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+} from "react";
 import { createPortal } from "react-dom";
-import { TextureLoader, Vector3, MathUtils as ThrMath } from "three";
+import {
+  TextureLoader,
+  Vector3,
+  MathUtils as ThrMath,
+  CanvasTexture,
+  SRGBColorSpace,
+} from "three";
 import { Canvas, useThree, useFrame, useLoader } from "@react-three/fiber";
 import { Environment, Lightformer } from "@react-three/drei";
 import {
@@ -19,14 +32,23 @@ import { SettleFloor } from "./SettleSection";
 import IntroWave from "./IntroWave";
 import { SectionProgress, SettleFooter } from "./SectionProgress";
 import { BG_HEX } from "../../constants/style";
+import { mixHex } from "../../utils/color";
 import "./Showcase.css";
 
-const IS_MOBILE =
-  typeof window !== "undefined" &&
-  ("ontouchstart" in window || window.innerWidth < 768);
+// Width-based only: touch-capable laptops should still get the desktop UI.
+// Matches the ~vw<8 breakpoint the canvas layouts use.
+const IS_MOBILE = typeof window !== "undefined" && window.innerWidth < 768;
+
+// Full-screen stills used by the checkerboard transitions
+const TRANSITION_URLS = SHOWCASE_PROJECTS.map(
+  (_, i) => `/projects/${String(i + 1).padStart(2, "0")}.jpg`
+);
 
 // ── Eagerly preload via browser — fires at import time ──
-const ALL_IMAGE_URLS = SHOWCASE_PROJECTS.flatMap((p) => p.images);
+const ALL_IMAGE_URLS = [
+  ...SHOWCASE_PROJECTS.flatMap((p) => p.images),
+  ...TRANSITION_URLS,
+];
 const preloadPromise =
   typeof document !== "undefined"
     ? Promise.all([
@@ -51,6 +73,49 @@ SHOWCASE_PROJECTS.forEach((p) => {
     } catch (e) {}
   });
 });
+
+// ── Gradient backdrop — carries the homepage's blob gradient into the
+// showcase so it reads as the same world, not a separate page. Captures the
+// live gradient canvas once per open into a tiny texture (LinearFilter
+// upscaling keeps it soft) with a light wash for text contrast. ──
+function GradientBackdrop({ gradientCanvas, bg }) {
+  const { viewport } = useThree();
+  const meshRef = useRef();
+
+  const texture = useMemo(() => {
+    if (!gradientCanvas) return null;
+    const c = document.createElement("canvas");
+    c.width = 96;
+    c.height = 60;
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, c.width, c.height);
+    try {
+      ctx.drawImage(gradientCanvas, 0, 0, c.width, c.height);
+    } catch {}
+    ctx.fillStyle = "rgba(232,232,238,0.68)";
+    ctx.fillRect(0, 0, c.width, c.height);
+    const tex = new CanvasTexture(c);
+    tex.colorSpace = SRGBColorSpace;
+    return tex;
+  }, [gradientCanvas, bg]);
+
+  useEffect(() => () => texture && texture.dispose(), [texture]);
+
+  useFrame(({ camera }) => {
+    // Slight parallax lag against the camera for depth
+    if (meshRef.current) meshRef.current.position.y = camera.position.y * 0.985;
+  });
+
+  if (!texture) return null;
+  // Plane sits at z=-30, camera at z=12 → needs viewport × (42/12) to cover
+  return (
+    <mesh ref={meshRef} position={[0, 0, -30]} renderOrder={-10}>
+      <planeGeometry args={[viewport.width * 3.8, viewport.height * 3.8]} />
+      <meshBasicMaterial map={texture} toneMapped={false} depthWrite={false} />
+    </mesh>
+  );
+}
 
 // ── Dynamic depth of field ──
 state.focusZ = 0;
@@ -199,7 +264,13 @@ export default function ShowcaseCanvas({
   onClose,
   config,
   initialSection,
+  gradientCanvas,
 }) {
+  // Theme-tinted background so the showcase inherits the active season
+  const tintedBg = useMemo(
+    () => mixHex(BG_HEX, config?.gradColor1 || "#1a1a2e", 0.08),
+    [config?.gradColor1]
+  );
   const containerRef = useRef();
   const [visible, setVisible] = useState(false);
   const [preloaded, setPreloaded] = useState(false);
@@ -239,12 +310,12 @@ export default function ShowcaseCanvas({
     const curSec = state.section;
     const imgIdx = String(curSec).padStart(2, "0");
     const imgUrl =
-      curSec >= 1 && curSec <= N ? `/projects/${imgIdx}.PNG` : null;
+      curSec >= 1 && curSec <= N ? `/projects/${imgIdx}.jpg` : null;
 
     const styleEl = document.createElement("style");
     styleEl.textContent = imgUrl
       ? `.ck-cell{background-image:url(${imgUrl});background-size:${w}px ${h}px;}`
-      : `.ck-cell{background:${BG_HEX};}`;
+      : `.ck-cell{background:${tintedBg};}`;
     document.head.appendChild(styleEl);
 
     const grid = document.createElement("div");
@@ -282,7 +353,7 @@ export default function ShowcaseCanvas({
         }
       });
     });
-  }, []);
+  }, [tintedBg]);
 
   const clearChecker = useCallback(() => {
     if (checkerGridRef.current) {
@@ -360,13 +431,13 @@ export default function ShowcaseCanvas({
     const curSec = state.section;
     const imgIdx = String(curSec).padStart(2, "0");
     const imgUrl =
-      curSec >= 1 && curSec <= N ? `/projects/${imgIdx}.PNG` : null;
+      curSec >= 1 && curSec <= N ? `/projects/${imgIdx}.jpg` : null;
 
     const styleEl = document.createElement("style");
     const cls = "sk-cell-" + Date.now();
     styleEl.textContent = imgUrl
       ? `.${cls}{background-image:url(${imgUrl});background-size:${w}px ${h}px;}`
-      : `.${cls}{background:${BG_HEX};}`;
+      : `.${cls}{background:${tintedBg};}`;
     document.head.appendChild(styleEl);
 
     const grid = document.createElement("div");
@@ -411,7 +482,7 @@ export default function ShowcaseCanvas({
         }, 1600);
       });
     });
-  }, []);
+  }, [tintedBg]);
 
   // ── Navigation helpers ──
   const goNext = useCallback(() => {
@@ -474,12 +545,14 @@ export default function ShowcaseCanvas({
     [goNext, goPrev]
   );
 
-  if (!preloaded && visible) return <IntroWave config={config} />;
-
   const isShown = visible && preloaded;
 
   return (
-    <div
+    <>
+      {/* Loading overlay while assets preload — Canvas stays mounted so the
+          scene keeps compiling behind it instead of remounting from scratch */}
+      {visible && !preloaded && <IntroWave config={config} />}
+      <div
       ref={containerRef}
       onWheel={isShown ? onWheel : undefined}
       onTouchStart={isShown ? onTouchStart : undefined}
@@ -488,7 +561,7 @@ export default function ShowcaseCanvas({
         isShown ? "showcase--visible" : "showcase--hidden"
       }`}
       style={{
-        "--showcase-bg": BG_HEX,
+        "--showcase-bg": tintedBg,
         "--gc1": config?.gradColor1 || "#1a1a2e",
         "--gc2": config?.gradColor2 || "#2a2a4e",
         "--gc3": config?.gradColor3 || "#3a3a6e",
@@ -499,16 +572,15 @@ export default function ShowcaseCanvas({
         shadows
         dpr={[1, IS_MOBILE ? 1 : 1.5]}
         frameloop={isShown ? "always" : "demand"}
-        raycaster={{}}
         camera={{ position: [0, 0, 12], fov: 45, far: 200, near: 0.1 }}
         gl={{
           powerPreference: "high-performance",
           alpha: false,
           antialias: false,
-          preserveDrawingBuffer: true,
         }}
-        onCreated={({ gl }) => gl.setClearColor(BG_HEX)}
       >
+        <color attach="background" args={[tintedBg]} />
+        <GradientBackdrop gradientCanvas={gradientCanvas} bg={tintedBg} />
         <ambientLight intensity={L.light.ambientIntensity} />
         <directionalLight
           position={[L.light.dirX, L.light.dirY, L.light.dirZ]}
@@ -675,6 +747,7 @@ export default function ShowcaseCanvas({
         </div>
       </div>
     </div>
+    </>
   );
 }
 
