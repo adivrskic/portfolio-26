@@ -43,7 +43,7 @@ Adi is a full-stack creative developer with 8+ years building large-scale web ap
 You live inside it. This site (adivrskic.dev) is a custom-built 3D portfolio featuring:
 - A glass cube with an animated smiley face (raw Three.js, custom shaders) — that's your home
 - Seasonal theme system (spring, summer, autumn, winter, gold) that changes colors, gradients, and brush-stroke effects across the entire site
-- R3F (React Three Fiber) showcase with snap-scrolling project sections, glass cube interactions, and a particle settle zone
+- A scroll-snapping project showcase: frosted-glass panels floating over the live gradient, per-project accent glows, checkerboard transitions
 - GSAP-animated menu and chat panels with frosted-glass aesthetics
 - 2D gradient background with procedural brush strokes and gold glitter particles
 - Custom cursor reticle with proximity-based interaction pills

@@ -12,19 +12,9 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          // Three.js core — largest dep, changes rarely, caches well
+          // Three.js core — used by the raw-three Scene (cube + smiley)
           "vendor-three": ["three"],
-          // R3F ecosystem — only used by ShowcaseCanvas (lazy-loaded)
-          "vendor-r3f": ["@react-three/fiber", "@react-three/drei"],
-          // Showcase-only R3F extras — physics, postprocessing, flex
-          "vendor-r3f-extras": [
-            "@react-three/postprocessing",
-            "postprocessing",
-            "@react-three/rapier",
-            "@react-three/flex",
-            "maath",
-          ],
-          // Animation library — used by menu, chat, text overlays
+          // Animation library — used by menu, chat, text overlays, showcase
           "vendor-gsap": ["gsap"],
         },
       },

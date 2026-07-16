@@ -7,13 +7,13 @@ import {
   Suspense,
 } from "react";
 import { DEFAULTS, getCurrentSeason } from "./config/defaults";
-// import { useIsMobile } from "./hooks/useIsMobile"; // uncomment when ShowcaseHTML exists
 import GradientBackground from "./components/gradient/GradientBackground";
 import Scene from "./components/scene/Scene";
 import Reticle from "./components/reticle/Reticle";
 import TextOverlay from "./components/text/TextOverlay";
 import MenuOverlay from "./components/menu/MenuOverlay";
 import ChatPanel from "./components/chat/ChatPanel";
+import ShowcaseHTML from "./components/showcase/ShowcaseHTML";
 import PrintContent from "./components/print/PrintContent";
 import "./App.css";
 
@@ -21,13 +21,6 @@ import "./App.css";
 const DebugPanel = import.meta.env.DEV
   ? lazy(() => import("./components/debug/DebugPanel"))
   : null;
-
-// Lazy-loaded: defers entire R3F ecosystem (fiber, drei, postprocessing,
-// rapier, flex) until the user triggers the showcase via cube hold.
-// The 3.2s transition animation gives ample time for the chunk to load.
-const ShowcaseCanvas = lazy(() =>
-  import("./components/showcase/ShowcaseCanvas")
-);
 
 export default function App() {
   // const isMobile = useIsMobile(768); // uncomment when ShowcaseHTML exists
@@ -161,15 +154,12 @@ export default function App() {
   return (
     <div className={`app-root${chatMode ? "" : " hide-cursor"}`}>
       {showcaseMounted && (
-        <Suspense fallback={null}>
-          <ShowcaseCanvas
-            open={showcaseOpen}
-            onClose={handleCloseShowcase}
-            config={config}
-            initialSection={showcaseInitSection}
-            gradientCanvas={gradCanvas}
-          />
-        </Suspense>
+        <ShowcaseHTML
+          open={showcaseOpen}
+          onClose={handleCloseShowcase}
+          config={config}
+          initialSection={showcaseInitSection}
+        />
       )}
 
       <div
@@ -180,6 +170,21 @@ export default function App() {
           pointerEvents: fading ? "none" : "auto",
         }}
       >
+        {/* Gradient + reticle stay live behind the showcase's frosted glass */}
+        <GradientBackground
+          config={config}
+          onCanvasReady={handleCanvasReady}
+          active={birthComplete}
+        />
+        <Reticle
+          proximityRef={cubeProximityRef}
+          chatMode={chatMode}
+          menuOpen={menuOpen}
+          config={config}
+          gradientCanvas={gradCanvas}
+          scrollProgress={0}
+          showcaseTriggered={showcaseEverTriggered.current}
+        />
         <div
           style={{
             opacity: fading ? 0 : 1,
@@ -187,11 +192,6 @@ export default function App() {
             pointerEvents: fading ? "none" : "auto",
           }}
         >
-          <GradientBackground
-            config={config}
-            onCanvasReady={handleCanvasReady}
-            active={birthComplete}
-          />
           {!chatMode && (
             <TextOverlay
               config={config}
@@ -202,15 +202,6 @@ export default function App() {
               onMenuToggle={handleMenuToggle}
             />
           )}
-          <Reticle
-            proximityRef={cubeProximityRef}
-            chatMode={chatMode}
-            menuOpen={menuOpen}
-            config={config}
-            gradientCanvas={gradCanvas}
-            scrollProgress={0}
-            showcaseTriggered={showcaseEverTriggered.current}
-          />
           {chatMounted && (
             <ChatPanel
               open={chatMode}

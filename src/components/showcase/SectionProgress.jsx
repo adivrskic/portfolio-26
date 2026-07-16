@@ -1,36 +1,7 @@
 import { useRef, useEffect } from "react";
 import { Mail, X } from "lucide-react";
-import { state } from "./ShowcaseLayout";
-import "./Showcase.css";
-
-export function SettleFooter({ onClose, onContact, totalSections }) {
-  const ref = useRef();
-
-  useEffect(() => {
-    function update(sec) {
-      if (!ref.current) return;
-      const atEnd = sec >= totalSections - 1;
-      ref.current.style.opacity = atEnd ? "1" : "0";
-      ref.current.style.transform = `translateX(-50%) translateY(${
-        atEnd ? "0" : "8px"
-      })`;
-      ref.current.style.pointerEvents = atEnd ? "auto" : "none";
-    }
-    update(state.section);
-    return state.subscribe(update);
-  }, [totalSections]);
-
-  return (
-    <div ref={ref} className="sc-footer">
-      <button className="sc-footer__link sc-label" onClick={onContact}>
-        Contact
-      </button>
-      <button className="sc-footer__link sc-label" onClick={onClose}>
-        Exit
-      </button>
-    </div>
-  );
-}
+import { state } from "./showcaseState";
+import "./ShowcaseHTML.css";
 
 export function SectionProgress({
   totalSections,
