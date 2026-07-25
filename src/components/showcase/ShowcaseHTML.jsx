@@ -390,7 +390,7 @@ export default function ShowcaseHTML({ open, onClose, config, initialSection }) 
       {/* Desktop progress rail (hidden on mobile via CSS) */}
       <SectionProgress
         totalSections={TOTAL_SECTIONS}
-        themeColor={c.gradColor1}
+        themeColors={[c.gradColor1, c.gradColor2, c.gradColor3, c.gradColor4]}
         onClose={handleClose}
         onJump={jumpTo}
       />

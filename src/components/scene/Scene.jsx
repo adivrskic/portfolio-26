@@ -243,9 +243,14 @@ export default function Scene({
       startled: 0,
       shy: 0,
       phew: 0,
+      excited: 0,
+      grumpy: 0,
     };
     let prevMx = 0,
-      prevMy = 0;
+      prevMy = 0,
+      prevDriftX = 0,
+      prevDriftY = 0,
+      prevMouthVar = 0;
     const { drawCubeFace } = createCubeFaceRenderer(smileyCanvas);
     const exprTriggerState = createExpressionState();
     exprTriggerState.prevSeason = activeSeasonRef.current;
@@ -333,6 +338,13 @@ export default function Scene({
       )
         return;
       if (!testCubeHit(e)) return;
+      // Click burst on the cube → excited (3 quick taps)
+      const nowT = performance.now();
+      exprTriggerState.clickTimes = (exprTriggerState.clickTimes || []).filter(
+        (t) => nowT - t < 1500
+      );
+      exprTriggerState.clickTimes.push(nowT);
+      if (exprTriggerState.clickTimes.length >= 3) expr.excited = 1;
       isHolding = true;
       holdFired = false;
       holdStartTime = performance.now();
@@ -744,6 +756,8 @@ export default function Scene({
           now: now,
           lookX: safeMx,
           lookY: safeMy,
+          mouseSpeed: validMouse ? Math.sqrt(mdx * mdx + mdy * mdy) : 0,
+          dizzy: dizzySmooth,
         }
       );
       const smoothMx = exprTriggerState.smoothLookX;
@@ -807,7 +821,9 @@ export default function Scene({
         expr.proud > 0.01 ||
         expr.startled > 0.01 ||
         expr.shy > 0.01 ||
-        expr.phew > 0.01;
+        expr.phew > 0.01 ||
+        expr.excited > 0.01 ||
+        expr.grumpy > 0.01;
       const smileyDirty =
         dizzySmooth > 0.01 ||
         happySmooth > 0.01 ||
@@ -819,9 +835,19 @@ export default function Scene({
         scZoom > 0.01 ||
         goldNeedsRedraw ||
         Math.abs(smoothMx - (prevMx || 0)) > 0.01 ||
-        Math.abs(smoothMy - (prevMy || 0)) > 0.01;
+        Math.abs(smoothMy - (prevMy || 0)) > 0.01 ||
+        // Idle micro-expressions (eye drift, mouth variation) — without
+        // these the idle life never actually redrew
+        Math.abs((expr._driftX || 0) - prevDriftX) > 0.04 ||
+        Math.abs((expr._driftY || 0) - prevDriftY) > 0.04 ||
+        Math.abs((expr._mouthVar || 0) - prevMouthVar) > 0.015;
       prevMx = smoothMx;
       prevMy = smoothMy;
+      if (smileyDirty) {
+        prevDriftX = expr._driftX || 0;
+        prevDriftY = expr._driftY || 0;
+        prevMouthVar = expr._mouthVar || 0;
+      }
 
       if (smileyDirty) {
         drawCubeFace(

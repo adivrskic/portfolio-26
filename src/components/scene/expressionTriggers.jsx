@@ -12,7 +12,9 @@ export const EXPR_WEIGHTS = {
   love: 10,
   startled: 9,
   shy: 8,
+  excited: 7.5,
   cheeky: 7,
+  grumpy: 6.5,
   proud: 6,
   wink: 5,
   phew: 4,
@@ -28,6 +30,8 @@ export function createExpressionState() {
     lastScrollDir: 0,
     scrollDirResetTimer: 0,
     prevSeason: null,
+    prevDizzy: 0,
+    fastMouseTime: 0,
     prevShowcaseOpen: false,
     lastExpressionTime: 0,
     // #J — Idle micro-expression state
@@ -53,6 +57,8 @@ export function updateExpressions(expr, ts, ctx) {
     now,
     lookX,
     lookY,
+    mouseSpeed,
+    dizzy,
   } = ctx;
 
   const DECAY = dt * 0.5;
@@ -89,12 +95,30 @@ export function updateExpressions(expr, ts, ctx) {
     expr.startled = Math.max(0, expr.startled - dt * 0.8);
   }
 
-  // ── Wink: theme changes to gold ──
+  // ── Wink: any theme change (gold-only made it nearly unseeable) ──
   if (activeSeason !== ts.prevSeason) {
-    if (activeSeason === "gold") expr.wink = 1;
+    if (ts.prevSeason !== null) expr.wink = 1;
     ts.prevSeason = activeSeason;
   }
   expr.wink = Math.max(0, expr.wink - dt * 0.4);
+
+  // ── Excited: cursor whipping across the cube (clicks handled in onDown) ──
+  if ((mouseSpeed || 0) > 0.055 && cubeProx > 0.35 && !chatMode) {
+    ts.fastMouseTime += dt;
+    if (ts.fastMouseTime > 0.25) {
+      expr.excited = Math.min(1, expr.excited + dt * 5);
+    }
+  } else {
+    ts.fastMouseTime = Math.max(0, ts.fastMouseTime - dt * 2);
+  }
+  expr.excited = Math.max(0, expr.excited - dt * 0.7);
+
+  // ── Grumpy: they spun me until I was dizzy — brief annoyance after ──
+  if (ts.prevDizzy > 0.6 && (dizzy || 0) < 0.15) {
+    expr.grumpy = 1;
+  }
+  ts.prevDizzy = dizzy || 0;
+  expr.grumpy = Math.max(0, expr.grumpy - dt * 0.45);
 
   // ── Cheeky: rapid angular velocity direction changes ──
   const curDir = angVelY > 0.04 ? 1 : angVelY < -0.04 ? -1 : 0;

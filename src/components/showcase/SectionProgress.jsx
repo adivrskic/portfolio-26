@@ -1,11 +1,29 @@
 import { useRef, useEffect } from "react";
 import { Mail, X } from "lucide-react";
 import { state } from "./showcaseState";
+import { hexRGB } from "../../utils/color";
 import "./ShowcaseHTML.css";
+
+// Sample a multi-stop hex gradient at t ∈ [0,1] → "r,g,b"
+function sampleGradient(stops, t) {
+  const n = stops.length - 1;
+  if (n < 1) {
+    const [r, g, b] = hexRGB(stops[0] || "#1a1a2e");
+    return `${r},${g},${b}`;
+  }
+  const pos = Math.min(0.9999, Math.max(0, t)) * n;
+  const i = Math.floor(pos);
+  const f = pos - i;
+  const [r1, g1, b1] = hexRGB(stops[i]);
+  const [r2, g2, b2] = hexRGB(stops[i + 1]);
+  return `${Math.round(r1 + (r2 - r1) * f)},${Math.round(
+    g1 + (g2 - g1) * f
+  )},${Math.round(b1 + (b2 - b1) * f)}`;
+}
 
 export function SectionProgress({
   totalSections,
-  themeColor,
+  themeColors,
   onClose,
   onJump,
 }) {
@@ -25,15 +43,18 @@ export function SectionProgress({
   const settleIdx = totalSections - 1;
 
   useEffect(() => {
+    // Per-tick colors: the theme's gradient runs down the whole rail
+    const stops =
+      themeColors && themeColors.filter(Boolean).length > 1
+        ? themeColors.filter(Boolean)
+        : ["#1a1a2e", "#1a1a2e"];
+    const tickRgb = Array.from({ length: TOTAL_TICKS }, (_, i) =>
+      sampleGradient(stops, i / (TOTAL_TICKS - 1))
+    );
+
     function update(sec) {
       const center = sec * TICKS_PER + TICKS_PER / 2;
       const sigma = TICKS_PER * 1.4;
-
-      const hex = themeColor || "#1a1a2e";
-      const r = parseInt(hex.slice(1, 3), 16);
-      const g = parseInt(hex.slice(3, 5), 16);
-      const b = parseInt(hex.slice(5, 7), 16);
-      const themeRgb = `${r},${g},${b}`;
 
       for (let i = 0; i < TOTAL_TICKS; i++) {
         const el = ticksRef.current[i];
@@ -43,7 +64,7 @@ export function SectionProgress({
         el.style.width = BASE_W + (MAX_W - BASE_W) * gauss + "px";
         el.style.opacity = 0.06 + 0.5 * gauss;
         el.style.backgroundColor =
-          gauss > 0.15 ? `rgba(${themeRgb},1)` : "rgba(26,26,46,1)";
+          gauss > 0.15 ? `rgba(${tickRgb[i]},1)` : "rgba(26,26,46,1)";
       }
       for (let p = 0; p < projectCount; p++) {
         const el = numRefs.current[p];
@@ -59,7 +80,8 @@ export function SectionProgress({
     }
     update(state.section);
     return state.subscribe(update);
-  }, [totalSections, themeColor, projectCount]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalSections, projectCount, (themeColors || []).join("|")]);
 
   return (
     <div className="sc-progress" style={{ height: totalH }}>

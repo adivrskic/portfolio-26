@@ -11,6 +11,7 @@ export default function Reticle({
   proximityRef,
   chatMode,
   menuOpen,
+  showcaseOpen,
   config: c,
   gradientCanvas,
   scrollProgress,
@@ -61,7 +62,8 @@ export default function Reticle({
         const baseSize = 24;
         const grow = p * 8;
         const size = baseSize + grow;
-        const opacity = 0.25 + p * 0.35;
+        // Solidly visible over the showcase's frosted glass, subtle otherwise
+        const opacity = showcaseOpen ? 0.6 : 0.25 + p * 0.35;
         ref.current.style.width = size + "px";
         ref.current.style.height = size + "px";
         ref.current.style.margin = -size / 2 + "px 0 0 " + -size / 2 + "px";
@@ -174,7 +176,7 @@ export default function Reticle({
       cancelAnimationFrame(raf);
       window.removeEventListener("mousemove", onMove);
     };
-  }, [chatMode, menuOpen, c.reticleSmoothing]);
+  }, [chatMode, menuOpen, showcaseOpen, c.reticleSmoothing]);
 
   const lc = c.pillLineColor || "rgba(18,18,40,0.45)";
   const lw = c.pillLineWidth || 0.8;

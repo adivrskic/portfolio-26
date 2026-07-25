@@ -114,8 +114,9 @@ export function createCubeFaceRenderer(canvas) {
     blink,
     ex
   ) {
-    const lx = (lookX || 0) * 12;
-    const ly = (lookY || 0) * -8;
+    // Stronger cursor tracking — the face visibly follows the pointer
+    const lx = (lookX || 0) * 16;
+    const ly = (lookY || 0) * -11;
     const sp = surprise || 0;
     const sl = sleep || 0;
     const hp = happy || 0;
@@ -174,12 +175,14 @@ export function createCubeFaceRenderer(canvas) {
 
       const eyeR_size = 8 + sp * 4;
 
-      // #G — Weighted expression priority
+      // #G — Weighted expression priority (keep in sync with EXPR_WEIGHTS)
       const WEIGHTS = {
         love: 10,
         startled: 9,
         shy: 8,
+        excited: 7.5,
         cheeky: 7,
+        grumpy: 6.5,
         proud: 6,
         wink: 5,
         phew: 4,
@@ -205,19 +208,46 @@ export function createCubeFaceRenderer(canvas) {
       const dY = X._driftY || 0;
       const mVar = X._mouthVar || 0;
 
-      // ── Helper: draw default eyes ──
+      // ── Helper: draw default eyes (iris + tracking highlight) ──
       function defaultEyes(eAlpha) {
         if (eAlpha < 0.01) return;
         sCtx.save();
         sCtx.globalAlpha = a2 * eAlpha;
         sCtx.fillStyle = tint;
-        sCtx.beginPath();
-        sCtx.arc(eyeL.x + ox + dX, eyeL.y + oy + dY, eyeR_size, 0, Math.PI * 2);
-        sCtx.fill();
-        sCtx.beginPath();
-        sCtx.arc(eyeR.x + ox + dX, eyeR.y + oy + dY, eyeR_size, 0, Math.PI * 2);
-        sCtx.fill();
+        [eyeL, eyeR].forEach((eye) => {
+          sCtx.beginPath();
+          sCtx.arc(eye.x + ox + dX, eye.y + oy + dY, eyeR_size, 0, Math.PI * 2);
+          sCtx.fill();
+        });
+        // Specular highlight that slides with the look direction
+        sCtx.fillStyle = "rgba(255,255,255,0.85)";
+        [eyeL, eyeR].forEach((eye) => {
+          sCtx.beginPath();
+          sCtx.arc(
+            eye.x + ox + dX - eyeR_size * 0.3 + lx * 0.12,
+            eye.y + oy + dY - eyeR_size * 0.35 + ly * 0.12,
+            eyeR_size * 0.3,
+            0,
+            Math.PI * 2
+          );
+          sCtx.fill();
+        });
         sCtx.restore();
+      }
+
+      // ── Helper: 4-point star (excited eyes) ──
+      function starPath(cx2, cy2, size, rot) {
+        sCtx.beginPath();
+        for (let p = 0; p < 4; p++) {
+          const a = (p / 4) * Math.PI * 2 + rot;
+          const a2r = a + Math.PI / 4;
+          sCtx.lineTo(cx2 + Math.cos(a) * size, cy2 + Math.sin(a) * size);
+          sCtx.lineTo(
+            cx2 + Math.cos(a2r) * size * 0.38,
+            cy2 + Math.sin(a2r) * size * 0.38
+          );
+        }
+        sCtx.closePath();
       }
 
       // ── Helper: draw default mouth ──
@@ -476,6 +506,53 @@ export function createCubeFaceRenderer(canvas) {
             sCtx.moveTo(eyeL.x + ox - 9, eyeL.y + oy - 14);
             sCtx.lineTo(eyeL.x + ox + 9, eyeL.y + oy - 14);
             sCtx.stroke();
+          } else if (domName === "excited") {
+            // Star eyes + tiny orbiting sparkles at the temples
+            sCtx.fillStyle = tint;
+            [eyeL, eyeR].forEach((eye, ei) => {
+              starPath(
+                eye.x + ox,
+                eye.y + oy,
+                10,
+                time * 1.5 + ei * 0.6
+              );
+              sCtx.fill();
+            });
+            sCtx.strokeStyle = tint;
+            sCtx.lineWidth = 1.5;
+            [
+              [eyeL.x + ox - 16, eyeL.y + oy - 12],
+              [eyeR.x + ox + 16, eyeR.y + oy - 12],
+            ].forEach(([skx, sky], si) => {
+              for (let i = 0; i < 4; i++) {
+                const a = (i / 4) * Math.PI * 2 + time * 3 + si;
+                sCtx.beginPath();
+                sCtx.moveTo(skx + Math.cos(a) * 1.5, sky + Math.sin(a) * 1.5);
+                sCtx.lineTo(skx + Math.cos(a) * 4.5, sky + Math.sin(a) * 4.5);
+                sCtx.stroke();
+              }
+            });
+          } else if (domName === "grumpy") {
+            // Half-lidded eyes with angled brows
+            sCtx.strokeStyle = tint;
+            sCtx.lineWidth = 3;
+            sCtx.lineCap = "round";
+            [eyeL, eyeR].forEach((eye, ei) => {
+              const dir = ei === 0 ? 1 : -1; // brows angle in toward center
+              sCtx.beginPath();
+              sCtx.arc(
+                eye.x + ox,
+                eye.y + oy + 3,
+                7,
+                0.05 * Math.PI,
+                0.95 * Math.PI
+              );
+              sCtx.stroke();
+              sCtx.beginPath();
+              sCtx.moveTo(eye.x + ox - 9 * dir, eye.y + oy - 15);
+              sCtx.lineTo(eye.x + ox + 8 * dir, eye.y + oy - 10);
+              sCtx.stroke();
+            });
           } else if (domName === "phew") {
             sCtx.strokeStyle = tint;
             sCtx.lineWidth = 3;
@@ -608,6 +685,27 @@ export function createCubeFaceRenderer(canvas) {
               fy + 4 + oy,
               fx + ox + 14,
               fy + 2 + oy
+            );
+          } else if (domName === "excited") {
+            // Big open grin
+            sCtx.lineWidth = 4;
+            sCtx.arc(fx + ox, fy - 4 + oy, 30, 0.18 * Math.PI, 0.82 * Math.PI);
+            sCtx.stroke();
+            sCtx.beginPath();
+            sCtx.fillStyle = tint;
+            sCtx.globalAlpha = a2 * blend * 0.3;
+            sCtx.ellipse(fx + ox, fy + 20 + oy, 14, 9, 0, 0, Math.PI);
+            sCtx.fill();
+            sCtx.beginPath();
+          } else if (domName === "grumpy") {
+            // Flat, unimpressed line with a slight downturn
+            sCtx.lineWidth = 3;
+            sCtx.moveTo(fx + ox - 16, fy + 12 + oy);
+            sCtx.quadraticCurveTo(
+              fx + ox,
+              fy + 16 + oy,
+              fx + ox + 16,
+              fy + 14 + oy
             );
           } else if (domName === "phew") {
             sCtx.lineWidth = 3;

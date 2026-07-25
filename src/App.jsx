@@ -192,20 +192,11 @@ export default function App() {
           pointerEvents: fading ? "none" : "auto",
         }}
       >
-        {/* Gradient + reticle stay live behind the showcase's frosted glass */}
+        {/* Gradient stays live behind the showcase's frosted glass */}
         <GradientBackground
           config={config}
           onCanvasReady={handleCanvasReady}
           active={birthComplete}
-        />
-        <Reticle
-          proximityRef={cubeProximityRef}
-          chatMode={chatMode}
-          menuOpen={menuOpen}
-          config={config}
-          gradientCanvas={gradCanvas}
-          scrollProgress={0}
-          showcaseTriggered={showcaseEverTriggered.current}
         />
         <div
           style={{
@@ -254,6 +245,19 @@ export default function App() {
         onThemeChange={handleThemeChange}
         activeSeason={activeSeason}
         onShowcase={handleMenuShowcase}
+      />
+
+      {/* Custom cursor — top-level sibling so its z-index wins over the
+          showcase overlay (inside the z-2 wrapper it was buried under it) */}
+      <Reticle
+        proximityRef={cubeProximityRef}
+        chatMode={chatMode}
+        menuOpen={menuOpen}
+        showcaseOpen={showcaseOpen}
+        config={config}
+        gradientCanvas={gradCanvas}
+        scrollProgress={0}
+        showcaseTriggered={showcaseEverTriggered.current}
       />
       {/* {DebugPanel && (
         <Suspense fallback={null}>
