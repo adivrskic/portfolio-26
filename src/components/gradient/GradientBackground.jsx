@@ -1,10 +1,13 @@
 import { useEffect, useRef } from "react";
 import { hslToRgb, hexToHsl } from "../../utils/color";
 import { rand } from "../../utils/math";
+import { IS_LOW_POWER, NEEDS_TOUCH_FALLBACK } from "../../utils/device";
 
-const IS_MOBILE =
-  typeof window !== "undefined" &&
-  ("ontouchstart" in window || window.innerWidth < 768);
+// Effect budget (blob count, glitter) keys off raw power…
+const IS_MOBILE = IS_LOW_POWER;
+// …but the reveal brush keys off whether a real cursor exists, so a
+// touchscreen laptop with a mouse still gets to paint.
+const NO_CURSOR = NEEDS_TOUCH_FALLBACK;
 
 export default function GradientBackground({
   config: c,
@@ -58,6 +61,36 @@ export default function GradientBackground({
     const dpr = 1;
     let W, H;
 
+    // Touch devices have no cursor to brush the reveal mask open, and the
+    // mask is applied with destination-in — without this the whole gradient
+    // would be erased every frame and the site would render flat grey.
+    // Paint a soft, organic full-coverage reveal once instead; the blobs
+    // underneath still animate, so it stays alive at zero per-frame cost.
+    function paintAmbientMask() {
+      mCtx.clearRect(0, 0, W, H);
+      mCtx.fillStyle = "rgba(255,255,255,0.86)";
+      mCtx.fillRect(0, 0, W, H);
+      const dim = Math.max(W, H);
+      const spots = [
+        [0.28, 0.24, 0.5],
+        [0.74, 0.44, 0.55],
+        [0.44, 0.82, 0.48],
+      ];
+      for (const [fx, fy, fr] of spots) {
+        const x = W * fx;
+        const y = H * fy;
+        const r = dim * fr;
+        const g = mCtx.createRadialGradient(x, y, 0, x, y, r);
+        g.addColorStop(0, "rgba(255,255,255,0.14)");
+        g.addColorStop(0.6, "rgba(255,255,255,0.06)");
+        g.addColorStop(1, "rgba(255,255,255,0)");
+        mCtx.fillStyle = g;
+        mCtx.beginPath();
+        mCtx.arc(x, y, r, 0, Math.PI * 2);
+        mCtx.fill();
+      }
+    }
+
     function resize() {
       W = window.innerWidth;
       H = window.innerHeight;
@@ -70,6 +103,8 @@ export default function GradientBackground({
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       mCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
       tCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      // Canvas resize clears the mask — repaint it
+      if (NO_CURSOR) paintAmbientMask();
     }
     resize();
     window.addEventListener("resize", resize);
@@ -382,35 +417,40 @@ export default function GradientBackground({
       const cursorActive = smooth.x > 0 && smooth.y > 0;
 
       // ── Mask decay — accelerates to full fade after idle period ──
-      const idleMs = performance.now() - lastBrushTime;
-      const idleThreshold = 8000; // start fading after 8s idle
-      const idleRamp = 4000; // ramp to full fade over 4s
-      let decayRate = (cc.brushFade || 0.018) * 0.5;
-      if (lastBrushTime > 0 && idleMs > idleThreshold) {
-        const ramp = Math.min(1, (idleMs - idleThreshold) / idleRamp);
-        decayRate = decayRate + ramp * 0.06; // dramatically increase fade
+      // Skipped on touch: the mask is a static ambient reveal there, and
+      // decaying it would fade the whole background back out. Also saves
+      // two fullscreen drawImage passes per frame.
+      if (!NO_CURSOR) {
+        const idleMs = performance.now() - lastBrushTime;
+        const idleThreshold = 8000; // start fading after 8s idle
+        const idleRamp = 4000; // ramp to full fade over 4s
+        let decayRate = (cc.brushFade || 0.018) * 0.5;
+        if (lastBrushTime > 0 && idleMs > idleThreshold) {
+          const ramp = Math.min(1, (idleMs - idleThreshold) / idleRamp);
+          decayRate = decayRate + ramp * 0.06; // dramatically increase fade
+        }
+        const decay = 1 - decayRate;
+        tCtx.clearRect(0, 0, W, H);
+        tCtx.globalAlpha = decay;
+        tCtx.drawImage(mask, 0, 0, mask.width, mask.height, 0, 0, W, H);
+        tCtx.globalAlpha = 1;
+        mCtx.clearRect(0, 0, W, H);
+        const expand = cc.brushMaskExpand || 1.002;
+        mCtx.drawImage(
+          tmp,
+          0,
+          0,
+          tmp.width,
+          tmp.height,
+          (-W * (expand - 1)) / 2,
+          (-H * (expand - 1)) / 2,
+          W * expand,
+          H * expand
+        );
       }
-      const decay = 1 - decayRate;
-      tCtx.clearRect(0, 0, W, H);
-      tCtx.globalAlpha = decay;
-      tCtx.drawImage(mask, 0, 0, mask.width, mask.height, 0, 0, W, H);
-      tCtx.globalAlpha = 1;
-      mCtx.clearRect(0, 0, W, H);
-      const expand = cc.brushMaskExpand || 1.002;
-      mCtx.drawImage(
-        tmp,
-        0,
-        0,
-        tmp.width,
-        tmp.height,
-        (-W * (expand - 1)) / 2,
-        (-H * (expand - 1)) / 2,
-        W * expand,
-        H * expand
-      );
 
-      // ── Brush stamps (desktop only — no brush on touch devices) ──
-      if (!IS_MOBILE && activeRef.current && mouse.x > 0 && mouse.y > 0) {
+      // ── Brush stamps (cursor devices only; touch uses the ambient mask) ──
+      if (!NO_CURSOR && activeRef.current && mouse.x > 0 && mouse.y > 0) {
         const dx = smooth.x - prevX,
           dy = smooth.y - prevY;
         const dist = Math.sqrt(dx * dx + dy * dy);

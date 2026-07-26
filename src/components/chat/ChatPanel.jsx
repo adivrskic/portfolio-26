@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useIsMobile } from "../../hooks/useIsMobile";
+import { IS_TOUCH } from "../../utils/device";
 import gsap from "gsap";
 import { X } from "lucide-react";
 import { SEASON_META } from "../../constants/themes";
@@ -151,7 +152,10 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
             { scale: 1, opacity: 1, duration: 0.35, ease: "back.out(2)" },
             0.08
           );
-        tl.call(() => inputRef.current?.focus(), [], 0.4);
+        // Don't autofocus on touch: iOS ignores a non-gesture focus() for
+        // keyboard purposes, leaving a caret with no keyboard, and an
+        // unrequested keyboard would cover the conversation anyway.
+        if (!IS_TOUCH) tl.call(() => inputRef.current?.focus(), [], 0.4);
       }, 450);
     } else {
       const tl = gsap.timeline();

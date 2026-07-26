@@ -224,3 +224,48 @@
   margin-top: 8px;
   font-size: 9px;
 }
+
+/* ── MOBILE ──
+   This file previously had no media queries at all: the intended mobile
+   overrides lived in MenuOverlay.css but targeted class names that no longer
+   exist in any JSX (.menu-heading, .menu-body, .menu-right-inner…), so they
+   never applied. These are the real ones. */
+@media (max-width: 768px) {
+  .menu-about__headline {
+    font-size: 26px;
+    line-height: 1.2;
+  }
+  .menu-about__bio {
+    font-size: 13.5px;
+    line-height: 1.75;
+  }
+  .menu-about__specs {
+    gap: 6px;
+  }
+  .menu-about__spec {
+    font-size: 10px;
+    padding: 6px 12px;
+  }
+
+  /* Touch targets: links and cards to 44px */
+  .menu-work__visit {
+    font-size: 10px;
+    padding: 12px 14px;
+    min-height: 44px;
+    box-sizing: border-box;
+  }
+  .menu-work__visit--sm {
+    font-size: 10px;
+    padding: 11px 13px;
+    min-height: 44px;
+  }
+  .menu-contact__social {
+    padding: 12px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .menu-contact__socials {
+    gap: 12px;
+    margin-top: 24px;
+  }
+}

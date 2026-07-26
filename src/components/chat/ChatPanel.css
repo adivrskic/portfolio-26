@@ -155,7 +155,8 @@
 }
 .chat-panel__scroll--mobile {
   padding: 16px 16px;
-  padding-top: 25%;
+  /* 25% of a fullscreen panel wasted ~200px of a phone screen */
+  padding-top: calc(56px + env(safe-area-inset-top, 0px));
 }
 
 .chat-panel__spacer {
@@ -214,7 +215,11 @@
   padding: 0 70px 80px;
 }
 .chat-panel__input-area--mobile {
-  padding: 0 16px 24px;
+  /* --kb-inset (set by useKeyboardInset) lifts the input above the on-screen
+     keyboard, which iOS otherwise draws straight over this fixed panel */
+  padding: 0 16px
+    calc(24px + max(env(safe-area-inset-bottom, 0px), var(--kb-inset, 0px)));
+  transition: padding-bottom 0.25s ease;
 }
 
 .chat-panel__suggestions {
@@ -328,8 +333,25 @@
 
 .chat-panel__close--mobile {
   bottom: auto;
-  top: 16px;
+  /* Clear the notch / Dynamic Island */
+  top: calc(16px + env(safe-area-inset-top, 0px));
   left: auto;
-  right: 16px;
+  right: calc(16px + env(safe-area-inset-right, 0px));
   translate: none;
+}
+
+/* iOS zooms the page when a focused input is under 16px, and this layout is
+   position:fixed/overflow:hidden so the user can't easily zoom back out. */
+@media (max-width: 768px) {
+  .chat-panel__text-input {
+    font-size: 16px;
+  }
+  .chat-panel__send-btn {
+    width: 44px;
+    height: 44px;
+  }
+  .chat-panel__help-btn,
+  .chat-panel__suggestions button {
+    min-height: 40px;
+  }
 }

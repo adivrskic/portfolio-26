@@ -21,6 +21,7 @@ export default function MenuOverlay({
   onThemeChange,
   activeSeason,
   onShowcase,
+  onChat,
 }) {
   const [mounted, setMounted] = useState(false);
   const [section, setSection] = useState("about");
@@ -310,9 +311,12 @@ export default function MenuOverlay({
   const mtR = parseInt(menuHex.replace("#", "").substring(0, 2), 16) || 0;
   const mtG = parseInt(menuHex.replace("#", "").substring(2, 4), 16) || 0;
   const mtB = parseInt(menuHex.replace("#", "").substring(4, 6), 16) || 0;
+  // "Chat" is an action, not a section — on touch devices the cube tap was
+  // previously the only way to reach the AI chat at all.
   const NAV = [
     { id: "about", label: "About" },
     { id: "work", label: "Work" },
+    { id: "chat", label: "Chat", action: true },
     { id: "contact", label: "Contact" },
     { id: "theme", label: "Theme" },
   ];
@@ -355,16 +359,21 @@ export default function MenuOverlay({
 
           <div className="menu-nav">
             {NAV.map((nav, i) => {
-              const active = section === nav.id;
+              const active = !nav.action && section === nav.id;
               const hover = hovered === nav.id && !active;
               return (
-                <div
+                <button
                   key={nav.id}
                   ref={ir(i)}
-                  onClick={() => switchSection(nav.id)}
+                  onClick={() =>
+                    nav.action ? onChat && onChat() : switchSection(nav.id)
+                  }
                   onMouseEnter={() => setHovered(nav.id)}
                   onMouseLeave={() => setHovered(null)}
-                  className="menu-nav-item"
+                  className={`menu-nav-item${
+                    active ? " menu-nav-item--active" : ""
+                  }`}
+                  aria-current={active ? "true" : undefined}
                 >
                   <span
                     className="menu-nav-label"
@@ -377,7 +386,7 @@ export default function MenuOverlay({
                   >
                     {nav.label}
                   </span>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -396,7 +405,8 @@ export default function MenuOverlay({
           <div
             style={{
               flex: 1,
-              padding: isMobile ? "16px 20px" : "70px 70px",
+              // Bottom clearance so scrolled content clears the close button
+              padding: isMobile ? "16px 18px 72px" : "70px 70px",
               boxSizing: "border-box",
               display: "flex",
               flexDirection: "column",

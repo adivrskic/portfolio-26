@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import gsap from "gsap";
 import { Fingerprint } from "lucide-react";
-import { luminance } from "../../utils/color";
+import { luminance, sampleLuminance } from "../../utils/color";
 import { BG_COLOR } from "../../constants/style";
+import { NEEDS_TOUCH_FALLBACK } from "../../utils/device";
 import "./TextOverlay.css";
 
 export default function TextOverlay({
@@ -53,6 +54,35 @@ export default function TextOverlay({
 
   useEffect(() => {
     if (!gradientCanvas || !revealed) return;
+    // The per-letter luminance sampler does ~11 getBoundingClientRect() +
+    // getImageData() readbacks 20×/sec. On touch the reveal mask is a static
+    // ambient wash, so the sampled colour never changes — sample once and stop.
+    if (NEEDS_TOUCH_FALLBACK) {
+      const ctxOnce = gradientCanvas.getContext("2d", {
+        willReadFrequently: true,
+      });
+      const t = setTimeout(() => {
+        const dpr =
+          gradientCanvas.width /
+          (parseFloat(gradientCanvas.style.width) || window.innerWidth);
+        for (const el of letterRefs.current.filter(Boolean)) {
+          const rect = el.getBoundingClientRect();
+          const cx = Math.round((rect.left + rect.width / 2) * dpr);
+          const cy = Math.round((rect.top + rect.height / 2) * dpr);
+          const lum = sampleLuminance(
+            ctxOnce,
+            cx,
+            cy,
+            gradientCanvas.width,
+            gradientCanvas.height,
+            BG_COLOR
+          );
+          if (lum !== null)
+            el.style.color = lum < 0.5 ? c.textColorLight : c.textColor;
+        }
+      }, 400);
+      return () => clearTimeout(t);
+    }
     const ctx = gradientCanvas.getContext("2d", { willReadFrequently: true });
     // Derive actual DPR from the canvas dimensions — matches GradientBackground
     const dpr =

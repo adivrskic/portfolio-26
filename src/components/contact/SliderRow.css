@@ -90,3 +90,17 @@
   letter-spacing: 0.05em;
   transition: color 0.15s, font-weight 0.15s;
 }
+
+/* ── MOBILE ── taller drag target and bigger thumb for thumbs */
+@media (max-width: 768px) {
+  .slider-row__track {
+    height: 44px;
+  }
+  .slider-row__thumb {
+    width: 18px;
+    height: 18px;
+  }
+  .slider-row__label-tick {
+    font-size: 9px;
+  }
+}

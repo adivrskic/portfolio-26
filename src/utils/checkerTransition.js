@@ -11,8 +11,13 @@
  * checkerDissolve — tiles scale 1→0 inside the container
  */
 
-const COLS = 10;
-const ROWS = 8;
+import { IS_LOW_POWER } from "./device";
+
+// Each tile carries its own backdrop-filter, so tile count is a direct GPU
+// cost. The menu runs two grids at once — at 10×8 that was 160 simultaneously
+// animating blur layers, which drops frames badly on phones.
+const COLS = IS_LOW_POWER ? 6 : 10;
+const ROWS = IS_LOW_POWER ? 5 : 8;
 
 // Pre-compute radial delays (normalized 0–1, center-out)
 const DELAYS = (() => {
@@ -32,16 +37,19 @@ function createGrid(color, blur) {
     "position:absolute;inset:0;z-index:0;display:grid;pointer-events:none;" +
     `grid-template-columns:repeat(${COLS},1fr);grid-template-rows:repeat(${ROWS},1fr);`;
 
-  const blurCSS = blur
-    ? `backdrop-filter:blur(${blur}px) saturate(1.15);-webkit-backdrop-filter:blur(${blur}px) saturate(1.15);`
-    : "";
+  // On low-power devices the tiles are opaque instead of blurred — the panel
+  // behind them is frosted anyway, so the reveal reads the same.
+  const blurCSS =
+    blur && !IS_LOW_POWER
+      ? `backdrop-filter:blur(${blur}px) saturate(1.15);-webkit-backdrop-filter:blur(${blur}px) saturate(1.15);`
+      : "";
 
   const cells = [];
   for (let i = 0; i < ROWS * COLS; i++) {
     const cell = document.createElement("div");
     cell.style.cssText =
       `background:${color};${blurCSS}` +
-      "transition:transform 0.5s cubic-bezier(0.25,0,0.2,1);";
+      "transition:transform 0.5s cubic-bezier(0.25,0,0.2,1);will-change:transform;";
     grid.appendChild(cell);
     cells.push(cell);
   }

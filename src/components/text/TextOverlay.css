@@ -35,7 +35,9 @@
 
 .text-overlay__menu-btn {
   position: fixed;
-  bottom: 24px;
+  /* This is the only way into the menu — keep it clear of the iOS home
+     indicator and Safari's bottom toolbar */
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   z-index: 2;

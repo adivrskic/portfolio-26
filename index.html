@@ -2,7 +2,14 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover lets the gradient run edge-to-edge under the
+         notch/home indicator; env(safe-area-inset-*) is a no-op without it.
+         interactive-widget keeps the layout viewport stable when the virtual
+         keyboard opens. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
+    />
     <meta name="theme-color" content="#e8e8ee" />
     <title>Adi Vrskic — Creative Developer</title>
     <meta
@@ -185,6 +192,9 @@
         width: 100%;
         height: 100%;
         overflow: hidden;
+        /* Stop Android pull-to-refresh / iOS rubber-banding from firing on
+           drags over the cube */
+        overscroll-behavior: none;
       }
       body {
         background: #e8e8ee;

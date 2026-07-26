@@ -31,6 +31,7 @@ import { sphereFragmentShader } from "./shaders/sphereFragment.glsl.js";
 import { createCubeFaceRenderer } from "./cubeFaceRenderer";
 import { createExpressionState, updateExpressions } from "./expressionTriggers";
 import { createGlassEnvironment } from "./glassEnv";
+import { IS_TOUCH, IS_LOW_POWER } from "../../utils/device";
 
 const FV = sphereVertexShader;
 const FF = sphereFragmentShader;
@@ -99,7 +100,7 @@ export default function Scene({
     const cfg = configRef,
       W = () => window.innerWidth,
       H = () => window.innerHeight;
-    const isMobile = "ontouchstart" in window || window.innerWidth < 768;
+    const isMobile = IS_LOW_POWER;
     const renderer = new WebGLRenderer({ antialias: !isMobile, alpha: true });
     renderer.setPixelRatio(
       Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2)
@@ -291,6 +292,7 @@ export default function Scene({
       mouse.x = (e.clientX / W()) * 2 - 1;
       mouse.y = -(e.clientY / H()) * 2 + 1;
       lastActivity = performance.now();
+      trackPressMove(e.clientX, e.clientY);
     };
     const onTM = (e) => {
       if (e.touches.length > 0) {
@@ -298,6 +300,7 @@ export default function Scene({
         mouse.x = (t.clientX / W()) * 2 - 1;
         mouse.y = -(t.clientY / H()) * 2 + 1;
         lastActivity = performance.now();
+        trackPressMove(t.clientX, t.clientY);
       }
     };
     window.addEventListener("mousemove", onMM, { passive: true });
@@ -309,7 +312,13 @@ export default function Scene({
     let holdTimer = null,
       isHolding = false,
       holdStartTime = 0,
-      holdFired = false;
+      holdFired = false,
+      pressX = 0,
+      pressY = 0,
+      pressMoved = false,
+      lastTouchTime = 0;
+    // A press that travels this far is a drag (spinning the cube), not a tap
+    const TAP_SLOP_PX = 14;
     const testCubeHit = (e) => {
       const mx = (e.clientX / W()) * 2 - 1,
         my = -(e.clientY / H()) * 2 + 1;
@@ -337,7 +346,7 @@ export default function Scene({
         e.target.closest("button, a, input, textarea, select, [role='dialog']")
       )
         return;
-      if (!testCubeHit(e)) return;
+      if (!testCubeHit(e)) return false;
       // Click burst on the cube → excited (3 quick taps)
       const nowT = performance.now();
       exprTriggerState.clickTimes = (exprTriggerState.clickTimes || []).filter(
@@ -347,6 +356,9 @@ export default function Scene({
       if (exprTriggerState.clickTimes.length >= 3) expr.excited = 1;
       isHolding = true;
       holdFired = false;
+      pressMoved = false;
+      pressX = e.clientX;
+      pressY = e.clientY;
       holdStartTime = performance.now();
       holdTimer = setTimeout(() => {
         if (isHolding) {
@@ -356,11 +368,14 @@ export default function Scene({
           if (onCubeHoldRef.current) onCubeHoldRef.current();
         }
       }, 600);
+      return true;
     };
     const onUp = () => {
       if (holdTimer) clearTimeout(holdTimer);
-      const holdDuration = performance.now() - holdStartTime;
-      if (isHolding && !holdFired && holdDuration < 150) {
+      // Any release before the hold fires is a tap — the old 150ms ceiling
+      // left a dead zone that swallowed most real finger taps (typically
+      // 150-250ms). A press that travelled is a drag (spin), not a tap.
+      if (isHolding && !holdFired && !pressMoved) {
         clickScaleVel = -0.8;
         setTimeout(() => {
           if (onCubeClickRef.current) onCubeClickRef.current();
@@ -370,17 +385,52 @@ export default function Scene({
       holdFired = false;
       holdTimer = null;
     };
-    window.addEventListener("mousedown", onDown);
-    window.addEventListener("mouseup", onUp);
+    const trackPressMove = (cx, cy) => {
+      if (!isHolding || pressMoved) return;
+      const dx = cx - pressX;
+      const dy = cy - pressY;
+      if (dx * dx + dy * dy > TAP_SLOP_PX * TAP_SLOP_PX) pressMoved = true;
+    };
+    // Touch fires a compatibility mouse sequence after touchend; ignore it so
+    // every tap isn't processed twice (which also double-counted the
+    // three-tap "excited" easter egg).
+    const isCompatMouseEvent = () => performance.now() - lastTouchTime < 700;
+    const onMouseDownWrapped = (e) => {
+      if (isCompatMouseEvent()) return;
+      onDown(e);
+    };
+    const onMouseUpWrapped = () => {
+      if (isCompatMouseEvent()) return;
+      onUp();
+    };
+    window.addEventListener("mousedown", onMouseDownWrapped);
+    window.addEventListener("mouseup", onMouseUpWrapped);
     const onTouchDown = (e) => {
+      lastTouchTime = performance.now();
       if (e.touches.length !== 1) return;
       const t = e.touches[0];
-      onDown({ clientX: t.clientX, clientY: t.clientY, target: e.target });
+      const engaged = onDown({
+        clientX: t.clientX,
+        clientY: t.clientY,
+        target: e.target,
+      });
+      // Only suppress native behaviour (long-press callout, double-tap zoom)
+      // when the touch actually grabbed the cube — leaves scrolling in the
+      // showcase, menu and chat completely untouched.
+      if (engaged && e.cancelable) e.preventDefault();
     };
-    const onTouchUp = () => onUp();
-    window.addEventListener("touchstart", onTouchDown, { passive: true });
+    const onTouchUp = () => {
+      lastTouchTime = performance.now();
+      onUp();
+    };
+    window.addEventListener("touchstart", onTouchDown, { passive: false });
     window.addEventListener("touchend", onTouchUp);
     window.addEventListener("touchcancel", onTouchUp);
+    // Long-press on the cube is our gesture — don't let the OS hijack it
+    const onContextMenu = (e) => {
+      if (isHolding) e.preventDefault();
+    };
+    window.addEventListener("contextmenu", onContextMenu);
 
     let resizeTimer;
     const onResize = () => {
@@ -603,7 +653,12 @@ export default function Scene({
         const dist = Math.sqrt(dx * dx + dy * dy);
         cubeProx = Math.max(0, 1 - dist / (c.reticleRange || 1.2));
         onCubeProximityRef.current(cubeProx);
-        mSp.set(glassCube.position, bR * (c.shapeScale || 1) * menuScale * 1.3);
+        // Hit sphere: 1.3× the cube on cursor devices, 2.0× on touch so the
+        // whole visible cube (and a finger-sized margin) is tappable
+        mSp.set(
+          glassCube.position,
+          bR * (c.shapeScale || 1) * menuScale * (IS_TOUCH ? 2.0 : 1.3)
+        );
       }
 
       const mOpen = menuOpenRef.current;
@@ -935,11 +990,13 @@ export default function Scene({
       window.removeEventListener("mousemove", onMM);
       window.removeEventListener("touchmove", onTM);
       window.removeEventListener("resize", onResize);
-      window.removeEventListener("mousedown", onDown);
-      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("mousedown", onMouseDownWrapped);
+      window.removeEventListener("mouseup", onMouseUpWrapped);
       window.removeEventListener("touchstart", onTouchDown);
       window.removeEventListener("touchend", onTouchUp);
       window.removeEventListener("touchcancel", onTouchUp);
+      window.removeEventListener("contextmenu", onContextMenu);
+      if (holdTimer) clearTimeout(holdTimer);
       container.removeChild(renderer.domElement);
       renderer.dispose();
       envMap.dispose();

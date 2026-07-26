@@ -2,10 +2,8 @@ import { useEffect, useRef } from "react";
 import { Fingerprint } from "lucide-react";
 import { sampleLuminance } from "../../utils/color";
 import { BG_COLOR } from "../../constants/style";
+import { IS_TOUCH } from "../../utils/device";
 import "./Reticle.css";
-
-const IS_TOUCH =
-  typeof window !== "undefined" && window.matchMedia("(hover: none)").matches;
 
 export default function Reticle({
   proximityRef,
@@ -183,10 +181,9 @@ export default function Reticle({
   const px = c.pillOffsetX ?? 200;
   const py = c.pillOffsetY ?? 140;
 
-  const isTouch =
-    typeof window !== "undefined" &&
-    ("ontouchstart" in window || navigator.maxTouchPoints > 0);
-  const verb = isTouch ? "tap" : "click";
+  // This component only renders on cursor devices (IS_TOUCH returns null
+  // above); touch users get TouchHint instead.
+  const verb = "click";
 
   return (
     <>

@@ -1,11 +1,35 @@
 .app-root {
   width: 100vw;
-  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   position: fixed;
   top: 0;
   left: 0;
   cursor: crosshair;
+  /* The cube's own 600ms press-and-hold is the gesture here — stop iOS from
+     firing double-tap zoom, the selection callout, or text selection over it.
+     Scrollable surfaces (showcase, menu, chat) opt back in below. */
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Text the user may legitimately want to select/copy */
+.chat-panel__scroll,
+.menu-panel--right,
+.shx__scroll {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Scrollers need vertical panning back */
+.chat-panel__scroll,
+.shx__scroll,
+.menu-panel--right {
+  touch-action: pan-y;
+  overscroll-behavior: contain;
 }
 .app-root.hide-cursor {
   cursor: crosshair;

@@ -7,9 +7,11 @@ import {
   Suspense,
 } from "react";
 import { DEFAULTS, getCurrentSeason } from "./config/defaults";
+import { useKeyboardInset } from "./hooks/useKeyboardInset";
 import GradientBackground from "./components/gradient/GradientBackground";
 import Scene from "./components/scene/Scene";
 import Reticle from "./components/reticle/Reticle";
+import TouchHint from "./components/reticle/TouchHint";
 import TextOverlay from "./components/text/TextOverlay";
 import MenuOverlay from "./components/menu/MenuOverlay";
 import ChatPanel from "./components/chat/ChatPanel";
@@ -24,7 +26,8 @@ const DebugPanel = import.meta.env.DEV
   : null;
 
 export default function App() {
-  // const isMobile = useIsMobile(768); // uncomment when ShowcaseHTML exists
+  // Publishes --kb-inset so bottom-anchored inputs can clear the keyboard
+  useKeyboardInset();
   const [config, setConfig] = useState({ ...DEFAULTS });
   const [debugVisible, setDebugVisible] = useState(false);
   const [birthComplete, setBirthComplete] = useState(false);
@@ -159,6 +162,15 @@ export default function App() {
 
   const handleMenuToggle = useCallback(() => setMenuOpen((v) => !v), []);
   const handleMenuClose = useCallback(() => setMenuOpen(false), []);
+  const handleMenuChat = useCallback(() => {
+    setMenuOpen(false);
+    if (chatUnmountTimer.current) {
+      clearTimeout(chatUnmountTimer.current);
+      chatUnmountTimer.current = null;
+    }
+    setChatMounted(true);
+    setChatMode(true);
+  }, []);
   const handleMenuShowcase = useCallback(
     (section) => {
       setMenuOpen(false);
@@ -245,6 +257,14 @@ export default function App() {
         onThemeChange={handleThemeChange}
         activeSeason={activeSeason}
         onShowcase={handleMenuShowcase}
+        onChat={handleMenuChat}
+      />
+
+      {/* Touch counterpart to the Reticle's hint pills — without it phones
+          get no indication the cube is interactive at all */}
+      <TouchHint
+        birthComplete={birthComplete}
+        hidden={menuOpen || chatMode || fading}
       />
 
       {/* Custom cursor — top-level sibling so its z-index wins over the
