@@ -174,13 +174,28 @@
     box-sizing: border-box;
   }
   
+  /* Nav items are real <button>s (keyboard + touch targets) — strip the
+     browser's default button chrome or they render as grey bordered boxes */
   .menu-nav-item {
+    appearance: none;
+    -webkit-appearance: none;
+    background: none;
+    border: 0;
+    margin: 0;
+    color: inherit;
+    font: inherit;
     opacity: 0;
     text-align: right;
     cursor: pointer;
     padding: 12px 0;
     width: 100%;
     box-sizing: border-box;
+  }
+
+  .menu-nav-item:focus-visible {
+    outline: 1px solid rgba(var(--mt-r), var(--mt-g), var(--mt-b), 0.35);
+    outline-offset: 4px;
+    border-radius: 6px;
   }
   
   .menu-nav-label {
@@ -361,7 +376,7 @@
   
   /* ── Theme section ── */
   .menu-themes-grid {
-    display: "grid";
+    display: grid;
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 12px;
     padding-top: 4px;

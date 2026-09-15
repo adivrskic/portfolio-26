@@ -331,6 +331,11 @@ export default function MenuOverlay({
         aria-modal="true"
         aria-label="Menu"
         style={{
+          // MenuOverlay.css reads --t / --bg / --blur (see its header);
+          // without them every `var(--t) 0.65)` colour rule is dropped
+          "--t": T,
+          "--bg": `rgba(232,232,238,${bgOp})`,
+          "--blur": `${blur}px`,
           "--panel-solid": "rgb(232,232,238)",
           "--mt-r": mtR,
           "--mt-g": mtG,
