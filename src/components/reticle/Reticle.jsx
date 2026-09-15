@@ -10,6 +10,7 @@ export default function Reticle({
   chatMode,
   menuOpen,
   showcaseOpen,
+  showcaseTransition,
   config: c,
   gradientCanvas,
   scrollProgress,
@@ -105,8 +106,15 @@ export default function Reticle({
         }
       }
 
+      // No hints over an overlay — including the showcase fly-in, during
+      // which the blob still reports high proximity as it zooms past
       const showHint =
-        p > 0.8 && !chatMode && !menuOpen && scrollRef.current < 0.01;
+        p > 0.8 &&
+        !chatMode &&
+        !menuOpen &&
+        !showcaseOpen &&
+        !showcaseTransition &&
+        scrollRef.current < 0.01;
 
       const showHold = showHint;
       if (lineRef.current && pillRef.current) {
@@ -174,7 +182,13 @@ export default function Reticle({
       cancelAnimationFrame(raf);
       window.removeEventListener("mousemove", onMove);
     };
-  }, [chatMode, menuOpen, showcaseOpen, c.reticleSmoothing]);
+  }, [
+    chatMode,
+    menuOpen,
+    showcaseOpen,
+    showcaseTransition,
+    c.reticleSmoothing,
+  ]);
 
   const lc = c.pillLineColor || "rgba(18,18,40,0.45)";
   const lw = c.pillLineWidth || 0.8;

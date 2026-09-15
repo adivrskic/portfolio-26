@@ -628,6 +628,10 @@ export default function Scene({
       // Fully pause rendering when showcase is open
       if (showcaseOpenRef.current) {
         renderer.domElement.style.visibility = "hidden";
+        // The loop is about to sleep: leave the cursor with zero proximity
+        // so the hint pills do not sit on the showcase or flash on close
+        if (!wasShowcaseOpen && onCubeProximityRef.current)
+          onCubeProximityRef.current(0);
         wasShowcaseOpen = true;
         return;
       }
@@ -822,7 +826,9 @@ export default function Scene({
         const dx = _screenPos.x - mouse.x,
           dy = _screenPos.y - mouse.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        cubeProx = Math.max(0, 1 - dist / (c.reticleRange || 1.2));
+        cubeProx = showcaseTransRef.current
+          ? 0
+          : Math.max(0, 1 - dist / (c.reticleRange || 1.2));
         if (onCubeProximityRef.current) onCubeProximityRef.current(cubeProx);
       }
       const mdx = mouse.x - prevMouseX,

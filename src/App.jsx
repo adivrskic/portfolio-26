@@ -276,6 +276,7 @@ export default function App() {
         chatMode={chatMode}
         menuOpen={menuOpen}
         showcaseOpen={showcaseOpen}
+        showcaseTransition={showcaseTransition}
         config={config}
         gradientCanvas={gradCanvas}
         scrollProgress={0}
