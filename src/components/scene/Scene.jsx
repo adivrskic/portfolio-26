@@ -22,6 +22,7 @@ import {
   Vector4,
   VSMShadowMap,
   WebGLRenderer,
+  WebGLRenderTarget,
 } from "three";
 import { getCurrentSeason } from "../../config/defaults";
 import { BG_COLOR } from "../../constants/style";
@@ -34,13 +35,15 @@ import {
 } from "./shaders/blob.glsl.js";
 import { createBlobFace } from "./blobFace";
 import { createBlobPhysics } from "./blobPhysics";
+import { createLiquidGlass } from "./liquidGlass";
 import { IS_TOUCH, IS_LOW_POWER } from "../../utils/device";
 
 // Where the shadow light sits relative to the blob (it follows the blob so
 // the shadow camera can stay tight and the shadow stays soft)
 const SUN_OFFSET = new Vector3(1.1, 9, 2.2);
-// Resolution of the page-gradient sample the blob refracts (desktop only)
-const BG_TEX_SIZE = 192;
+// The page gradient is copied at this fraction of its CSS size (desktop
+// only): the blob refracts it and the liquid-glass lenses frost it
+const BG_TEX_SCALE = 0.4;
 
 function cubicBezier(x1, y1, x2, y2) {
   const cx = 3 * x1,
@@ -210,15 +213,19 @@ export default function Scene({
     faceTex.magFilter = LinearFilter;
     faceTex.generateMipmaps = true;
 
-    // ── Page gradient sample the blob refracts (desktop only) ──
+    // ── Page gradient, copied at reduced size every other frame (desktop) ──
     const bgCanvas = document.createElement("canvas");
-    bgCanvas.width = BG_TEX_SIZE;
-    bgCanvas.height = BG_TEX_SIZE;
     const bgCtx = bgCanvas.getContext("2d");
+    const sizeBgCanvas = () => {
+      bgCanvas.width = Math.max(1, Math.ceil(W() * BG_TEX_SCALE));
+      bgCanvas.height = Math.max(1, Math.ceil(H() * BG_TEX_SCALE));
+    };
+    sizeBgCanvas();
     const bgTex = new CanvasTexture(bgCanvas);
-    bgTex.minFilter = LinearFilter;
+    // Mipmapped so the lenses can frost it by sampling down the chain
+    bgTex.minFilter = LinearMipmapLinearFilter;
     bgTex.magFilter = LinearFilter;
-    bgTex.generateMipmaps = false;
+    bgTex.generateMipmaps = true;
     bgTex.wrapS = bgTex.wrapT = ClampToEdgeWrapping;
 
     // ── The blob ──
@@ -249,6 +256,34 @@ export default function Scene({
     blob.frustumCulled = false;
     blob.renderOrder = 0;
     scene.add(blob);
+
+    // ── Liquid glass: on desktop the scene renders to a texture and a final
+    // pass draws every [data-glass] element as a refracting lens over it,
+    // replacing the CSS backdrop blur (see liquidGlass.js + App.css) ──
+    const glassOn =
+      !isMobile &&
+      !(
+        window.matchMedia &&
+        window.matchMedia("(prefers-reduced-transparency: reduce)").matches
+      );
+    let sceneRT = null;
+    let glass = null;
+    if (glassOn) {
+      sceneRT = new WebGLRenderTarget(_size.x, _size.y, {
+        samples: 4,
+        generateMipmaps: true,
+        minFilter: LinearMipmapLinearFilter,
+        magFilter: LinearFilter,
+        depthBuffer: true,
+        stencilBuffer: false,
+      });
+      glass = createLiquidGlass({
+        sceneTexture: sceneRT.texture,
+        bgTexture: bgTex,
+        bgColor: uniforms.uBgColor.value,
+      });
+      document.documentElement.classList.add("liquid-glass");
+    }
 
     // ── Floor: invisible plane that only shows the blob's shadow ──
     const floorMat = new ShadowMaterial({
@@ -551,6 +586,8 @@ export default function Scene({
         renderer.setSize(W(), H());
         readSize();
         uniforms.uResolution.value.copy(_size);
+        sizeBgCanvas();
+        if (sceneRT) sceneRT.setSize(_size.x, _size.y);
       }, 150);
     };
     window.addEventListener("resize", onResize);
@@ -579,6 +616,7 @@ export default function Scene({
     let cachedBezierKey = "";
     let wasShowcaseOpen = false;
     let bgFrame = 0;
+    let lastBirth = 0;
     const themeKey = ["", "", "", ""];
     const themeVec = [uniforms.uC1, uniforms.uC2, uniforms.uC3, uniforms.uC4];
 
@@ -600,7 +638,12 @@ export default function Scene({
         return;
       }
 
-      const dt = Math.min(clock.getDelta(), 0.0333);
+      // Springs and fades step with a clamped delta (a long frame must not
+      // explode them); the press physics below covers the real elapsed time
+      // in substeps so a poke feels the same at 20fps as at 60
+      const rawDt = clock.getDelta();
+      const dt = Math.min(rawDt, 0.0333);
+      const physDt = Math.min(rawDt, 0.12);
       const el = clock.elapsedTime;
       const c = cfg.current;
 
@@ -632,6 +675,7 @@ export default function Scene({
         birth = 1 - Math.pow(1 - birthT, birthEase);
       }
       if (onBirthProgress) onBirthProgress(birth);
+      lastBirth = birth;
       // Landing: the blob settles with a visible wobble
       if (birthT >= 0.92 && !birthLanded) {
         birthLanded = true;
@@ -827,9 +871,11 @@ export default function Scene({
           Math.min(1, (now - holdStartTime - 120) / 900)
         );
         pointerToDir(mouse.x, mouse.y, _pressDir);
-        physics.hold(_pressDir, holdProgress, dt, el);
+        physics.hold(_pressDir, holdProgress, physDt, el);
       }
-      physics.update(dt);
+      for (let left = physDt; left > 0; left -= 1 / 120) {
+        physics.update(Math.min(left, 1 / 120));
+      }
       physics.writeUniforms(uniforms);
 
       // ── Face state ──
@@ -945,48 +991,17 @@ export default function Scene({
         .applyMatrix4(camera.matrixWorldInverse);
       u.uFaceCenterV.value.z += worldR * 0.3;
 
-      // Page gradient behind the blob → refraction source (desktop only).
-      // Only the square of screen around the blob is copied, every other
-      // frame, so the per-frame cost stays tiny.
+      // Page gradient → refraction source for the blob and frost source for
+      // the lenses (desktop only). Copied at reduced size every other frame
+      // so the per-frame cost stays small.
       const grad = gradCanvasRef.current;
-      if (!isMobile && grad && grad.width > 0 && blob.visible) {
-        const distZ = Math.max(camera.position.z - blob.position.z, 0.5);
-        const halfH =
-          Math.tan((camera.fov * Math.PI) / 360) * distZ;
-        const hy = Math.min(1, (worldR * 1.35 * 1.5) / halfH); // NDC half-extent
-        const hx = Math.min(1, hy / camera.aspect);
-        let rx = (_screenPos.x + 1) / 2 - hx / 2;
-        let ry = (_screenPos.y + 1) / 2 - hy / 2;
-        let rw = hx,
-          rh = hy;
-        if (rx < 0) {
-          rw += rx;
-          rx = 0;
-        }
-        if (ry < 0) {
-          rh += ry;
-          ry = 0;
-        }
-        rw = Math.max(0.02, Math.min(rw, 1 - rx));
-        rh = Math.max(0.02, Math.min(rh, 1 - ry));
-        u.uBgRect.value.set(rx, ry, rw, rh);
+      if (!isMobile && grad && grad.width > 0) {
         if (++bgFrame % 2 === 0) {
-          const gw = grad.width,
-            gh = grad.height;
-          bgCtx.clearRect(0, 0, BG_TEX_SIZE, BG_TEX_SIZE);
-          bgCtx.drawImage(
-            grad,
-            rx * gw,
-            (1 - ry - rh) * gh,
-            rw * gw,
-            rh * gh,
-            0,
-            0,
-            BG_TEX_SIZE,
-            BG_TEX_SIZE
-          );
+          bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+          bgCtx.drawImage(grad, 0, 0, bgCanvas.width, bgCanvas.height);
           bgTex.needsUpdate = true;
         }
+        u.uBgRect.value.set(0, 0, 1, 1);
         u.uBgMix.value = 1;
       } else {
         u.uBgMix.value = 0;
@@ -1029,7 +1044,22 @@ export default function Scene({
         for (let k = 0; k < 4; k++) mu[`uC${k + 1}`].value.copy(themeVec[k].value);
       });
 
-      renderer.render(scene, camera);
+      if (glass) {
+        // Scene → texture, then the lens pass composites it to the canvas
+        glass.update(
+          dt,
+          W(),
+          H(),
+          _size.x / W(),
+          Math.log2(Math.max(1, _size.x / bgCanvas.width))
+        );
+        renderer.setRenderTarget(sceneRT);
+        renderer.render(scene, camera);
+        renderer.setRenderTarget(null);
+        glass.render(renderer);
+      } else {
+        renderer.render(scene, camera);
+      }
     }
     // Dev-only peek at the live state for headless checks (stripped in prod)
     if (import.meta.env.DEV) {
@@ -1043,6 +1073,8 @@ export default function Scene({
         morph: +chatMorph.toFixed(2),
         opacity: +uniforms.uOpacity.value.toFixed(2),
         holding: isHolding,
+        birth: +lastBirth.toFixed(2),
+        lenses: glass ? glass.uniforms.uCount.value : -1,
       });
       window.__blobFace = face;
     }
@@ -1078,6 +1110,9 @@ export default function Scene({
       sun.shadow.dispose();
       faceTex.dispose();
       bgTex.dispose();
+      if (glass) glass.dispose();
+      if (sceneRT) sceneRT.dispose();
+      document.documentElement.classList.remove("liquid-glass");
       renderer.dispose();
     };
   }, []);

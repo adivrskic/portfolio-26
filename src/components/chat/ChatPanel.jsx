@@ -347,6 +347,9 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
             isMobile ? "chat-panel__bg--mobile" : "chat-panel__bg--desktop"
           }`}
           style={{ opacity: 0 }}
+          data-glass="1"
+          data-glass-blur="30"
+          data-glass-frost="0.3"
         />
 
         <div
@@ -508,6 +511,9 @@ export default function ChatPanel({ open, onClose, activeSeason }) {
               ? "chat-panel__close--mobile"
               : "chat-panel__close--desktop"
           }`}
+          data-glass="1"
+          data-glass-blur="20"
+          data-glass-frost="0.6"
         >
           <X size={18} strokeWidth={1.5} color="#585878" />
         </button>

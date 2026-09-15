@@ -225,6 +225,9 @@ export default function Reticle({
       <div
         ref={pillRef}
         className="reticle__pill"
+        data-glass="1"
+        data-glass-blur="10"
+        data-glass-frost="0.72"
         style={{ left: `calc(50% + ${px}px)`, top: `calc(50% + ${py}px)` }}
       >
         {tapHint}
@@ -232,6 +235,9 @@ export default function Reticle({
       <div
         ref={pill2Ref}
         className="reticle__pill"
+        data-glass="1"
+        data-glass-blur="10"
+        data-glass-frost="0.72"
         style={{
           left: `calc(50% - ${px}px)`,
           top: `calc(50% - ${py}px)`,

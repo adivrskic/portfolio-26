@@ -98,6 +98,7 @@ export default function MenuOverlay({
           panel.style.background = "transparent";
           panel.style.backdropFilter = "none";
           panel.style.WebkitBackdropFilter = "none";
+          panel.dataset.glass = "0";
           gsap.set(panel, { opacity: 1, clipPath: "none" });
         });
         if (cb) gsap.set(cb, { scale: 0, opacity: 0 });
@@ -111,13 +112,15 @@ export default function MenuOverlay({
         const onPanelDone = () => {
           if (++done < totalPanels) return;
           checkerRef.current = null;
-          // Swap tiles for real panel bg (seamless)
+          // Swap tiles for the real panel glass (seamless): the WebGL lens
+          // where it runs, the CSS frost otherwise
           cleanups.forEach((fn) => fn());
           [lp, rp].forEach((panel) => {
             if (!panel) return;
             panel.style.background = panelBg;
             panel.style.backdropFilter = panelBlur;
             panel.style.WebkitBackdropFilter = panelBlur;
+            panel.dataset.glass = "1";
           });
         };
 
@@ -242,6 +245,7 @@ export default function MenuOverlay({
               panel.style.background = "transparent";
               panel.style.backdropFilter = "none";
               panel.style.WebkitBackdropFilter = "none";
+              panel.dataset.glass = "0";
             });
             checkerRef.current = () => cleanups.forEach((fn) => fn());
           },
@@ -347,6 +351,9 @@ export default function MenuOverlay({
         <div
           ref={leftRef}
           className="menu-panel menu-panel--left"
+          data-glass="0"
+          data-glass-blur={blur}
+          data-glass-frost="0.3"
           style={{
             background: `rgba(232,232,238,${bgOp})`,
             backdropFilter: `blur(${blur}px) saturate(1.15)`,
@@ -401,6 +408,9 @@ export default function MenuOverlay({
         <div
           ref={rightRef}
           className="menu-panel menu-panel--right"
+          data-glass="0"
+          data-glass-blur={blur}
+          data-glass-frost="0.3"
           style={{
             background: `rgba(232,232,238,${bgOp})`,
             backdropFilter: `blur(${blur}px) saturate(1.15)`,
@@ -469,7 +479,14 @@ export default function MenuOverlay({
         </div>
 
         {/* Close button — overlaid at bottom center */}
-        <button ref={closeBtnRef} className="menu-close-btn" onClick={onClose}>
+        <button
+          ref={closeBtnRef}
+          className="menu-close-btn"
+          onClick={onClose}
+          data-glass="1"
+          data-glass-blur="20"
+          data-glass-frost="0.6"
+        >
           <X size={18} strokeWidth={1.5} color={T + "0.45)"} />
         </button>
       </div>

@@ -73,6 +73,16 @@ input[type="range"]::-moz-range-thumb {
   border-radius: 2px;
 }
 
+/* Liquid glass: on desktop the WebGL scene draws every [data-glass] surface
+   as a refracting lens (components/scene/liquidGlass.js), so the CSS frost
+   comes off those elements while the lens is on. Low-power devices and
+   reduced-transparency users never get the class and keep the CSS blur. */
+html.liquid-glass [data-glass]:not([data-glass="0"]) {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
 /* Motion sensitivity: stop decorative CSS animations/transitions.
    (WebGL motion is inherent to the piece; this covers the DOM layer.) */
 @media (prefers-reduced-motion: reduce) {
