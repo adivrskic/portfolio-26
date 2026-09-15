@@ -37,7 +37,7 @@ const HELP_OPTIONS = [
   "Can he build AI-powered features?",
   "What kind of projects excite him?",
   "How do I get in touch?",
-  "Tell me about the glass cube and themes",
+  "Tell me about the glass blob and themes",
 ];
 
 // #23 — Persist messages across panel open/close

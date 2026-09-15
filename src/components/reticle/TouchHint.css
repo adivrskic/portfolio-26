@@ -1,4 +1,4 @@
-/* Touch-only affordance for the cube — the cursor Reticle's counterpart */
+/* Touch-only affordance for the blob — the cursor Reticle counterpart */
 
 .touch-hint {
   position: fixed;
@@ -15,7 +15,7 @@
   opacity: 1;
 }
 
-/* Soft ring breathing around the cube */
+/* Soft ring breathing around the blob */
 .touch-hint__ring {
   position: absolute;
   top: 50%;
@@ -42,7 +42,7 @@
   }
 }
 
-/* Labels sit below the cube, above the name row */
+/* Labels sit below the blob, above the name row */
 .touch-hint__labels {
   position: absolute;
   top: 50%;

@@ -17,53 +17,34 @@ export function getCurrentSeason() {
 const _sc = SEASON_COLORS[getCurrentSeason()];
 
 export const DEFAULTS = {
-  sphereRadius: 0.7,
-  sphereDetail: 64,
-  shapeScale: 0.95,
-  rotationSpeed: 0.15,
-  shapeTiltX: 0.3,
-  shapeTiltY: 0.5,
-  noiseFreq: 0.2,
-  noiseAmp: 3.25,
-  noiseSpeed: 0.95,
-  noiseOctaves: 2,
-  noiseLacunarity: 4,
-  noisePersistence: 0.9,
-  spikeSharpness: 6,
-  noiseWarp: 0.85,
-  mouseStrength: 0.2,
-  mouseRadius: 2,
-  mouseFalloff: 1.2,
-  mouseNoiseBoost: 0.4,
-  mouseNoiseFreq: 2.6,
-  mouseAttract: -2,
-  baseBrightStart: 1.8,
-  baseBrightEnd: 2,
-  roughness: 0,
-  metallic: 5,
-  specularIntensity: 9.6,
-  fresnelPower: 5,
-  fresnelIntensity: 5,
-  iridescence: 2,
-  envReflect: 8,
-  envBrightness: 10,
-  aoStrength: 2.5,
-  aoRange: 0.235,
-  rimStrength: 2.4,
-  rimColor: "#ffffff",
-  light1Intensity: 5,
-  light1X: 0,
-  light1Y: 4,
-  light1Z: 5,
-  light2Intensity: 0.85,
-  light2X: 2,
-  light2Y: -8,
-  light2Z: 3,
-  light3Intensity: 1.1,
-  light3X: -0.2,
-  light3Y: 6.4,
-  light3Z: 0,
-  ambientIntensity: 0,
+  // ── Blob (see components/scene/Scene.jsx + shaders/blob.glsl.js) ──
+  blobRadius: 1.45, // world units at rest
+  blobNoiseFreq: 1.1, // lumps across the surface
+  blobNoiseAmp: 0.14, // lump height, fraction of radius
+  blobNoiseSpeed: 0.28, // how fast the resting shape drifts
+  blobIor: 1.32, // refraction strength for the background
+  blobFaceIor: 1.12, // gentler index for the face so it swims, not scatters
+  blobDispersion: 0.06, // chromatic split, grows with jiggle
+  blobRefract: 0.09, // background offset per unit of refracted normal
+  blobShimmer: 0.85, // theme-palette iridescence at grazing angles
+  blobGlint: 0.35, // flickering surface sparkles (off on low-power)
+  blobRim: 0.5, // bright silhouette rim
+  blobEdgeDark: 0.28, // darkening just inside the silhouette
+  blobOpacity: 0.96,
+  blobFaceScale: 1.25, // face plane width, in radii
+  blobFaceBlur: 0.4, // mip bias at rest
+  blobFaceBlurJiggle: 4, // extra mip bias at full jiggle
+  blobFaceFadeJiggle: 0.55, // face visibility lost at full jiggle
+  blobSpinX: 0.62, // idle drift spin
+  blobSpinY: 0.36,
+  // Presses poke the blob. Set these to reopen chat on tap / showcase on
+  // hold (the menu still links to both either way).
+  blobTapOpensChat: false,
+  blobHoldOpensShowcase: false,
+  // ── Floor shadow ──
+  floorY: -2.05,
+  shadowOpacity: 0.14,
+  shadowSoftness: 22, // VSM blur radius in shadow-map texels
   totalScrollRange: 130,
   scrollSpeed: 1,
   bgColor: BG_HEX,
@@ -133,27 +114,6 @@ export const DEFAULTS = {
   gradColor2: _sc[1],
   gradColor3: _sc[2],
   gradColor4: _sc[3],
-  glassCubeSize: 3.7,
-  glassCornerRadius: 0.24,
-  glassFresnelPower: 15,
-  glassEdgeAlpha: 3,
-  glassSpecular: 3.4,
-  glassSpecPower: 150,
-  glassIridescence: 1,
-  glassRotSpeedX: 0.62,
-  glassRotSpeedY: 0.36,
-  glassRefraction: 0.5,
-  glassBlur: 9.2,
-  glassOpacity: 0.92,
-  glassRoughness: 0.12,
-  glassIor: 1.5,
-  glassThickness: 2.5,
-  glassClearcoatRoughness: 0.1,
-  glassEnvIntensity: 1.5,
-  glassEdgeOpacity: 0,
-  glassTintR: 1.5,
-  glassTintG: 1.5,
-  glassTintB: 1.5,
   shatterSpeed: 2,
   shatterSpread: 1,
   shatterFade: 2.5,
@@ -231,9 +191,8 @@ export const DEFAULTS = {
   sleepIdleTime: 15,
   sleepRampTime: 3,
 
-  // ── Hold to showcase ──
+  // ── Press and hold (only used when blobHoldOpensShowcase is on) ──
   holdDuration: 600,
-  holdClickThreshold: 150,
 
   // ── Showcase zoom ──
   showcaseZoomSpeed: 0.5,

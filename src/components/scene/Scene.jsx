@@ -1,40 +1,46 @@
 import { useEffect, useRef } from "react";
 import {
-  ACESFilmicToneMapping,
-  AdditiveBlending,
   CanvasTexture,
+  ClampToEdgeWrapping,
   Clock,
-  Color,
-  EdgesGeometry,
-  FrontSide,
+  DirectionalLight,
   IcosahedronGeometry,
-  LineBasicMaterial,
-  LineSegments,
+  LinearFilter,
+  LinearMipmapLinearFilter,
   Mesh,
-  MeshPhysicalMaterial,
+  NoToneMapping,
   PerspectiveCamera,
+  PlaneGeometry,
   Quaternion,
   Raycaster,
   Scene as THREEScene,
   ShaderMaterial,
+  ShadowMaterial,
   Sphere,
-  Sprite,
-  SpriteMaterial,
   Vector2,
   Vector3,
+  Vector4,
+  VSMShadowMap,
   WebGLRenderer,
 } from "three";
-import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { getCurrentSeason } from "../../config/defaults";
-import { sphereVertexShader } from "./shaders/sphereVertex.glsl.js";
-import { sphereFragmentShader } from "./shaders/sphereFragment.glsl.js";
-import { createCubeFaceRenderer } from "./cubeFaceRenderer";
-import { createExpressionState, updateExpressions } from "./expressionTriggers";
-import { createGlassEnvironment } from "./glassEnv";
+import { BG_COLOR } from "../../constants/style";
+import {
+  blobVertexShader,
+  blobFragmentShader,
+  blobDepthVertexShader,
+  blobDepthFragmentShader,
+  MAX_RIPPLES,
+} from "./shaders/blob.glsl.js";
+import { createBlobFace } from "./blobFace";
+import { createBlobPhysics } from "./blobPhysics";
 import { IS_TOUCH, IS_LOW_POWER } from "../../utils/device";
 
-const FV = sphereVertexShader;
-const FF = sphereFragmentShader;
+// Where the shadow light sits relative to the blob (it follows the blob so
+// the shadow camera can stay tight and the shadow stays soft)
+const SUN_OFFSET = new Vector3(1.1, 9, 2.2);
+// Resolution of the page-gradient sample the blob refracts (desktop only)
+const BG_TEX_SIZE = 192;
 
 function cubicBezier(x1, y1, x2, y2) {
   const cx = 3 * x1,
@@ -59,6 +65,79 @@ function cubicBezier(x1, y1, x2, y2) {
     }
     t = Math.max(0, Math.min(1, t));
     return sampleY(t);
+  };
+}
+
+function hexToVec3(hex, out) {
+  const h = (typeof hex === "string" ? hex : "#000000").replace("#", "");
+  return out.set(
+    (parseInt(h.substring(0, 2), 16) || 0) / 255,
+    (parseInt(h.substring(2, 4), 16) || 0) / 255,
+    (parseInt(h.substring(4, 6), 16) || 0) / 255
+  );
+}
+
+// Ripple slots for meshes without physics: all free (start time -1) but with
+// sane wave params so the shader never divides by a zero wavenumber
+function idleRipples() {
+  const r = new Float32Array(MAX_RIPPLES * 4);
+  const p = new Float32Array(MAX_RIPPLES * 4);
+  for (let i = 0; i < MAX_RIPPLES; i++) {
+    r[i * 4 + 2] = 1;
+    r[i * 4 + 3] = -1;
+    p[i * 4 + 1] = 24;
+    p[i * 4 + 2] = 9;
+    p[i * 4 + 3] = 1.5;
+  }
+  return { r, p };
+}
+
+function createBlobUniforms(physics) {
+  const idle = physics ? null : idleRipples();
+  return {
+    uTime: { value: 0 },
+    uNoiseFreq: { value: 1.35 },
+    uNoiseAmp: { value: 0.14 },
+    uNoiseSpeed: { value: 0.28 },
+    uRipple: { value: physics ? physics.ripple : idle.r },
+    uRippleP: { value: physics ? physics.rippleP : idle.p },
+    uRippleWidth: { value: 0.45 },
+    uWobble: { value: physics ? physics.wobble : new Float32Array(6) },
+    uPressDir: { value: new Vector3(0, 0, 1) },
+    uPressDepth: { value: 0 },
+    uPressWidth: { value: 0.55 },
+    uMouseDir: { value: new Vector3(0, 0, 1) },
+    uMouseBulge: { value: 0 },
+    uSquashAxis: { value: new Vector3(0, 0, 1) },
+    uSquash: { value: 1 },
+    uOpacity: { value: 0 },
+    uIor: { value: 1.32 },
+    uFaceIor: { value: 1.12 },
+    uDispersion: { value: 0.06 },
+    uRefract: { value: 0.09 },
+    uShimmer: { value: 0.85 },
+    uGlint: { value: 0.6 },
+    uRim: { value: 0.5 },
+    uEdgeDark: { value: 0.28 },
+    uBgMix: { value: 0 },
+    uFaceMix: { value: 0 },
+    uFaceSize: { value: 1 },
+    uFaceBlur: { value: 0.4 },
+    uFaceBlurJig: { value: 4 },
+    uFaceFadeJig: { value: 0.55 },
+    uResolution: { value: new Vector2(1, 1) },
+    uBgRect: { value: new Vector4(0, 0, 1, 1) },
+    uFaceCenterV: { value: new Vector3() },
+    uBgColor: {
+      value: new Vector3(BG_COLOR.r / 255, BG_COLOR.g / 255, BG_COLOR.b / 255),
+    },
+    uTint: { value: new Vector3(1, 1, 1) },
+    uC1: { value: new Vector3() },
+    uC2: { value: new Vector3() },
+    uC3: { value: new Vector3() },
+    uC4: { value: new Vector3() },
+    uFaceTex: { value: null },
+    uBgTex: { value: null },
   };
 }
 
@@ -94,6 +173,7 @@ export default function Scene({
   onCubeHoldRef.current = onCubeHold;
   const onCubeProximityRef = useRef(onCubeProximity);
   onCubeProximityRef.current = onCubeProximity;
+
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -107,176 +187,185 @@ export default function Scene({
     );
     renderer.setSize(W(), H());
     renderer.setClearColor(0x000000, 0);
-    renderer.toneMapping = ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.1;
+    // The blob shader outputs display-ready colour; tone mapping would only
+    // dull the shadow material
+    renderer.toneMapping = NoToneMapping;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = VSMShadowMap;
     container.appendChild(renderer.domElement);
     const scene = new THREEScene();
-    const envMap = createGlassEnvironment(renderer, scene);
     const camera = new PerspectiveCamera(50, W() / H(), 0.1, 200);
     camera.position.set(0, 0, 8);
+    camera.updateMatrixWorld();
+    const _size = new Vector2();
+    const readSize = () => renderer.getDrawingBufferSize(_size);
 
-    // ── Mesh ──
-    const sphereGeo = new IcosahedronGeometry(1, 32);
-    const fU = {
-      uTime: { value: 0 },
-      uNoiseFreq: { value: 0.2 },
-      uNoiseAmp: { value: 0 },
-      uNoiseSpeed: { value: 0 },
-      uNoiseOctaves: { value: 2 },
-      uNoiseLac: { value: 4 },
-      uNoisePers: { value: 0.9 },
-      uSpikeSharp: { value: 4 },
-      uNoiseWarp: { value: 0 },
-      uMouseWorld: { value: new Vector3(0, 0, 3) },
-      uMouseStrength: { value: 0 },
-      uMouseRadius: { value: 2 },
-      uMouseFalloff: { value: 1.2 },
-      uMouseNoiseBoost: { value: 0.4 },
-      uMouseNoiseFreq: { value: 2.6 },
-      uMouseAttract: { value: -2 },
-      uBaseBrightStart: { value: 0.92 },
-      uBaseBrightEnd: { value: 0.04 },
-      uRoughness: { value: 0.01 },
-      uMetallic: { value: 2 },
-      uSpecularIntensity: { value: 4 },
-      uFresnelPower: { value: 8.6 },
-      uFresnelIntensity: { value: 0.15 },
-      uIridescence: { value: 0.1 },
-      uEnvReflect: { value: 2 },
-      uEnvBrightness: { value: 3 },
-      uAoStrength: { value: 0 },
-      uAoRange: { value: 0.99 },
-      uRimStrength: { value: 0 },
-      uRimColor: { value: new Color(0x1a2a4a) },
-      uAmbientIntensity: { value: 0 },
-      uLight1Pos: { value: new Vector3(3, 4, 5) },
-      uLight1Int: { value: 1.2 },
-      uLight2Pos: { value: new Vector3(-3, -1, 3) },
-      uLight2Int: { value: 3 },
-      uLight3Pos: { value: new Vector3(-0.2, -8, 0) },
-      uLight3Int: { value: 3 },
-      uScrollProgress: { value: 0 },
-      uWaveformMix: { value: 0 },
-      uWaveTime: { value: 0 },
-      uShape: { value: 0 },
-      uMeshAlpha: { value: 1 },
-      uBounds: { value: 3.0 },
-      uTetraScale: { value: 1 },
-      uCubeScale: { value: 1 },
-      uShapeTiltX: { value: 0 },
-      uShapeTiltY: { value: 0 },
-      uGC1: { value: new Color("#1a0a3e") },
-      uGC2: { value: new Color("#d41878") },
-      uGC3: { value: new Color("#08b4a8") },
-      uGC4: { value: new Color("#f5a623") },
-    };
-    const sphere = new Mesh(
-      sphereGeo,
-      new ShaderMaterial({
-        vertexShader: FV,
-        fragmentShader: FF,
-        uniforms: fU,
-        transparent: true,
-        depthWrite: true,
-      })
-    );
-    sphere.renderOrder = 0;
-    sphere.visible = false;
-    scene.add(sphere);
+    // ── Face texture (sampled inside the blob shader) ──
+    const face = createBlobFace(256);
+    const faceTex = new CanvasTexture(face.canvas);
+    // Premultiplied so mip blur never darkens the edges of the drawing
+    faceTex.premultiplyAlpha = true;
+    faceTex.wrapS = faceTex.wrapT = ClampToEdgeWrapping;
+    faceTex.minFilter = LinearMipmapLinearFilter;
+    faceTex.magFilter = LinearFilter;
+    faceTex.generateMipmaps = true;
 
-    // ── Glass cube ──
-    const glassGeo = new RoundedBoxGeometry(1, 1, 1, 4, 0.08);
-    const glassMat = isMobile
-      ? new MeshPhysicalMaterial({
+    // ── Page gradient sample the blob refracts (desktop only) ──
+    const bgCanvas = document.createElement("canvas");
+    bgCanvas.width = BG_TEX_SIZE;
+    bgCanvas.height = BG_TEX_SIZE;
+    const bgCtx = bgCanvas.getContext("2d");
+    const bgTex = new CanvasTexture(bgCanvas);
+    bgTex.minFilter = LinearFilter;
+    bgTex.magFilter = LinearFilter;
+    bgTex.generateMipmaps = false;
+    bgTex.wrapS = bgTex.wrapT = ClampToEdgeWrapping;
+
+    // ── The blob ──
+    const physics = createBlobPhysics();
+    const uniforms = createBlobUniforms(physics);
+    uniforms.uFaceTex.value = faceTex;
+    uniforms.uBgTex.value = bgTex;
+    readSize();
+    uniforms.uResolution.value.copy(_size);
+    const blobGeo = new IcosahedronGeometry(1, isMobile ? 24 : 48);
+    const blobMat = new ShaderMaterial({
+      vertexShader: blobVertexShader,
+      fragmentShader: blobFragmentShader,
+      uniforms,
+      transparent: true,
+      premultipliedAlpha: true,
+      depthWrite: true,
+    });
+    // Shadow pass shares the uniforms so the shadow deforms with the surface
+    const blobDepthMat = new ShaderMaterial({
+      vertexShader: blobDepthVertexShader,
+      fragmentShader: blobDepthFragmentShader,
+      uniforms,
+    });
+    const blob = new Mesh(blobGeo, blobMat);
+    blob.castShadow = true;
+    blob.customDepthMaterial = blobDepthMat;
+    blob.frustumCulled = false;
+    blob.renderOrder = 0;
+    scene.add(blob);
+
+    // ── Floor: invisible plane that only shows the blob's shadow ──
+    const floorMat = new ShadowMaterial({
+      color: 0x151530,
+      opacity: 0.22,
+      transparent: true,
+      depthWrite: false,
+    });
+    const floor = new Mesh(new PlaneGeometry(80, 80), floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -2.05;
+    floor.receiveShadow = true;
+    floor.renderOrder = -1;
+    scene.add(floor);
+    const sun = new DirectionalLight(0xffffff, 1);
+    sun.castShadow = true;
+    const shadowSize = isMobile ? 256 : 512;
+    sun.shadow.mapSize.set(shadowSize, shadowSize);
+    const sc = sun.shadow.camera;
+    sc.left = -4.5;
+    sc.right = 4.5;
+    sc.top = 4.5;
+    sc.bottom = -4.5;
+    sc.near = 0.5;
+    sc.far = 40;
+    sun.shadow.radius = isMobile ? 9 : 22;
+    sun.shadow.blurSamples = isMobile ? 6 : 10;
+    sun.shadow.bias = 0;
+    scene.add(sun);
+    scene.add(sun.target);
+
+    // ── Decorative blobs shown behind the menu's frosted glass ──
+    const menuGeo = new IcosahedronGeometry(1, isMobile ? 12 : 20);
+    const menuBlobs = [];
+    let menuBlobsShown = false;
+    let menuBlobsCreated = false;
+    function ensureMenuBlobs() {
+      if (menuBlobsCreated) return;
+      menuBlobsCreated = true;
+      const zones = [
+        { x: [-1.5, 1.5], y: [1.5, 3.5], z: [-5, -3] },
+        { x: [-1.5, 1.5], y: [-3.5, -1.5], z: [-5, -3] },
+      ];
+      zones.forEach((zone, i) => {
+        const px = zone.x[0] + Math.random() * (zone.x[1] - zone.x[0]);
+        const py = zone.y[0] + Math.random() * (zone.y[1] - zone.y[0]);
+        const pz = zone.z[0] + Math.random() * (zone.z[1] - zone.z[0]);
+        const u = createBlobUniforms(null);
+        u.uNoiseAmp.value = 0.17;
+        u.uNoiseFreq.value = 1.6;
+        u.uGlint.value = 0;
+        u.uShimmer.value = 0.6;
+        const m = new ShaderMaterial({
+          vertexShader: blobVertexShader,
+          fragmentShader: blobFragmentShader,
+          uniforms: u,
           transparent: true,
-          opacity: 0.18,
-          roughness: 0.02,
-          metalness: 0.05,
-          envMapIntensity: 2.0,
-          clearcoat: 1,
-          clearcoatRoughness: 0.05,
-          color: 0xffffff,
-          side: FrontSide,
-          depthWrite: false,
-        })
-      : new MeshPhysicalMaterial({
-          transmission: 1,
-          roughness: 0,
-          ior: 1.8,
-          thickness: 3.5,
-          transparent: true,
-          metalness: 0,
-          envMapIntensity: 2.5,
-          specularIntensity: 1.5,
-          specularColor: 0xffffff,
-          clearcoat: 0.5,
-          clearcoatRoughness: 0.05,
-          color: 0xffffff,
-          side: FrontSide,
+          premultipliedAlpha: true,
           depthWrite: false,
         });
-    const glassCube = new Mesh(glassGeo, glassMat);
-    glassCube.renderOrder = 10;
-    scene.add(glassCube);
+        const mesh = new Mesh(menuGeo, m);
+        mesh.frustumCulled = false;
+        mesh.renderOrder = 1;
+        mesh.position.set(px, py - 1.5, pz);
+        mesh.scale.setScalar(0.01);
+        mesh.rotation.set(
+          Math.random() * 0.6,
+          Math.random() * 0.6,
+          Math.random() * 0.3
+        );
+        mesh.userData.rotSpeed = new Vector3(
+          (Math.random() - 0.5) * 0.12,
+          (Math.random() - 0.5) * 0.18,
+          0
+        );
+        mesh.userData.targetY = py;
+        mesh.userData.delay = i * 0.2;
+        mesh.userData.born = performance.now();
+        mesh.userData.timeOffset = Math.random() * 100;
+        mesh.userData.size = 0.75 + Math.random() * 0.3;
+        mesh.visible = false;
+        scene.add(mesh);
+        menuBlobs.push({ mesh, mat: m, u, opacity: 0, scale: 0 });
+      });
+    }
 
-    // ── Glowing smiley / audio wave inside the cube ──
-    const smileyCanvas = document.createElement("canvas");
-    smileyCanvas.width = 256;
-    smileyCanvas.height = 256;
-    const sCtx = smileyCanvas.getContext("2d");
-    const smCx = 128,
-      smCy = 128;
-    let dizzySmooth = 0;
+    // ── Face state ──
     let chatMorph = 0;
     let sleepSmooth = 0;
-    let happySmooth = 0;
-    let prevChatMode = false;
     let blinkTimer = 0;
     let blinkAmount = 0;
     let nextBlink = 2 + Math.random() * 4;
     let doubleBlink = 0;
-    let expr = {
-      curious: 0,
-      wink: 0,
-      love: 0,
-      cheeky: 0,
-      proud: 0,
-      startled: 0,
-      shy: 0,
-      phew: 0,
-      excited: 0,
-      grumpy: 0,
+    let smoothLookX = 0,
+      smoothLookY = 0;
+    let idleT = 0,
+      driftX = 0,
+      driftY = 0,
+      mouthVar = 0;
+    let pressSmooth = 0;
+    const themeColors = [null, null, null, null];
+    const faceState = {
+      lookX: 0,
+      lookY: 0,
+      blink: 0,
+      sleep: 0,
+      press: 0,
+      morph: 0,
+      time: 0,
+      colors: themeColors,
+      driftX: 0,
+      driftY: 0,
+      mouthVar: 0,
     };
-    let prevMx = 0,
-      prevMy = 0,
-      prevDriftX = 0,
-      prevDriftY = 0,
-      prevMouthVar = 0;
-    const { drawCubeFace } = createCubeFaceRenderer(smileyCanvas);
-    const exprTriggerState = createExpressionState();
-    exprTriggerState.prevSeason = activeSeasonRef.current;
+    const lastDrawn = { ...faceState, colors: "" };
 
-    const onLoveTrigger = () => {
-      expr.love = 1;
-    };
-    window.addEventListener("contact-sent", onLoveTrigger);
-    const smileyTex = new CanvasTexture(smileyCanvas);
-    smileyTex.needsUpdate = true;
-    const smileyMat = new SpriteMaterial({
-      map: smileyTex,
-      transparent: true,
-      opacity: 0.6,
-      blending: AdditiveBlending,
-      depthWrite: false,
-    });
-    const smiley = new Sprite(smileyMat);
-    smiley.scale.set(0.75, 0.75, 1);
-    smiley.position.set(0, 0, 0.05);
-    smiley.renderOrder = 12;
-    glassCube.add(smiley);
-
-    let lastCornerR = 0.08;
-    const cubeQuat = new Quaternion();
+    const blobQuat = new Quaternion();
     const angVel = new Vector3(0, 0, 0);
 
     const mouse = new Vector2(-999, -999);
@@ -286,8 +375,13 @@ export default function Scene({
     const _screenPos = new Vector3();
     const _axis = new Vector3();
     const _dq = new Quaternion();
+    const _qInv = new Quaternion();
     const _testMouse = new Vector2();
     const _testHit = new Vector3();
+    const _pressDir = new Vector3(0, 0, 1);
+    const _mouseDir = new Vector3(0, 0, 1);
+    const _landDir = new Vector3(0, -1, 0);
+
     const onMM = (e) => {
       mouse.x = (e.clientX / W()) * 2 - 1;
       mouse.y = -(e.clientY / H()) * 2 + 1;
@@ -306,31 +400,44 @@ export default function Scene({
     window.addEventListener("mousemove", onMM, { passive: true });
     window.addEventListener("touchmove", onTM, { passive: true });
 
-    let bounceZ = 0,
-      bounceSpin = 0,
-      bounceDecay = 0;
+    // ── Pressing ──
+    // A press is a poke: dent + ring of waves + squash. Holding deepens the
+    // dent and keeps the surface rippling; letting go throws a bigger ring.
+    // Opening chat on tap / showcase on hold are off by default (see
+    // blobTapOpensChat / blobHoldOpensShowcase in config/defaults.js) —
+    // both remain reachable from the menu.
     let holdTimer = null,
       isHolding = false,
       holdStartTime = 0,
       holdFired = false,
+      holdProgress = 0,
       pressX = 0,
       pressY = 0,
       pressMoved = false,
       lastTouchTime = 0;
-    // A press that travels this far is a drag (spinning the cube), not a tap
+    // A press that travels this far is a drag (spinning the blob), not a tap
     const TAP_SLOP_PX = 14;
-    const testCubeHit = (e) => {
-      const mx = (e.clientX / W()) * 2 - 1,
-        my = -(e.clientY / H()) * 2 + 1;
-      raycaster.setFromCamera(_testMouse.set(mx, my), camera);
-      return raycaster.ray.intersectSphere(mSp, _testHit);
+
+    // Pointer → the surface point under it as an OBJECT-space direction.
+    // Falls back to the closest point on the hit sphere so a held finger that
+    // slides off the edge keeps pressing the rim instead of dropping.
+    const pointerToDir = (nx, ny, out) => {
+      raycaster.setFromCamera(_testMouse.set(nx, ny), camera);
+      const hit =
+        raycaster.ray.intersectSphere(mSp, _testHit) ||
+        raycaster.ray.closestPointToPoint(blob.position, _testHit);
+      return out
+        .copy(hit)
+        .sub(blob.position)
+        .applyQuaternion(_qInv.copy(blob.quaternion).invert())
+        .normalize();
+    };
+    const endPress = () => {
+      physics.release(_pressDir, holdProgress, clock.elapsedTime);
+      isHolding = false;
     };
     const onDown = (e) => {
       lastActivity = performance.now();
-      if (!exprTriggerState.firstClickFired && !showcaseOpenRef.current) {
-        exprTriggerState.firstClickFired = true;
-        expr.startled = 1;
-      }
       if (
         menuOpenRef.current ||
         chatModeRef.current ||
@@ -340,50 +447,51 @@ export default function Scene({
         return;
       // Ignore presses that land on real UI (menu button, chat, overlays) —
       // this listener is on window, so it fires for every mousedown and would
-      // otherwise also trigger the cube when it drifts behind a button.
+      // otherwise also poke the blob when it drifts behind a button.
       if (
         e.target?.closest &&
         e.target.closest("button, a, input, textarea, select, [role='dialog']")
       )
         return;
-      if (!testCubeHit(e)) return false;
-      // Click burst on the cube → excited (3 quick taps)
-      const nowT = performance.now();
-      exprTriggerState.clickTimes = (exprTriggerState.clickTimes || []).filter(
-        (t) => nowT - t < 1500
-      );
-      exprTriggerState.clickTimes.push(nowT);
-      if (exprTriggerState.clickTimes.length >= 3) expr.excited = 1;
+      const nx = (e.clientX / W()) * 2 - 1,
+        ny = -(e.clientY / H()) * 2 + 1;
+      raycaster.setFromCamera(_testMouse.set(nx, ny), camera);
+      if (!raycaster.ray.intersectSphere(mSp, _testHit)) return false;
+      mouse.set(nx, ny);
+      pointerToDir(nx, ny, _pressDir);
+      physics.press(_pressDir, clock.elapsedTime, 1);
       isHolding = true;
       holdFired = false;
       pressMoved = false;
+      holdProgress = 0;
       pressX = e.clientX;
       pressY = e.clientY;
       holdStartTime = performance.now();
-      holdTimer = setTimeout(() => {
-        if (isHolding) {
+      if (cfg.current.blobHoldOpensShowcase) {
+        holdTimer = setTimeout(() => {
+          holdTimer = null;
+          if (!isHolding) return;
           holdFired = true;
-          clickScaleVel = -0.8;
-          isHolding = false;
+          endPress();
           if (onCubeHoldRef.current) onCubeHoldRef.current();
-        }
-      }, 600);
+        }, cfg.current.holdDuration || 600);
+      }
       return true;
     };
     const onUp = () => {
       if (holdTimer) clearTimeout(holdTimer);
-      // Any release before the hold fires is a tap — the old 150ms ceiling
-      // left a dead zone that swallowed most real finger taps (typically
-      // 150-250ms). A press that travelled is a drag (spin), not a tap.
-      if (isHolding && !holdFired && !pressMoved) {
-        clickScaleVel = -0.8;
-        setTimeout(() => {
-          if (onCubeClickRef.current) onCubeClickRef.current();
-        }, 300);
-      }
-      isHolding = false;
-      holdFired = false;
       holdTimer = null;
+      if (isHolding) {
+        const wasTap =
+          !pressMoved && performance.now() - holdStartTime < 350;
+        endPress();
+        if (wasTap && cfg.current.blobTapOpensChat && !holdFired) {
+          setTimeout(() => {
+            if (onCubeClickRef.current) onCubeClickRef.current();
+          }, 300);
+        }
+      }
+      holdFired = false;
     };
     const trackPressMove = (cx, cy) => {
       if (!isHolding || pressMoved) return;
@@ -392,8 +500,7 @@ export default function Scene({
       if (dx * dx + dy * dy > TAP_SLOP_PX * TAP_SLOP_PX) pressMoved = true;
     };
     // Touch fires a compatibility mouse sequence after touchend; ignore it so
-    // every tap isn't processed twice (which also double-counted the
-    // three-tap "excited" easter egg).
+    // every tap isn't processed twice.
     const isCompatMouseEvent = () => performance.now() - lastTouchTime < 700;
     const onMouseDownWrapped = (e) => {
       if (isCompatMouseEvent()) return;
@@ -415,7 +522,7 @@ export default function Scene({
         target: e.target,
       });
       // Only suppress native behaviour (long-press callout, double-tap zoom)
-      // when the touch actually grabbed the cube — leaves scrolling in the
+      // when the touch actually grabbed the blob — leaves scrolling in the
       // showcase, menu and chat completely untouched.
       if (engaged && e.cancelable) e.preventDefault();
     };
@@ -426,7 +533,7 @@ export default function Scene({
     window.addEventListener("touchstart", onTouchDown, { passive: false });
     window.addEventListener("touchend", onTouchUp);
     window.addEventListener("touchcancel", onTouchUp);
-    // Long-press on the cube is our gesture — don't let the OS hijack it
+    // Press-and-hold on the blob is our gesture — don't let the OS hijack it
     const onContextMenu = (e) => {
       if (isHolding) e.preventDefault();
     };
@@ -439,94 +546,23 @@ export default function Scene({
         camera.aspect = W() / H();
         camera.updateProjectionMatrix();
         renderer.setSize(W(), H());
+        readSize();
+        uniforms.uResolution.value.copy(_size);
       }, 150);
     };
     window.addEventListener("resize", onResize);
+
     const clock = new Clock();
     let raf;
-    let goldSparkleFrame = 0;
     let birthStart = performance.now();
-    let birthPhewFired = false;
+    let birthLanded = false;
     let lastReplayKey = 0;
-    let rotAngle = 0;
     const menuPos = new Vector3(0, 0, 0);
     const menuVel = new Vector3(0, 0, 0);
     let menuScale = 1;
     let menuScaleVel = 0;
     let prevMouseX = 0,
       prevMouseY = 0;
-    const menuCubes = [];
-    let menuCubesShown = false;
-    let menuCubesCreated = false;
-    function ensureMenuCubes() {
-      if (menuCubesCreated) return;
-      menuCubesCreated = true;
-      const cubeSize = (configRef.current.glassCubeSize || 3.6) * 0.55;
-      const cr = configRef.current.glassCornerRadius || 0.08;
-      const zones = [
-        { x: [-1.5, 1.5], y: [1.5, 3.5], z: [-5, -3] },
-        { x: [-1.5, 1.5], y: [-3.5, -1.5], z: [-5, -3] },
-      ];
-      zones.forEach((zone, i) => {
-        const px = zone.x[0] + Math.random() * (zone.x[1] - zone.x[0]);
-        const py = zone.y[0] + Math.random() * (zone.y[1] - zone.y[0]);
-        const pz = zone.z[0] + Math.random() * (zone.z[1] - zone.z[0]);
-        const g = new RoundedBoxGeometry(
-          cubeSize,
-          cubeSize,
-          cubeSize,
-          4,
-          cr * cubeSize
-        );
-        const m = isMobile
-          ? new MeshPhysicalMaterial({
-              transparent: true,
-              opacity: 0,
-              roughness: 0.05,
-              metalness: 0.1,
-              envMapIntensity: 1.2,
-              color: 0xffffff,
-            })
-          : new MeshPhysicalMaterial({
-              transmission: 0.92,
-              roughness: 0.05,
-              ior: 1.5,
-              thickness: 1.2,
-              transparent: true,
-              opacity: 0,
-              metalness: 0,
-              envMapIntensity: 1.2,
-              color: 0xffffff,
-            });
-        const edgeGeo = new EdgesGeometry(g);
-        const lineMat = new LineBasicMaterial({
-          color: 0xffffff,
-          transparent: true,
-          opacity: 0,
-        });
-        const mesh = new Mesh(g, m);
-        const wire = new LineSegments(edgeGeo, lineMat);
-        mesh.add(wire);
-        mesh.position.set(px, py - 1.5, pz);
-        mesh.scale.setScalar(0.01);
-        mesh.rotation.set(
-          Math.random() * 0.6,
-          Math.random() * 0.6,
-          Math.random() * 0.3
-        );
-        mesh.userData.rotSpeed = new Vector3(
-          (Math.random() - 0.5) * 0.12,
-          (Math.random() - 0.5) * 0.18,
-          0
-        );
-        mesh.userData.targetY = py;
-        mesh.userData.delay = i * 0.2;
-        mesh.userData.born = performance.now();
-        mesh.visible = false;
-        scene.add(mesh);
-        menuCubes.push({ mesh, mat: m, lineMat, geo: g, edges: edgeGeo });
-      });
-    }
     let chatZ = 0,
       chatZVel = 0,
       chatSpinBurst = 0,
@@ -535,12 +571,13 @@ export default function Scene({
       chatArcX = 0,
       chatArcXVel = 0,
       wasInChat = false;
-    let clickScale = 1,
-      clickScaleVel = 0;
     let scZoom = 0;
     let cachedBirthBezier = null;
     let cachedBezierKey = "";
     let wasShowcaseOpen = false;
+    let bgFrame = 0;
+    const themeKey = ["", "", "", ""];
+    const themeVec = [uniforms.uC1, uniforms.uC2, uniforms.uC3, uniforms.uC4];
 
     function loop() {
       raf = requestAnimationFrame(loop);
@@ -567,7 +604,7 @@ export default function Scene({
       if (c.birthReplay && c.birthReplay !== lastReplayKey) {
         lastReplayKey = c.birthReplay;
         birthStart = now;
-        rotAngle = 0;
+        birthLanded = false;
         angVel.x += c.birthSpinBurstX ?? 0;
         angVel.y += c.birthSpinBurstY ?? 0;
         angVel.z += c.birthSpinBurstZ ?? 0;
@@ -576,7 +613,6 @@ export default function Scene({
       const birthT = Math.min(1, (now - birthStart) / 1000 / c.birthDuration);
       let birth;
       if ((c.birthUseBezier ?? 0) > 0.5) {
-        // Cache bezier function — only recreate when control points change
         const bezKey = `${c.birthBezierX1},${c.birthBezierY1},${c.birthBezierX2},${c.birthBezierY2}`;
         if (bezKey !== cachedBezierKey) {
           cachedBezierKey = bezKey;
@@ -593,12 +629,16 @@ export default function Scene({
         birth = 1 - Math.pow(1 - birthT, birthEase);
       }
       if (onBirthProgress) onBirthProgress(birth);
-      if (birthT >= 1 && !birthPhewFired) {
-        birthPhewFired = true;
-        expr.phew = 1;
+      // Landing: the blob settles with a visible wobble
+      if (birthT >= 0.92 && !birthLanded) {
+        birthLanded = true;
+        physics.kick(0.9, _landDir);
       }
 
-      const bR = c.sphereRadius;
+      // Portrait phones: shrink a touch so the blob leaves room for the
+      // touch hint below it instead of filling the width
+      const fit = Math.max(0.8, Math.min(1, 0.55 + camera.aspect * 0.55));
+      const R = (c.blobRadius || 1.45) * fit;
       const birthYDist = c.birthFloatDist ?? 1.2;
       const birthY = -birthYDist * (1 - birth);
       const birthZDist = c.birthFlyInDist ?? 7;
@@ -615,96 +655,33 @@ export default function Scene({
         (c.birthStartY ?? 0) +
         ((c.birthEndY ?? 0) - (c.birthStartY ?? 0)) * birth;
 
-      rotAngle += (c.birthSpinSpeed || 0.4) * (c.birthSpinMult || 0.15) * dt;
-      if (birth > 0.98) rotAngle += c.rotationSpeed * 0.5 * dt;
-
-      bounceDecay += dt;
-      const bSpring = 8,
-        bDamp = 4;
-      const bzAccel = -bounceZ * bSpring - bounceSpin * 0.1;
-      bounceZ += bounceZ * -bDamp * dt + bzAccel * dt * dt;
-      if (Math.abs(bounceZ) < 0.01 && bounceDecay > 0.5) bounceZ = 0;
-      bounceSpin *= Math.max(0, 1 - 3 * dt);
-      rotAngle += bounceSpin * dt;
-
-      if (isHolding) {
-        const holdProgress = Math.min(1, (now - holdStartTime) / 600);
-        const holdTarget = 1 - holdProgress * 0.18;
-        clickScale += (holdTarget - clickScale) * 0.12;
-        clickScaleVel = 0;
-      } else {
-        const csAccel = (1 - clickScale) * 6 - clickScaleVel * 3;
-        clickScaleVel += csAccel * dt;
-        clickScale += clickScaleVel * dt;
-        if (
-          Math.abs(clickScale - 1) < 0.001 &&
-          Math.abs(clickScaleVel) < 0.005
-        ) {
-          clickScale = 1;
-          clickScaleVel = 0;
-        }
-      }
-
-      let cubeProx = 0;
-      if (birth > 0.5 && onCubeProximityRef.current) {
-        _screenPos.copy(glassCube.position).project(camera);
-        const dx = _screenPos.x - mouse.x,
-          dy = _screenPos.y - mouse.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        cubeProx = Math.max(0, 1 - dist / (c.reticleRange || 1.2));
-        onCubeProximityRef.current(cubeProx);
-        // Hit sphere: 1.3× the cube on cursor devices, 2.0× on touch so the
-        // whole visible cube (and a finger-sized margin) is tappable
-        mSp.set(
-          glassCube.position,
-          bR * (c.shapeScale || 1) * menuScale * (IS_TOUCH ? 2.0 : 1.3)
-        );
-      }
-
+      // ── Menu decoration ──
       const mOpen = menuOpenRef.current;
-      if (mOpen && !menuCubesShown) {
-        menuCubesShown = true;
-        ensureMenuCubes();
-        menuCubes.forEach((mc) => {
-          mc.mesh.visible = true;
-          mc.mesh.userData.born = now;
-          mc.mat.opacity = 0;
-          mc.lineMat.opacity = 0;
-          mc.mesh.scale.setScalar(0.01);
+      if (mOpen && !menuBlobsShown) {
+        menuBlobsShown = true;
+        ensureMenuBlobs();
+        menuBlobs.forEach((mb) => {
+          mb.mesh.visible = true;
+          mb.mesh.userData.born = now;
+          mb.opacity = 0;
+          mb.scale = 0.01;
         });
       }
       if (
         !mOpen &&
-        menuCubesShown &&
-        menuCubes.every((mc) => mc.mat.opacity < 0.01 && mc.mesh.scale.x < 0.02)
+        menuBlobsShown &&
+        menuBlobs.every((mb) => mb.opacity < 0.01 && mb.scale < 0.02)
       ) {
-        menuCubesShown = false;
-        menuCubes.forEach((mc) => {
-          mc.mesh.visible = false;
+        menuBlobsShown = false;
+        menuBlobs.forEach((mb) => {
+          mb.mesh.visible = false;
         });
       }
-      menuCubes.forEach((mc) => {
-        const age = (now - mc.mesh.userData.born) / 1000;
-        const delay = mc.mesh.userData.delay || 0;
-        const t = Math.max(0, age - delay);
-        const entrance = Math.min(1, t / 1.0);
-        const ease = entrance * entrance * (3 - 2 * entrance);
-        const targetOp = mOpen ? (isMobile ? 0.12 : 0.88) * ease : 0;
-        const targetLineOp = mOpen ? 0.1 * ease : 0;
-        const targetS = mOpen ? ease : 0;
-        mc.mat.opacity += (targetOp - mc.mat.opacity) * 2.5 * dt;
-        mc.lineMat.opacity += (targetLineOp - mc.lineMat.opacity) * 2.5 * dt;
-        const curS = mc.mesh.scale.x;
-        mc.mesh.scale.setScalar(curS + (targetS - curS) * 2.5 * dt);
-        const ty = mc.mesh.userData.targetY || 0;
-        mc.mesh.position.y +=
-          ((mOpen ? ty : ty - 1.5) - mc.mesh.position.y) * 2.5 * dt;
-        mc.mesh.rotation.x += mc.mesh.userData.rotSpeed.x * dt;
-        mc.mesh.rotation.y += mc.mesh.userData.rotSpeed.y * dt;
-      });
+
+      // ── Chat mode: the blob slides aside and grows ──
       const inChat = chatModeRef.current;
       const targetX = inChat ? -3.2 : 0;
-      const targetY = inChat ? 0 : 0;
+      const targetY = 0;
       const targetZ = inChat ? 4 : 0;
       const targetS = inChat ? 1.6 : 1;
       const stiffness = inChat
@@ -746,6 +723,7 @@ export default function Scene({
         chatArcXVel = c.chatArcKickX || -4;
         angVel.y += c.chatSpinKick || 5.0;
         angVel.x += 1.5;
+        physics.kick(0.6, _landDir);
         wasInChat = true;
       }
       if (!inChat && wasInChat) {
@@ -754,17 +732,57 @@ export default function Scene({
         chatArcXVel = -(c.chatArcKickX || -4);
         angVel.y -= c.chatSpinKick || 5.0;
         angVel.x -= 1.5;
+        physics.kick(0.6, _landDir);
         wasInChat = false;
       }
       chatSpinBurst *= Math.max(0, 1 - (c.chatSpinDecay || 1.4) * dt);
-      rotAngle += chatSpinBurst * dt;
       angVel.y += chatSpinBurst * 0.5 * dt;
+
+      // ── Showcase zoom (blob flies into the camera) ──
+      if (showcaseTransRef.current || showcaseOpenRef.current) {
+        scZoom = Math.min(1, scZoom + dt * 1.1);
+      } else if (scZoom > 0) {
+        scZoom = 0;
+      }
+      const zoomEased =
+        scZoom < 0.5
+          ? 2 * scZoom * scZoom
+          : 1 - Math.pow(-2 * scZoom + 2, 2) / 2;
+      const zoomZ = zoomEased * 12;
+      const zoomScale = 1 + zoomEased * 1.2;
+
+      // Sleep: a slow breath in the scale
+      const breath = 1 + sleepSmooth * Math.sin(el * 1.3) * 0.015;
+      const worldR = R * menuScale * birthScaleCurve * zoomScale * breath;
+
+      const baseX = menuPos.x + chatArcX + birthX;
+      const baseY = menuPos.y + birthY + birthYOffset + birthArc;
+      const baseZ = birthZ + chatZ + chatArc;
+      const px = baseX * (1 - zoomEased);
+      const py = baseY * (1 - zoomEased * 0.4);
+      const pz = baseZ + zoomZ;
+      blob.position.set(px, py, pz);
+      blob.scale.setScalar(worldR);
+      blob.visible = zoomEased < 0.99;
+      // Hit sphere: a little bigger than the blob on cursor devices, a
+      // finger-sized margin on touch
+      mSp.set(blob.position, worldR * (IS_TOUCH ? 1.55 : 1.12));
+
+      // ── Cursor: proximity, spin, attraction ──
+      let cubeProx = 0;
+      if (birth > 0.5) {
+        _screenPos.copy(blob.position).project(camera);
+        const dx = _screenPos.x - mouse.x,
+          dy = _screenPos.y - mouse.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        cubeProx = Math.max(0, 1 - dist / (c.reticleRange || 1.2));
+        if (onCubeProximityRef.current) onCubeProximityRef.current(cubeProx);
+      }
       const mdx = mouse.x - prevMouseX,
         mdy = mouse.y - prevMouseY;
       prevMouseX = mouse.x;
       prevMouseY = mouse.y;
       const validMouse = mouse.x > -900 && prevMouseX > -900;
-
       if (validMouse && cubeProx > 0.5 && birth > 0.95) {
         const speed = Math.sqrt(mdx * mdx + mdy * mdy);
         const proxStrength = Math.pow(cubeProx, 2);
@@ -774,8 +792,8 @@ export default function Scene({
         angVel.x += (-mdy * strength * 0.8) / mass;
       }
       if (birth > 0.98) {
-        angVel.y += (c.glassRotSpeedY || 0.36) * 0.08 * dt;
-        angVel.x += (c.glassRotSpeedX || 0.62) * 0.08 * dt;
+        angVel.y += (c.blobSpinY ?? 0.36) * 0.08 * dt;
+        angVel.x += (c.blobSpinX ?? 0.62) * 0.08 * dt;
       }
       const drag = 0.75;
       angVel.x -= angVel.x * drag * dt;
@@ -783,42 +801,52 @@ export default function Scene({
       angVel.z -= angVel.z * drag * dt;
       angVel.clampLength(0, 8);
       const avLen = angVel.length();
+      if (avLen > 0.0001) {
+        _axis.copy(angVel).normalize();
+        _dq.setFromAxisAngle(_axis, avLen * dt);
+        blobQuat.premultiply(_dq);
+        blobQuat.normalize();
+      }
+      blob.quaternion.copy(blobQuat);
+      blob.updateMatrixWorld();
 
-      const dizzyTarget = Math.min(1, Math.max(0, (avLen - 1.5) / 3.5));
-      dizzySmooth +=
-        (dizzyTarget - dizzySmooth) *
-        (dizzyTarget > dizzySmooth ? 3 : 1.5) *
-        dt;
+      if (validMouse && birth > 0.9) {
+        pointerToDir(mouse.x, mouse.y, _mouseDir);
+        physics.setMouse(_mouseDir, cubeProx);
+      } else {
+        physics.setMouse(_mouseDir, 0);
+      }
+
+      // ── Press physics ──
+      if (isHolding) {
+        holdProgress = Math.max(
+          0,
+          Math.min(1, (now - holdStartTime - 120) / 900)
+        );
+        pointerToDir(mouse.x, mouse.y, _pressDir);
+        physics.hold(_pressDir, holdProgress, dt, el);
+      }
+      physics.update(dt);
+      physics.writeUniforms(uniforms);
+
+      // ── Face state ──
       const morphTarget = chatModeRef.current ? 1 : 0;
       chatMorph += (morphTarget - chatMorph) * 1.8 * dt;
-      if (prevChatMode && !chatModeRef.current) happySmooth = 1;
-      prevChatMode = chatModeRef.current;
-      happySmooth = Math.max(0, happySmooth - dt * 0.3);
-
-      const safeMx = mouse.x < -900 ? 0 : mouse.x;
-      const safeMy = mouse.y < -900 ? 0 : mouse.y;
-      const { anyActive: exprShowing } = updateExpressions(
-        expr,
-        exprTriggerState,
-        {
-          dt,
-          cubeProx,
-          isHolding,
-          chatMode: chatModeRef.current,
-          activeSeason: activeSeasonRef.current,
-          angVelY: angVel.y,
-          showcaseOpen: showcaseOpenRef.current,
-          now: now,
-          lookX: safeMx,
-          lookY: safeMy,
-          mouseSpeed: validMouse ? Math.sqrt(mdx * mdx + mdy * mdy) : 0,
-          dizzy: dizzySmooth,
-        }
+      const lx = mouse.x < -900 ? 0 : mouse.x;
+      const ly = mouse.y < -900 ? 0 : mouse.y;
+      smoothLookX += (lx - smoothLookX) * Math.min(1, dt * 6);
+      smoothLookY += (ly - smoothLookY) * Math.min(1, dt * 6);
+      idleT += dt;
+      driftX += (Math.sin(idleT * 0.7) * 2.5 - driftX) * dt * 1.5;
+      driftY += (Math.sin(idleT * 0.5 + 1.7) * 1.5 - driftY) * dt * 1.5;
+      mouthVar += (Math.sin(idleT * 0.3 + 3.1) * 0.3 - mouthVar) * dt * 1.2;
+      const pressExpr = Math.min(
+        1,
+        physics.pressDepth * 4.5 + (isHolding ? 0.25 : 0)
       );
-      const smoothMx = exprTriggerState.smoothLookX;
-      const smoothMy = exprTriggerState.smoothLookY;
+      pressSmooth += (pressExpr - pressSmooth) * Math.min(1, dt * 10);
 
-      if (exprShowing || sleepSmooth > 0.3) {
+      if (sleepSmooth > 0.3 || isHolding) {
         blinkTimer = 0;
       } else {
         blinkTimer += dt;
@@ -838,154 +866,189 @@ export default function Scene({
       }
       blinkAmount = Math.max(0, blinkAmount - dt * 3.5);
 
-      const effectiveLastActive = Math.max(
-        lastActivity,
-        exprTriggerState.lastExpressionTime || 0
-      );
-      const idleTime = (now - effectiveLastActive) / 1000;
-      const sleepTarget = idleTime > 15 ? Math.min(1, (idleTime - 15) / 3) : 0;
-      const sleepLerp = exprShowing && sleepSmooth > 0.2 ? 8 : 2;
-      sleepSmooth += (sleepTarget - sleepSmooth) * sleepLerp * dt;
-      const themeColors = [
-        c.gradColor1,
-        c.gradColor2,
-        c.gradColor3,
-        c.gradColor4,
-      ];
-      expr._driftX = exprTriggerState.eyeDriftX;
-      expr._driftY = exprTriggerState.eyeDriftY;
-      expr._mouthVar = exprTriggerState.mouthVar;
-
-      const holdElapsed = now - holdStartTime;
-      const holdDeadZone = 150;
-      const holdProgress =
-        isHolding && !holdFired && holdElapsed > holdDeadZone
-          ? Math.max(
-              0,
-              Math.min(1, (holdElapsed - holdDeadZone) / (600 - holdDeadZone))
-            )
+      const idleSeconds = (now - lastActivity) / 1000;
+      const sleepIdle = c.sleepIdleTime ?? 15;
+      const sleepRamp = c.sleepRampTime ?? 3;
+      const sleepTarget =
+        idleSeconds > sleepIdle
+          ? Math.min(1, (idleSeconds - sleepIdle) / sleepRamp)
           : 0;
+      sleepSmooth += (sleepTarget - sleepSmooth) * 2 * dt;
 
-      const isGold = (c.gradColor1 || "").toLowerCase() === "#b8860b";
-      const goldNeedsRedraw = isGold && ++goldSparkleFrame % 3 === 0;
-      const exprActive =
-        expr.curious > 0.01 ||
-        expr.wink > 0.01 ||
-        expr.love > 0.01 ||
-        expr.cheeky > 0.01 ||
-        expr.proud > 0.01 ||
-        expr.startled > 0.01 ||
-        expr.shy > 0.01 ||
-        expr.phew > 0.01 ||
-        expr.excited > 0.01 ||
-        expr.grumpy > 0.01;
-      const smileyDirty =
-        dizzySmooth > 0.01 ||
-        happySmooth > 0.01 ||
-        blinkAmount > 0.01 ||
-        exprActive ||
-        Math.abs(chatMorph - (chatModeRef.current ? 1 : 0)) > 0.01 ||
-        Math.abs(sleepSmooth - (sleepTarget > 0.5 ? 1 : 0)) > 0.01 ||
-        holdProgress > 0 ||
-        scZoom > 0.01 ||
-        goldNeedsRedraw ||
-        Math.abs(smoothMx - (prevMx || 0)) > 0.01 ||
-        Math.abs(smoothMy - (prevMy || 0)) > 0.01 ||
-        // Idle micro-expressions (eye drift, mouth variation) — without
-        // these the idle life never actually redrew
-        Math.abs((expr._driftX || 0) - prevDriftX) > 0.04 ||
-        Math.abs((expr._driftY || 0) - prevDriftY) > 0.04 ||
-        Math.abs((expr._mouthVar || 0) - prevMouthVar) > 0.015;
-      prevMx = smoothMx;
-      prevMy = smoothMy;
-      if (smileyDirty) {
-        prevDriftX = expr._driftX || 0;
-        prevDriftY = expr._driftY || 0;
-        prevMouthVar = expr._mouthVar || 0;
-      }
-
-      if (smileyDirty) {
-        drawCubeFace(
-          dizzySmooth,
-          el,
-          smoothMx,
-          smoothMy,
-          chatMorph,
-          themeColors,
-          scZoom,
-          sleepSmooth,
-          holdProgress,
-          happySmooth,
-          blinkAmount,
-          expr
-        );
-        smileyTex.needsUpdate = true;
-      }
-
-      if (avLen > 0.0001) {
-        _axis.copy(angVel).normalize();
-        _dq.setFromAxisAngle(_axis, avLen * dt);
-        cubeQuat.premultiply(_dq);
-        cubeQuat.normalize();
-      }
-
-      if (showcaseTransRef.current || showcaseOpenRef.current) {
-        scZoom = Math.min(1, scZoom + dt * 1.1);
-      } else if (scZoom > 0) {
-        scZoom = 0;
-      }
-      const zoomEased =
-        scZoom < 0.5
-          ? 2 * scZoom * scZoom
-          : 1 - Math.pow(-2 * scZoom + 2, 2) / 2;
-      const zoomZ = zoomEased * 12;
-      const zoomScale = 1 + zoomEased * 1.2;
-
-      const baseX = menuPos.x + chatArcX + birthX;
-      const baseY = menuPos.y + birthY + birthYOffset + birthArc;
-      const baseZ = birthZ - bounceZ + chatZ + chatArc;
-
-      const px = baseX * (1 - zoomEased);
-      const py = baseY * (1 - zoomEased * 0.4);
-      const pz = baseZ + zoomZ;
-
-      glassCube.position.set(px, py, pz);
-
-      const cubeVisible = zoomEased < 0.99;
-      glassCube.visible = cubeVisible;
-
-      {
-        const cr = c.glassCornerRadius || 0.08;
-        if (Math.abs(cr - lastCornerR) > 0.005) {
-          lastCornerR = cr;
-          const newGeo = new RoundedBoxGeometry(1, 1, 1, 4, cr);
-          glassCube.geometry.dispose();
-          glassCube.geometry = newGeo;
+      // Theme colours → face + shimmer palette (parsed only on change)
+      const hexes = [c.gradColor1, c.gradColor2, c.gradColor3, c.gradColor4];
+      for (let i = 0; i < 4; i++) {
+        themeColors[i] = hexes[i];
+        if (hexes[i] !== themeKey[i]) {
+          themeKey[i] = hexes[i];
+          hexToVec3(hexes[i], themeVec[i].value);
         }
-        glassCube.quaternion.copy(cubeQuat);
-        const gSize = c.glassCubeSize || 3.6;
-        glassCube.scale
-          .set(gSize, gSize, gSize)
-          .multiplyScalar(
-            bR * menuScale * clickScale * birthScaleCurve * zoomScale
+      }
+
+      faceState.lookX = smoothLookX;
+      faceState.lookY = smoothLookY;
+      faceState.blink = blinkAmount;
+      faceState.sleep = sleepSmooth;
+      faceState.press = pressSmooth;
+      faceState.morph = chatMorph;
+      faceState.time = el;
+      faceState.driftX = driftX;
+      faceState.driftY = driftY;
+      faceState.mouthVar = mouthVar;
+      const colorsKey = themeKey.join("|");
+      const faceDirty =
+        chatMorph > 0.4 ||
+        colorsKey !== lastDrawn.colors ||
+        Math.abs(faceState.lookX - lastDrawn.lookX) > 0.01 ||
+        Math.abs(faceState.lookY - lastDrawn.lookY) > 0.01 ||
+        Math.abs(faceState.blink - lastDrawn.blink) > 0.01 ||
+        Math.abs(faceState.sleep - lastDrawn.sleep) > 0.01 ||
+        Math.abs(faceState.press - lastDrawn.press) > 0.01 ||
+        Math.abs(faceState.morph - lastDrawn.morph) > 0.01 ||
+        Math.abs(faceState.driftX - lastDrawn.driftX) > 0.04 ||
+        Math.abs(faceState.driftY - lastDrawn.driftY) > 0.04 ||
+        Math.abs(faceState.mouthVar - lastDrawn.mouthVar) > 0.015;
+      if (faceDirty) {
+        face.draw(faceState);
+        faceTex.needsUpdate = true;
+        Object.assign(lastDrawn, faceState);
+        lastDrawn.colors = colorsKey;
+      }
+
+      // ── Blob uniforms ──
+      const u = uniforms;
+      u.uTime.value = el;
+      u.uNoiseFreq.value = c.blobNoiseFreq ?? 1.35;
+      u.uNoiseAmp.value = c.blobNoiseAmp ?? 0.14;
+      u.uNoiseSpeed.value = c.blobNoiseSpeed ?? 0.28;
+      u.uIor.value = c.blobIor ?? 1.32;
+      u.uFaceIor.value = c.blobFaceIor ?? 1.12;
+      u.uDispersion.value = c.blobDispersion ?? 0.06;
+      u.uRefract.value = c.blobRefract ?? 0.09;
+      u.uShimmer.value = c.blobShimmer ?? 0.85;
+      u.uGlint.value = isMobile ? 0 : c.blobGlint ?? 0.6;
+      u.uRim.value = c.blobRim ?? 0.5;
+      u.uEdgeDark.value = c.blobEdgeDark ?? 0.28;
+      u.uFaceBlur.value = c.blobFaceBlur ?? 0.4;
+      u.uFaceBlurJig.value = c.blobFaceBlurJiggle ?? 4;
+      u.uFaceFadeJig.value = c.blobFaceFadeJiggle ?? 0.55;
+      u.uOpacity.value = birthOpacity * (1 - zoomEased) * (c.blobOpacity ?? 0.96);
+      u.uFaceMix.value = birthOpacity;
+      u.uFaceSize.value = worldR * (c.blobFaceScale ?? 1.25);
+      // Face plane sits a third of a radius in front of the centre: a shorter
+      // path through the glass keeps it legible at rest
+      u.uFaceCenterV.value
+        .copy(blob.position)
+        .applyMatrix4(camera.matrixWorldInverse);
+      u.uFaceCenterV.value.z += worldR * 0.3;
+
+      // Page gradient behind the blob → refraction source (desktop only).
+      // Only the square of screen around the blob is copied, every other
+      // frame, so the per-frame cost stays tiny.
+      const grad = gradCanvasRef.current;
+      if (!isMobile && grad && grad.width > 0 && blob.visible) {
+        const distZ = Math.max(camera.position.z - blob.position.z, 0.5);
+        const halfH =
+          Math.tan((camera.fov * Math.PI) / 360) * distZ;
+        const hy = Math.min(1, (worldR * 1.35 * 1.5) / halfH); // NDC half-extent
+        const hx = Math.min(1, hy / camera.aspect);
+        let rx = (_screenPos.x + 1) / 2 - hx / 2;
+        let ry = (_screenPos.y + 1) / 2 - hy / 2;
+        let rw = hx,
+          rh = hy;
+        if (rx < 0) {
+          rw += rx;
+          rx = 0;
+        }
+        if (ry < 0) {
+          rh += ry;
+          ry = 0;
+        }
+        rw = Math.max(0.02, Math.min(rw, 1 - rx));
+        rh = Math.max(0.02, Math.min(rh, 1 - ry));
+        u.uBgRect.value.set(rx, ry, rw, rh);
+        if (++bgFrame % 2 === 0) {
+          const gw = grad.width,
+            gh = grad.height;
+          bgCtx.clearRect(0, 0, BG_TEX_SIZE, BG_TEX_SIZE);
+          bgCtx.drawImage(
+            grad,
+            rx * gw,
+            (1 - ry - rh) * gh,
+            rw * gw,
+            rh * gh,
+            0,
+            0,
+            BG_TEX_SIZE,
+            BG_TEX_SIZE
           );
-        glassMat.opacity = isMobile
-          ? 0.18 * birthOpacity * (1 - zoomEased)
-          : birthOpacity * (1 - zoomEased);
-        glassMat.roughness = c.glassRoughness ?? 0;
-        if (!isMobile) {
-          glassMat.ior = c.glassIOR ?? 1.8;
-          glassMat.thickness = c.glassThickness ?? 3.5;
-          glassMat.envMapIntensity = c.glassEnvMapIntensity ?? 2.5;
-          glassMat.transmission =
-            c.glassTransmission != null ? c.glassTransmission : 1;
+          bgTex.needsUpdate = true;
         }
+        u.uBgMix.value = 1;
+      } else {
+        u.uBgMix.value = 0;
       }
+
+      // ── Floor shadow follows the blob ──
+      floor.position.y = c.floorY ?? -2.05;
+      floorMat.opacity = c.shadowOpacity ?? 0.22;
+      sun.shadow.radius = c.shadowSoftness ?? (isMobile ? 9 : 22);
+      sun.position.copy(blob.position).add(SUN_OFFSET);
+      sun.target.position.copy(blob.position);
+      floor.visible = blob.visible && birth > 0.05;
+
+      // ── Menu blobs ──
+      menuBlobs.forEach((mb, i) => {
+        const age = (now - mb.mesh.userData.born) / 1000;
+        const delay = mb.mesh.userData.delay || 0;
+        const t = Math.max(0, age - delay);
+        const entrance = Math.min(1, t / 1.0);
+        const ease = entrance * entrance * (3 - 2 * entrance);
+        const targetOp = mOpen ? (isMobile ? 0.6 : 0.88) * ease : 0;
+        const targetSc = mOpen ? ease : 0;
+        mb.opacity += (targetOp - mb.opacity) * 2.5 * dt;
+        mb.scale += (targetSc - mb.scale) * 2.5 * dt;
+        mb.mesh.scale.setScalar(
+          Math.max(0.01, mb.scale) * R * mb.mesh.userData.size
+        );
+        const ty = mb.mesh.userData.targetY || 0;
+        mb.mesh.position.y +=
+          ((mOpen ? ty : ty - 1.5) - mb.mesh.position.y) * 2.5 * dt;
+        mb.mesh.rotation.x += mb.mesh.userData.rotSpeed.x * dt;
+        mb.mesh.rotation.y += mb.mesh.userData.rotSpeed.y * dt;
+        const mu = mb.u;
+        const mt = el + mb.mesh.userData.timeOffset;
+        mu.uTime.value = mt;
+        mu.uOpacity.value = mb.opacity;
+        mu.uWobble.value[0] = Math.sin(mt * 1.7 + i) * 0.02;
+        mu.uWobble.value[3] = Math.sin(mt * 1.1 + i * 2.1) * 0.025;
+        mu.uWobble.value[4] = Math.cos(mt * 1.4 + i * 0.7) * 0.02;
+        for (let k = 0; k < 4; k++) mu[`uC${k + 1}`].value.copy(themeVec[k].value);
+      });
 
       renderer.render(scene, camera);
     }
+    // Dev-only peek at the live state for headless checks (stripped in prod)
+    if (import.meta.env.DEV) {
+      window.__blobDebug = () => ({
+        x: +blob.position.x.toFixed(2),
+        y: +blob.position.y.toFixed(2),
+        z: +blob.position.z.toFixed(2),
+        scale: +blob.scale.x.toFixed(2),
+        chat: chatModeRef.current,
+        menu: menuOpenRef.current,
+        morph: +chatMorph.toFixed(2),
+        opacity: +uniforms.uOpacity.value.toFixed(2),
+        holding: isHolding,
+      });
+      window.__blobFace = face;
+    }
     loop();
     return () => {
+      if (import.meta.env.DEV) {
+        delete window.__blobDebug;
+        delete window.__blobFace;
+      }
       cancelAnimationFrame(raf);
       window.removeEventListener("mousemove", onMM);
       window.removeEventListener("touchmove", onTM);
@@ -997,23 +1060,22 @@ export default function Scene({
       window.removeEventListener("touchcancel", onTouchUp);
       window.removeEventListener("contextmenu", onContextMenu);
       if (holdTimer) clearTimeout(holdTimer);
+      clearTimeout(resizeTimer);
       container.removeChild(renderer.domElement);
-      renderer.dispose();
-      envMap.dispose();
-      sphereGeo.dispose();
-      glassGeo.dispose();
-      glassMat.dispose();
-      menuCubes.forEach((mc) => {
-        scene.remove(mc.mesh);
-        mc.geo.dispose();
-        mc.mat.dispose();
-        mc.edges.dispose();
-        mc.lineMat.dispose();
+      menuBlobs.forEach((mb) => {
+        scene.remove(mb.mesh);
+        mb.mat.dispose();
       });
-      smileyTex.dispose();
-      smileyMat.dispose();
-      window.removeEventListener("contact-sent", onLoveTrigger);
-      sphere.material.dispose();
+      menuGeo.dispose();
+      blobGeo.dispose();
+      blobMat.dispose();
+      blobDepthMat.dispose();
+      floor.geometry.dispose();
+      floorMat.dispose();
+      sun.shadow.dispose();
+      faceTex.dispose();
+      bgTex.dispose();
+      renderer.dispose();
     };
   }, []);
 

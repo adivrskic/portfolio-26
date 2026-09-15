@@ -6,7 +6,7 @@
   top: 0;
   left: 0;
   cursor: crosshair;
-  /* The cube's own 600ms press-and-hold is the gesture here — stop iOS from
+  /* The blob's own press-and-hold is the gesture here — stop iOS from
      firing double-tap zoom, the selection callout, or text selection over it.
      Scrollable surfaces (showcase, menu, chat) opt back in below. */
   touch-action: manipulation;

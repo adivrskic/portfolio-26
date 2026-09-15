@@ -184,6 +184,12 @@ export default function Reticle({
   // This component only renders on cursor devices (IS_TOUCH returns null
   // above); touch users get TouchHint instead.
   const verb = "click";
+  // Presses poke the blob by default; the copy follows the config flags so
+  // it stays truthful if tap-to-chat / hold-to-explore are switched back on
+  const tapHint = c.blobTapOpensChat ? `${verb} to chat` : `${verb} to poke`;
+  const holdHint = c.blobHoldOpensShowcase
+    ? `${verb} and hold to explore`
+    : `${verb} and hold to squish`;
 
   return (
     <>
@@ -221,7 +227,7 @@ export default function Reticle({
         className="reticle__pill"
         style={{ left: `calc(50% + ${px}px)`, top: `calc(50% + ${py}px)` }}
       >
-        {verb} to chat
+        {tapHint}
       </div>
       <div
         ref={pill2Ref}
@@ -232,7 +238,7 @@ export default function Reticle({
           transform: "translateX(-100%)",
         }}
       >
-        {verb} and hold to explore
+        {holdHint}
       </div>
     </>
   );

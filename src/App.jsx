@@ -261,10 +261,12 @@ export default function App() {
       />
 
       {/* Touch counterpart to the Reticle's hint pills — without it phones
-          get no indication the cube is interactive at all */}
+          get no indication the blob is interactive at all */}
       <TouchHint
         birthComplete={birthComplete}
         hidden={menuOpen || chatMode || fading}
+        tapOpensChat={!!config.blobTapOpensChat}
+        holdOpensShowcase={!!config.blobHoldOpensShowcase}
       />
 
       {/* Custom cursor — top-level sibling so its z-index wins over the

@@ -8,14 +8,20 @@ const SEEN_KEY = "av-touch-hint-seen";
  * Touch-device counterpart to the cursor Reticle's hint pills.
  *
  * The Reticle returns null on touch, so without this a phone visitor sees a
- * floating cube with no indication that it is interactive at all — the chat
- * and showcase were effectively undiscoverable.
+ * floating blob with no indication that it is interactive at all.
  *
- * Renders a soft pulsing ring around the cube plus two labels in the site's
+ * Renders a soft pulsing ring around the blob plus two labels in the site's
  * uppercase letterspaced style. Dismisses on first interaction and is
- * remembered for the session.
+ * remembered for the session. Label copy follows the press flags so it stays
+ * truthful if tap-to-chat / hold-to-explore are switched back on.
  */
-export default function TouchHint({ birthComplete, hidden, onDismiss }) {
+export default function TouchHint({
+  birthComplete,
+  hidden,
+  onDismiss,
+  tapOpensChat = false,
+  holdOpensShowcase = false,
+}) {
   const [visible, setVisible] = useState(false);
   const [dismissed, setDismissed] = useState(() => {
     try {
@@ -26,14 +32,14 @@ export default function TouchHint({ birthComplete, hidden, onDismiss }) {
   });
   const timerRef = useRef(null);
 
-  // Fade in shortly after the cube has settled
+  // Fade in shortly after the blob has settled
   useEffect(() => {
     if (!IS_TOUCH || !birthComplete || dismissed) return;
     timerRef.current = setTimeout(() => setVisible(true), 900);
     return () => clearTimeout(timerRef.current);
   }, [birthComplete, dismissed]);
 
-  // Any touch on the cube dismisses it for the session
+  // Any touch on the blob dismisses it for the session
   useEffect(() => {
     if (!IS_TOUCH || dismissed || !visible) return;
     const dismiss = () => {
@@ -61,9 +67,13 @@ export default function TouchHint({ birthComplete, hidden, onDismiss }) {
     <div className={`touch-hint ${show ? "touch-hint--visible" : ""}`}>
       <div className="touch-hint__ring" aria-hidden="true" />
       <div className="touch-hint__labels">
-        <span className="touch-hint__label">Tap to chat</span>
+        <span className="touch-hint__label">
+          {tapOpensChat ? "Tap to chat" : "Tap to poke"}
+        </span>
         <span className="touch-hint__sep" aria-hidden="true" />
-        <span className="touch-hint__label">Hold to explore</span>
+        <span className="touch-hint__label">
+          {holdOpensShowcase ? "Hold to explore" : "Hold to squish"}
+        </span>
       </div>
     </div>
   );
