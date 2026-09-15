@@ -1,34 +1,19 @@
 import { Vector3 } from "three";
-import { MAX_RIPPLES } from "./shaders/blob.glsl.js";
+import { createWaveSim } from "./waveSim";
 
 /**
  * createBlobPhysics()
  *
- * JS side of the blob's motion. Owns the ripple ring buffer, the six jelly
- * wobble modes (damped springs), the sustained press dent, the directional
- * squash and the cursor bulge, and writes them into the shader uniforms.
+ * JS side of the blob's motion. Owns the surface-wave simulation (waveSim.js)
+ * that makes the ripples, the six jelly wobble modes (damped springs), the
+ * directional squash and the cursor bulge, and writes them into the shader
+ * uniforms.
  *
  * All directions are unit vectors in the blob's OBJECT space, so a dent made
  * on one part of the surface stays on that part as the blob rotates.
- *
- * Ripple uniforms (per slot):
- *   uRipple  = (dir.xyz, startTime)   — startTime < 0 marks a free slot
- *   uRippleP = (amp, speed, k, decay) — amplitude in radii, angular
- *              frequency rad/s, wavenumber rad^-1, decay 1/s
  */
 export function createBlobPhysics() {
-  const ripple = new Float32Array(MAX_RIPPLES * 4);
-  const rippleP = new Float32Array(MAX_RIPPLES * 4);
-  for (let i = 0; i < MAX_RIPPLES; i++) {
-    ripple[i * 4 + 2] = 1;
-    ripple[i * 4 + 3] = -1;
-    // Free slots still carry sane wave params so the shader never divides
-    // by a zero wavenumber
-    rippleP[i * 4 + 1] = 24;
-    rippleP[i * 4 + 2] = 9;
-    rippleP[i * 4 + 3] = 1.5;
-  }
-  let nextSlot = 0;
+  const wave = createWaveSim({ lon: 80, lat: 40 });
 
   // Jelly modes: natural frequencies spread so the wobble reads as organic
   const OMEGA = [22, 19, 25, 17, 21, 27];
@@ -37,9 +22,8 @@ export function createBlobPhysics() {
   const wobbleV = new Float32Array(6);
 
   const pressDir = new Vector3(0, 0, 1);
-  let pressDepth = 0,
-    pressTarget = 0,
-    pressVel = 0;
+  let holdDepth = 0,
+    holdTarget = 0;
 
   const squashAxis = new Vector3(0, 0, 1);
   let squash = 1,
@@ -50,26 +34,23 @@ export function createBlobPhysics() {
   let mouseBulge = 0,
     mouseBulgeTarget = 0;
 
-  let holdEmitTimer = 0;
+  const params = {
+    impulse: 1.4, // velocity a press puts into the surface
+    ambient: 0.35, // strength of the idle raindrop impulses (0 = still)
+  };
+  let ambientTimer = 1.2;
+  let stirTimer = 0;
+  const _rnd = new Vector3();
 
-  function spawnRipple(dir, amp, time, opts) {
-    const speed = opts?.speed ?? 24;
-    const k = opts?.k ?? 9;
-    const decay = opts?.decay ?? 1.5;
-    const i = nextSlot;
-    nextSlot = (nextSlot + 1) % MAX_RIPPLES;
-    ripple[i * 4] = dir.x;
-    ripple[i * 4 + 1] = dir.y;
-    ripple[i * 4 + 2] = dir.z;
-    ripple[i * 4 + 3] = time;
-    rippleP[i * 4] = amp;
-    rippleP[i * 4 + 1] = speed;
-    rippleP[i * 4 + 2] = k;
-    rippleP[i * 4 + 3] = decay;
+  function randomDir(out) {
+    const z = Math.random() * 2 - 1;
+    const a = Math.random() * Math.PI * 2;
+    const r = Math.sqrt(1 - z * z);
+    return out.set(r * Math.cos(a), z, r * Math.sin(a));
   }
 
   // Excite the jelly modes. Weighting by the mode shapes evaluated at the
-  // press direction means the surface first moves INWARD under the finger
+  // press direction means the body first moves INWARD under the finger
   // and pokes on different spots wobble differently.
   function kick(strength, dir) {
     const d = dir || pressDir;
@@ -87,54 +68,54 @@ export function createBlobPhysics() {
     }
   }
 
-  // A press lands: instant dent, a ring racing out from the point, a squash
+  // A press lands: the surface is driven inward under the finger and the
+  // wave equation takes it from there; the body squashes and wobbles
   function press(dir, time, strength = 1) {
     pressDir.copy(dir);
     squashAxis.copy(dir);
-    spawnRipple(dir, 0.06 * strength, time);
-    kick(0.35 * strength, dir);
-    pressTarget = 0.07;
-    squashVel -= 0.9 * strength;
-    holdEmitTimer = 0;
+    wave.impulse(dir, -params.impulse * strength, 0.2);
+    kick(0.25 * strength, dir);
+    squashVel -= 0.7 * strength;
+    holdTarget = 0;
   }
 
-  // Sustained press: the dent deepens with progress and keeps shedding
-  // smaller, tighter rings so the whole surface stays in motion
+  // Sustained press: the finger pins a dent that deepens with progress;
+  // the dent's moving edge keeps radiating ripples
   function hold(dir, progress, dt, time) {
     pressDir.copy(dir);
     squashAxis.copy(dir);
-    pressTarget = 0.06 + progress * 0.2;
-    squashTarget = 1 - 0.05 - progress * 0.15;
-    holdEmitTimer += dt;
-    const interval = 0.22 - progress * 0.08;
-    if (holdEmitTimer >= interval) {
-      holdEmitTimer -= interval;
-      spawnRipple(dir, 0.025 + progress * 0.05, time, {
-        speed: 20,
-        k: 11,
-        decay: 1.8,
-      });
-    }
+    holdTarget = 0.06 + progress * 0.16;
+    wave.setHold(dir, holdTarget, 0.34);
+    squashTarget = 1 - 0.04 - progress * 0.12;
   }
 
-  // Let go: the surface springs back, throwing a bigger ring the longer and
-  // deeper it was held
+  // Let go: the pinned surface springs back out and throws a ring whose
+  // size follows how long and deep it was held
   function release(dir, progress, time) {
-    const s = 0.5 + progress * 0.9;
-    spawnRipple(dir, 0.05 + progress * 0.11, time, {
-      speed: 26,
-      k: 8,
-      decay: 1.3,
-    });
-    kick(0.5 * s, dir);
-    pressTarget = 0;
+    wave.setHold(null);
+    wave.impulse(dir, params.impulse * (0.4 + progress * 0.8), 0.3);
+    kick(0.35 * (0.5 + progress), dir);
+    holdTarget = 0;
     squashTarget = 1;
-    holdEmitTimer = 0;
   }
 
-  function setMouse(dir, proximity) {
+  // A broad hit (landing, chat kicks): waves wash right round the body
+  function splash(dir, strength, sigma = 0.6) {
+    wave.impulse(dir, -params.impulse * strength, sigma);
+  }
+
+  function setMouse(dir, proximity, speed = 0) {
     mouseDir.copy(dir);
-    mouseBulgeTarget = proximity * proximity * 0.045;
+    mouseBulgeTarget = proximity * proximity * 0.04;
+    // Stirring: a cursor sweeping across the surface drags small waves
+    if (proximity > 0.6 && speed > 0.004 && stirTimer <= 0) {
+      wave.impulse(
+        dir,
+        -Math.min(0.6, speed * 25) * params.impulse * 0.5,
+        0.16
+      );
+      stirTimer = 0.07;
+    }
   }
 
   function update(dt) {
@@ -143,48 +124,66 @@ export function createBlobPhysics() {
       wobbleV[i] += (-w * w * wobble[i] - 2 * ZETA * w * wobbleV[i]) * dt;
       wobble[i] += wobbleV[i] * dt;
     }
-    pressVel += ((pressTarget - pressDepth) * 180 - pressVel * 22) * dt;
-    pressDepth += pressVel * dt;
+    holdDepth += (holdTarget - holdDepth) * Math.min(1, dt * 18);
     squashVel += ((squashTarget - squash) * 90 - squashVel * 9) * dt;
     squash += squashVel * dt;
     mouseBulge += (mouseBulgeTarget - mouseBulge) * Math.min(1, dt * 6);
+    stirTimer -= dt;
+    // Idle life: an occasional faint raindrop somewhere on the surface, so
+    // there are always a few rings crossing each other
+    ambientTimer -= dt;
+    if (ambientTimer <= 0) {
+      ambientTimer = 0.45 + Math.random() * 0.9;
+      if (params.ambient > 0) {
+        wave.impulse(
+          randomDir(_rnd),
+          -(0.5 + Math.random()) * params.ambient,
+          0.12 + Math.random() * 0.1
+        );
+      }
+    }
+    wave.step(dt);
   }
 
-  // Rough total motion, used to feed the face state on the JS side
   function energy() {
-    let e = Math.abs(pressVel) * 0.2 + Math.abs(squashVel) * 0.3;
+    let e = Math.abs(squashVel) * 0.3 + wave.stats() * 3;
     for (let i = 0; i < 6; i++) e += Math.abs(wobble[i]);
     return e;
   }
 
+  // Once per frame, after any number of update() substeps
   function writeUniforms(u) {
-    u.uPressDir.value.copy(pressDir);
-    u.uPressDepth.value = pressDepth;
     u.uSquashAxis.value.copy(squashAxis);
     u.uSquash.value = squash;
     u.uMouseDir.value.copy(mouseDir);
     u.uMouseBulge.value = mouseBulge;
+    wave.upload();
+  }
+
+  function dispose() {
+    wave.dispose();
   }
 
   return {
-    ripple,
-    rippleP,
+    wave,
     wobble,
+    params,
     pressDir,
-    spawnRipple,
     kick,
     press,
     hold,
     release,
+    splash,
     setMouse,
     update,
     energy,
     writeUniforms,
+    dispose,
     get squash() {
       return squash;
     },
     get pressDepth() {
-      return pressDepth;
+      return holdDepth;
     },
   };
 }

@@ -3,7 +3,9 @@ import {
   CanvasTexture,
   ClampToEdgeWrapping,
   Clock,
+  DataTexture,
   DirectionalLight,
+  HalfFloatType,
   IcosahedronGeometry,
   LinearFilter,
   LinearMipmapLinearFilter,
@@ -13,6 +15,7 @@ import {
   PlaneGeometry,
   Quaternion,
   Raycaster,
+  RedFormat,
   Scene as THREEScene,
   ShaderMaterial,
   ShadowMaterial,
@@ -31,7 +34,6 @@ import {
   blobFragmentShader,
   blobDepthVertexShader,
   blobDepthFragmentShader,
-  MAX_RIPPLES,
 } from "./shaders/blob.glsl.js";
 import { createBlobFace } from "./blobFace";
 import { createBlobPhysics } from "./blobPhysics";
@@ -80,35 +82,21 @@ function hexToVec3(hex, out) {
   );
 }
 
-// Ripple slots for meshes without physics: all free (start time -1) but with
-// sane wave params so the shader never divides by a zero wavenumber
-function idleRipples() {
-  const r = new Float32Array(MAX_RIPPLES * 4);
-  const p = new Float32Array(MAX_RIPPLES * 4);
-  for (let i = 0; i < MAX_RIPPLES; i++) {
-    r[i * 4 + 2] = 1;
-    r[i * 4 + 3] = -1;
-    p[i * 4 + 1] = 24;
-    p[i * 4 + 2] = 9;
-    p[i * 4 + 3] = 1.5;
-  }
-  return { r, p };
-}
-
-function createBlobUniforms(physics) {
-  const idle = physics ? null : idleRipples();
+function createBlobUniforms(physics, waveTexture) {
   return {
     uTime: { value: 0 },
     uNoiseFreq: { value: 1.35 },
     uNoiseAmp: { value: 0.14 },
     uNoiseSpeed: { value: 0.28 },
-    uRipple: { value: physics ? physics.ripple : idle.r },
-    uRippleP: { value: physics ? physics.rippleP : idle.p },
-    uRippleWidth: { value: 0.45 },
+    uWave: { value: waveTexture },
+    uWaveSize: {
+      value: new Vector2(
+        physics ? physics.wave.size[0] : 2,
+        physics ? physics.wave.size[1] : 2
+      ),
+    },
+    uWaveGain: { value: 1 },
     uWobble: { value: physics ? physics.wobble : new Float32Array(6) },
-    uPressDir: { value: new Vector3(0, 0, 1) },
-    uPressDepth: { value: 0 },
-    uPressWidth: { value: 0.55 },
     uMouseDir: { value: new Vector3(0, 0, 1) },
     uMouseBulge: { value: 0 },
     uSquashAxis: { value: new Vector3(0, 0, 1) },
@@ -230,7 +218,16 @@ export default function Scene({
 
     // ── The blob ──
     const physics = createBlobPhysics();
-    const uniforms = createBlobUniforms(physics);
+    const uniforms = createBlobUniforms(physics, physics.wave.texture);
+    // Decoration blobs have no simulation: they sample a flat wave texture
+    const zeroWave = new DataTexture(
+      new Uint16Array(4),
+      2,
+      2,
+      RedFormat,
+      HalfFloatType
+    );
+    zeroWave.needsUpdate = true;
     uniforms.uFaceTex.value = faceTex;
     uniforms.uBgTex.value = bgTex;
     readSize();
@@ -331,7 +328,7 @@ export default function Scene({
         const px = zone.x[0] + Math.random() * (zone.x[1] - zone.x[0]);
         const py = zone.y[0] + Math.random() * (zone.y[1] - zone.y[0]);
         const pz = zone.z[0] + Math.random() * (zone.z[1] - zone.z[0]);
-        const u = createBlobUniforms(null);
+        const u = createBlobUniforms(null, zeroWave);
         u.uNoiseAmp.value = 0.17;
         u.uNoiseFreq.value = 1.6;
         u.uGlint.value = 0;
@@ -684,6 +681,7 @@ export default function Scene({
       if (birthT >= 0.92 && !birthLanded) {
         birthLanded = true;
         physics.kick(0.9, _landDir);
+        physics.splash(_landDir, 1, 0.7);
       }
 
       // Portrait phones: shrink a touch so the blob leaves room for the
@@ -775,6 +773,7 @@ export default function Scene({
         angVel.y += c.chatSpinKick || 5.0;
         angVel.x += 1.5;
         physics.kick(0.6, _landDir);
+        physics.splash(_landDir, 0.45, 0.7);
         wasInChat = true;
       }
       if (!inChat && wasInChat) {
@@ -784,6 +783,7 @@ export default function Scene({
         angVel.y -= c.chatSpinKick || 5.0;
         angVel.x -= 1.5;
         physics.kick(0.6, _landDir);
+        physics.splash(_landDir, 0.45, 0.7);
         wasInChat = false;
       }
       chatSpinBurst *= Math.max(0, 1 - (c.chatSpinDecay || 1.4) * dt);
@@ -865,7 +865,11 @@ export default function Scene({
 
       if (validMouse && birth > 0.9) {
         pointerToDir(mouse.x, mouse.y, _mouseDir);
-        physics.setMouse(_mouseDir, cubeProx);
+        physics.setMouse(
+          _mouseDir,
+          cubeProx,
+          Math.sqrt(mdx * mdx + mdy * mdy)
+        );
       } else {
         physics.setMouse(_mouseDir, 0);
       }
@@ -987,6 +991,12 @@ export default function Scene({
       u.uFaceBlur.value = c.blobFaceBlur ?? 0.4;
       u.uFaceBlurJig.value = c.blobFaceBlurJiggle ?? 4;
       u.uFaceFadeJig.value = c.blobFaceFadeJiggle ?? 0.55;
+      u.uWaveGain.value = c.blobWaveGain ?? 1;
+      physics.wave.params.speed = c.blobWaveSpeed ?? 2.6;
+      physics.wave.params.damping = c.blobWaveDamping ?? 1.2;
+      physics.wave.params.tension = c.blobWaveTension ?? 2;
+      physics.params.impulse = c.blobWaveImpulse ?? 1.4;
+      physics.params.ambient = c.blobWaveAmbient ?? 0.35;
       u.uOpacity.value = birthOpacity * (1 - zoomEased) * (c.blobOpacity ?? 0.96);
       u.uFaceMix.value = birthOpacity;
       u.uFaceSize.value = worldR * (c.blobFaceScale ?? 1.25);
@@ -1081,14 +1091,19 @@ export default function Scene({
         holding: isHolding,
         birth: +lastBirth.toFixed(2),
         lenses: glass ? glass.uniforms.uCount.value : -1,
+        wave: +physics.wave.stats().toFixed(3),
       });
       window.__blobFace = face;
+      window.__blobSet = (key, value) => {
+        cfg.current[key] = value;
+      };
     }
     loop();
     return () => {
       if (import.meta.env.DEV) {
         delete window.__blobDebug;
         delete window.__blobFace;
+        delete window.__blobSet;
       }
       cancelAnimationFrame(raf);
       window.removeEventListener("mousemove", onMM);
@@ -1111,6 +1126,8 @@ export default function Scene({
       blobGeo.dispose();
       blobMat.dispose();
       blobDepthMat.dispose();
+      physics.dispose();
+      zeroWave.dispose();
       floor.geometry.dispose();
       floorMat.dispose();
       sun.shadow.dispose();

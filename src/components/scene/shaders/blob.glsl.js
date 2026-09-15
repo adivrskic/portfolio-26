@@ -5,10 +5,10 @@ import { noiseGLSL } from "./noise.glsl.js";
  *
  * Vertex: a unit sphere is displaced by three layers —
  *   1. slow simplex "amorph" noise (the resting, drifting shape),
- *   2. dynamic motion: pressed ripples travelling around the surface as
- *      geodesic wave packets, six jelly wobble modes (spherical-harmonic
- *      style, driven by damped springs in blobPhysics), a sustained press
- *      dent and a cursor-attraction bulge,
+ *   2. dynamic motion: the simulated surface wave (waveSim.js, sampled from
+ *      an R16F texture with a B-spline filter), six jelly wobble modes
+ *      (spherical-harmonic style, driven by damped springs in blobPhysics)
+ *      and a cursor-attraction bulge,
  *   3. a directional squash along the press axis.
  * Normals are rebuilt by finite differences so lighting follows the motion.
  *
@@ -19,18 +19,13 @@ import { noiseGLSL } from "./noise.glsl.js";
  * blur, dispersion and visibility all scale with the local jiggle energy.
  */
 
-export const MAX_RIPPLES = 10;
-
 const deformGLSL = `
-#define MAX_RIPPLES ${MAX_RIPPLES}
 uniform float uTime;
 uniform float uNoiseFreq, uNoiseAmp, uNoiseSpeed;
-uniform vec4 uRipple[MAX_RIPPLES];
-uniform vec4 uRippleP[MAX_RIPPLES];
-uniform float uRippleWidth;
+uniform sampler2D uWave;
+uniform vec2 uWaveSize;
+uniform float uWaveGain;
 uniform float uWobble[6];
-uniform vec3 uPressDir;
-uniform float uPressDepth, uPressWidth;
 uniform vec3 uMouseDir;
 uniform float uMouseBulge;
 uniform vec3 uSquashAxis;
@@ -47,30 +42,40 @@ float amorph(vec3 n, float t) {
   return f * uNoiseAmp;
 }
 
+// Height of the simulated surface wave under a direction. The grid is
+// latitude/longitude with the poles on ±Y; a cubic B-spline over four
+// bilinear taps keeps the field smooth between cells so the finite-difference
+// normals do not show the grid.
+float waveAt(vec3 n) {
+  vec2 uv = vec2(atan(n.z, n.x) / 6.28318530718 + 0.5,
+                 acos(clamp(n.y, -1.0, 1.0)) / 3.14159265359);
+  vec2 coord = uv * uWaveSize - 0.5;
+  vec2 f = fract(coord);
+  coord -= f;
+  vec2 f2 = f * f;
+  vec2 f3 = f2 * f;
+  vec2 w0 = (1.0 - 3.0 * f + 3.0 * f2 - f3) / 6.0;
+  vec2 w1 = (4.0 - 6.0 * f2 + 3.0 * f3) / 6.0;
+  vec2 w2 = (1.0 + 3.0 * f + 3.0 * f2 - 3.0 * f3) / 6.0;
+  vec2 w3 = f3 / 6.0;
+  vec2 s0 = w0 + w1;
+  vec2 s1 = w2 + w3;
+  vec2 t0 = (coord - 1.0 + w1 / s0 + 0.5) / uWaveSize;
+  vec2 t1 = (coord + 1.0 + w3 / s1 + 0.5) / uWaveSize;
+  return (texture2D(uWave, vec2(t0.x, t0.y)).r * s0.x
+        + texture2D(uWave, vec2(t1.x, t0.y)).r * s1.x) * s0.y
+       + (texture2D(uWave, vec2(t0.x, t1.y)).r * s0.x
+        + texture2D(uWave, vec2(t1.x, t1.y)).r * s1.x) * s1.y;
+}
+
 float dynamicDisp(vec3 n, float t) {
-  float d = 0.0;
-  for (int i = 0; i < MAX_RIPPLES; i++) {
-    vec4 r = uRipple[i];
-    vec4 p = uRippleP[i];
-    float age = t - r.w;
-    // Skip free / future slots with a real branch: a zero mask can't cancel
-    // the NaN that a division by an empty slot's k would produce
-    if (r.w < 0.0 || age < 0.0 || p.z < 0.001) continue;
-    float ang = acos(clamp(dot(n, r.xyz), -1.0, 1.0));
-    // distance behind the wavefront (front travels at speed/k rad per second)
-    float x = ang - age * p.y / p.z;
-    float packet = exp(-x * x / (uRippleWidth * uRippleWidth));
-    float spread = 1.0 / (1.0 + ang * 0.9);
-    d += p.x * exp(-age * p.w) * packet * spread * sin(x * p.z);
-  }
+  float d = waveAt(n) * uWaveGain;
   d += uWobble[0] * n.x * n.y
      + uWobble[1] * n.y * n.z
      + uWobble[2] * n.x * n.z
      + uWobble[3] * (n.x * n.x - n.y * n.y)
      + uWobble[4] * (3.0 * n.z * n.z - 1.0) * 0.5
      + uWobble[5] * (5.0 * n.y * n.y * n.y - 3.0 * n.y) * 0.5;
-  float pa = acos(clamp(dot(n, uPressDir), -1.0, 1.0));
-  d -= uPressDepth * exp(-pa * pa / (uPressWidth * uPressWidth));
   float ma = acos(clamp(dot(n, uMouseDir), -1.0, 1.0));
   d += uMouseBulge * exp(-ma * ma / 0.6);
   return d;

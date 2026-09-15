@@ -37,6 +37,13 @@ export const DEFAULTS = {
   blobFaceFadeJiggle: 0.55, // face visibility lost at full jiggle
   blobSpinX: 0.62, // idle drift spin
   blobSpinY: 0.36,
+  // Surface waves (a wave equation solved on the blob, see scene/waveSim.js)
+  blobWaveSpeed: 2.6, // how fast rings travel, radians of surface per second
+  blobWaveDamping: 1.2, // how quickly they die away (1/s)
+  blobWaveTension: 2, // pull back toward the resting shape (1/s²)
+  blobWaveImpulse: 1.4, // how hard a press hits the surface
+  blobWaveAmbient: 0.35, // idle raindrop ripples; 0 for a still surface
+  blobWaveGain: 1, // display scale of the simulated height
   // Presses poke the blob; a tap also opens chat and a hold (holdDuration)
   // opens the showcase. Set false to make presses purely physical — the
   // menu links to both either way, and the hint copy follows these flags.
