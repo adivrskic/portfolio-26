@@ -37,10 +37,11 @@ export const DEFAULTS = {
   blobFaceFadeJiggle: 0.55, // face visibility lost at full jiggle
   blobSpinX: 0.62, // idle drift spin
   blobSpinY: 0.36,
-  // Presses poke the blob. Set these to reopen chat on tap / showcase on
-  // hold (the menu still links to both either way).
-  blobTapOpensChat: false,
-  blobHoldOpensShowcase: false,
+  // Presses poke the blob; a tap also opens chat and a hold (holdDuration)
+  // opens the showcase. Set false to make presses purely physical — the
+  // menu links to both either way, and the hint copy follows these flags.
+  blobTapOpensChat: true,
+  blobHoldOpensShowcase: true,
   // ── Floor shadow ──
   floorY: -2.05,
   shadowOpacity: 0.14,
@@ -191,7 +192,8 @@ export const DEFAULTS = {
   sleepIdleTime: 15,
   sleepRampTime: 3,
 
-  // ── Press and hold (only used when blobHoldOpensShowcase is on) ──
+  // ── Press and hold: a release before this is a tap, after it the hold
+  // fires (showcase when blobHoldOpensShowcase is on) ──
   holdDuration: 600,
 
   // ── Showcase zoom ──

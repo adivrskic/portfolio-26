@@ -403,9 +403,8 @@ export default function Scene({
     // ── Pressing ──
     // A press is a poke: dent + ring of waves + squash. Holding deepens the
     // dent and keeps the surface rippling; letting go throws a bigger ring.
-    // Opening chat on tap / showcase on hold are off by default (see
-    // blobTapOpensChat / blobHoldOpensShowcase in config/defaults.js) —
-    // both remain reachable from the menu.
+    // On top of that a tap opens chat and a hold past holdDuration opens the
+    // showcase (blobTapOpensChat / blobHoldOpensShowcase in defaults.js).
     let holdTimer = null,
       isHolding = false,
       holdStartTime = 0,
@@ -482,10 +481,14 @@ export default function Scene({
       if (holdTimer) clearTimeout(holdTimer);
       holdTimer = null;
       if (isHolding) {
+        // Any release before the hold fires is a tap (a fixed short window
+        // left a dead zone that swallowed ordinary finger taps); a press
+        // that travelled is a drag, not a tap
+        const held = performance.now() - holdStartTime;
         const wasTap =
-          !pressMoved && performance.now() - holdStartTime < 350;
+          !pressMoved && !holdFired && held < (cfg.current.holdDuration || 600);
         endPress();
-        if (wasTap && cfg.current.blobTapOpensChat && !holdFired) {
+        if (wasTap && cfg.current.blobTapOpensChat) {
           setTimeout(() => {
             if (onCubeClickRef.current) onCubeClickRef.current();
           }, 300);
