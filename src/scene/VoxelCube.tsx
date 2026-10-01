@@ -24,6 +24,29 @@ const ROOM = 1.3
 const SHRINK = 0.12
 /** a reply starting (or a click) while the cube is parted flicks each block round this hard (rad/s) */
 const KICK = 5
+/** the core's glow while the cube is open (times config.cube.coreGlow): the light at the centre (scaled
+ *  with the cube, so it looks the same at any size), the haze around the orb (its width in the cube's
+ *  units, and how strong it gets) */
+const CORE_LIGHT = 2.2
+const HAZE_SIZE = 1.9
+const HAZE_OPACITY = 0.5
+const WHITE = new THREE.Color(1, 1, 1)
+
+/** a soft round falloff, for the haze around the core */
+function hazeTexture() {
+  const c = document.createElement('canvas')
+  c.width = c.height = 128
+  const g = c.getContext('2d')!
+  const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64)
+  grad.addColorStop(0, 'rgba(255,255,255,1)')
+  grad.addColorStop(0.35, 'rgba(255,255,255,0.45)')
+  grad.addColorStop(1, 'rgba(255,255,255,0)')
+  g.fillStyle = grad
+  g.fillRect(0, 0, 128, 128)
+  const t = new THREE.CanvasTexture(c)
+  t.colorSpace = THREE.SRGBColorSpace
+  return t
+}
 /* resting pose, sway, the blocks' shape and material, the lights, the loading puzzle and the intro
    turn are settings: see src/config.ts */
 /** after the cube first appears, so its first turn of the loading puzzle is seen */
@@ -314,6 +337,11 @@ export function VoxelCube() {
   const floorMat = useRef<THREE.ShadowMaterial>(null)
   const shade = useRef<THREE.DirectionalLight>(null)
   const coreMat = useRef<THREE.MeshBasicMaterial>(null)
+  const coreLight = useRef<THREE.PointLight>(null)
+  const haze = useRef<THREE.Sprite>(null)
+  const hazeMat = useRef<THREE.SpriteMaterial>(null)
+  const hazeMap = useMemo(hazeTexture, [])
+  useEffect(() => () => hazeMap.dispose(), [hazeMap])
   const tintA = useRef<THREE.PointLight>(null)
   const key = useRef<THREE.DirectionalLight>(null)
   const fill = useRef<THREE.HemisphereLight>(null)
@@ -778,9 +806,23 @@ export function VoxelCube() {
         Math.sin(orbit + Math.PI) * r,
       )
     }
-    // a soft light inside, only seen through the gaps when the blocks part
-    if (coreMat.current) coreMat.current.color.setRGB(1, 1, 1).lerp(s.glow, 0.4).multiplyScalar(0.85 + s.pulse * 0.2)
+    // the core, seen through the gaps when the blocks part: while the cube is open it glows in the
+    // project's colour, lighting the blocks' inner faces and with a soft haze around it (a reply
+    // starting, or a project change, brightens it for a moment); closed, it is dark
+    const lit = fx.uOpen.value * cfg.coreGlow * (1 + s.pulse * 0.6)
+    if (coreMat.current) coreMat.current.color.copy(s.glow).lerp(WHITE, 0.3).multiplyScalar(0.55 + 0.6 * Math.min(1, lit))
     if (core.current) core.current.scale.setScalar(1 + Math.sin(t * 1.7) * 0.03 + s.pulse * 0.04)
+    if (coreLight.current) {
+      coreLight.current.color.copy(s.glow)
+      // (always there, only its strength changes: adding and removing a light recompiles the materials)
+      coreLight.current.intensity = lit * CORE_LIGHT * scale * scale
+      coreLight.current.distance = 4 * scale
+    }
+    if (haze.current && hazeMat.current) {
+      hazeMat.current.color.copy(s.glow)
+      hazeMat.current.opacity = Math.min(1, lit) * HAZE_OPACITY * (0.92 + Math.sin(t * 1.7) * 0.08)
+      haze.current.visible = hazeMat.current.opacity > 0.002
+    }
   }, -1)
 
   return (
@@ -805,6 +847,11 @@ export function VoxelCube() {
           <icosahedronGeometry args={[0.3, 5]} />
           <meshBasicMaterial ref={coreMat} toneMapped={false} />
         </mesh>
+        {/* the core's glow (see the frame loop): a light at the centre, and a haze around the orb */}
+        <pointLight ref={coreLight} intensity={0} decay={2} />
+        <sprite ref={haze} scale={HAZE_SIZE} visible={false}>
+          <spriteMaterial ref={hazeMat} map={hazeMap} transparent depthWrite={false} toneMapped={false} opacity={0} />
+        </sprite>
       </group>
       {/* an invisible floor that only shows the cube's shadow, cast by a light of its own from nearly
           overhead and a little behind, so it pools forwards where it can be seen (it lights nothing: the cube's look stays the key light's); a small shadow map, so the

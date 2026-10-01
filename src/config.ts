@@ -42,6 +42,8 @@ export const defaults = {
     /** the two lights in the project's colours that orbit the cube, and their speed */
     tintLight: 0,
     tintOrbit: 0.1,
+    /** while the cube is open, its centre glows in the project's colour this much (0 = not at all) */
+    coreGlow: 1,
 
     // ---- spin: once it has landed it keeps turning
     /** how fast it is spinning as it lands (radians a second: the intro's turn carries on) */

@@ -32,6 +32,7 @@ const CUBE: Record<string, Spec> = {
     fillLight: { min: 0, max: 3, step: 0.05, label: 'fill' },
     tintLight: { min: 0, max: 10, step: 0.05, label: 'tint' },
     tintOrbit: { min: 0, max: 3, step: 0.01, label: 'tint orbit' },
+    coreGlow: { min: 0, max: 3, step: 0.05, label: 'core glow (open)' },
   },
   Spin: {
     spin: { min: 0, max: 1.5, step: 0.01, label: 'slow spin' },
