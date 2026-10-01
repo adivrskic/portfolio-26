@@ -1,21 +1,14 @@
-# Dependencies
-node_modules/
-/vendor
-
-# System files
+node_modules
+dist
 .DS_Store
-Thumbs.db
-
-# IDE/Editor settings
-.vscode/
-.idea/
-*.suo
-
-# Environment variables
+*.log
+.vite
+# source images (~24 MB); the optimised copies in public/projects are what ships
+assets-src
+# keys for the chat and the contact form (see .env.example)
 .env
 .env.local
-
-# Build outputs
-dist/
-build/
-*.log
+.env.*.local
+.netlify
+# local tooling (the preview server config)
+.claude/

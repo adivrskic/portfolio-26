@@ -1,0 +1,19 @@
+/* the card in flight between the gallery and a project page (see Morph); placed and sized every frame */
+.morph {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 4;
+  pointer-events: none;
+  /* the card's corners and type are sized from this box, so it grows as one piece */
+  container-type: inline-size;
+  will-change: transform, width, height;
+}
+
+/* invisible twins of both ends of the flight (their geometry sits next to the real ones'):
+   .hero-probe in project.css, .dock-probe in carousel.css */
+.hero-probe,
+.dock-probe {
+  visibility: hidden;
+  pointer-events: none;
+}

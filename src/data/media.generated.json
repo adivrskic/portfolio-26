@@ -1,0 +1,439 @@
+{
+  "plumeform": {
+    "accent": "#1f534f",
+    "cover": 0,
+    "frames": [
+      {
+        "src": "/projects/plumeform/live-desktop.webp",
+        "blur": "/projects/plumeform/live-desktop-blur.webp",
+        "w": 1440,
+        "h": 900,
+        "device": "desktop",
+        "alt": "Plumeform homepage",
+        "tone": "light"
+      },
+      {
+        "src": "/projects/plumeform/gallery-2-modes.webp",
+        "blur": "/projects/plumeform/gallery-2-modes-blur.webp",
+        "w": 1680,
+        "h": 1005,
+        "device": "desktop",
+        "alt": "Plumeform: one question at a time or all at once",
+        "tone": "light"
+      },
+      {
+        "src": "/projects/plumeform/01-survey-builder.webp",
+        "blur": "/projects/plumeform/01-survey-builder-blur.webp",
+        "w": 1600,
+        "h": 1100,
+        "device": "desktop",
+        "alt": "The survey builder",
+        "tone": "light"
+      },
+      {
+        "src": "/projects/plumeform/02-response-dashboard.webp",
+        "blur": "/projects/plumeform/02-response-dashboard-blur.webp",
+        "w": 1600,
+        "h": 1100,
+        "device": "desktop",
+        "alt": "Response dashboard",
+        "tone": "light"
+      },
+      {
+        "src": "/projects/plumeform/live-mobile.webp",
+        "blur": "/projects/plumeform/live-mobile-blur.webp",
+        "w": 760,
+        "h": 1645,
+        "device": "mobile",
+        "alt": "Plumeform on a phone",
+        "tone": "light"
+      },
+      {
+        "src": "/projects/plumeform/gallery-3-research.webp",
+        "blur": "/projects/plumeform/gallery-3-research-blur.webp",
+        "w": 1680,
+        "h": 1005,
+        "device": "desktop",
+        "alt": "Research-grade data quality features",
+        "tone": "dark"
+      },
+      {
+        "src": "/projects/plumeform/07-story-editor.webp",
+        "blur": "/projects/plumeform/07-story-editor-blur.webp",
+        "w": 1600,
+        "h": 1100,
+        "device": "desktop",
+        "alt": "Story editor",
+        "tone": "light"
+      },
+      {
+        "src": "/projects/plumeform/gallery-4-results.webp",
+        "blur": "/projects/plumeform/gallery-4-results-blur.webp",
+        "w": 1680,
+        "h": 1005,
+        "device": "desktop",
+        "alt": "Live results",
+        "tone": "light"
+      }
+    ],
+    "scroll": {
+      "src": "/projects/plumeform/scroll.webp",
+      "w": 960,
+      "h": 3600
+    }
+  },
+  "nautilus": {
+    "accent": "#1d2e43",
+    "cover": 0,
+    "frames": [
+      {
+        "src": "/projects/nautilus/live-desktop.webp",
+        "blur": "/projects/nautilus/live-desktop-blur.webp",
+        "w": 1440,
+        "h": 900,
+        "device": "desktop",
+        "alt": "Nautilus homepage",
+        "tone": "dark",
+        "focus": "left top"
+      },
+      {
+        "src": "/projects/nautilus/live-desktop-3.webp",
+        "blur": "/projects/nautilus/live-desktop-3-blur.webp",
+        "w": 1440,
+        "h": 900,
+        "device": "desktop",
+        "alt": "Scan once, done",
+        "tone": "dark"
+      },
+      {
+        "src": "/projects/nautilus/live-desktop-4.webp",
+        "blur": "/projects/nautilus/live-desktop-4-blur.webp",
+        "w": 1440,
+        "h": 900,
+        "device": "desktop",
+        "alt": "Your floor, modeled",
+        "tone": "dark"
+      },
+      {
+        "src": "/projects/nautilus/live-mobile.webp",
+        "blur": "/projects/nautilus/live-mobile-blur.webp",
+        "w": 760,
+        "h": 1645,
+        "device": "mobile",
+        "alt": "Nautilus on a phone",
+        "tone": "dark"
+      },
+      {
+        "src": "/projects/nautilus/live-desktop-5.webp",
+        "blur": "/projects/nautilus/live-desktop-5-blur.webp",
+        "w": 1440,
+        "h": 900,
+        "device": "desktop",
+        "alt": "Ask in plain English",
+        "tone": "dark"
+      },
+      {
+        "src": "/projects/nautilus/og.webp",
+        "blur": "/projects/nautilus/og-blur.webp",
+        "w": 1600,
+        "h": 840,
+        "device": "desktop",
+        "alt": "Nautilus Inventory",
+        "tone": "dark"
+      }
+    ],
+    "scroll": {
+      "src": "/projects/nautilus/scroll.webp",
+      "w": 960,
+      "h": 3600
+    }
+  },
+  "nimbus": {
+    "accent": "#223d8f",
+    "cover": 0,
+    "frames": [
+      {
+        "src": "/projects/nimbus/nimbus3.webp",
+        "blur": "/projects/nimbus/nimbus3-blur.webp",
+        "w": 1680,
+        "h": 781,
+        "device": "desktop",
+        "alt": "A generated site in the live preview",
+        "tone": "dark"
+      },
+      {
+        "src": "/projects/nimbus/live-desktop.webp",
+        "blur": "/projects/nimbus/live-desktop-blur.webp",
+        "w": 1440,
+        "h": 900,
+        "device": "desktop",
+        "alt": "Nimbus prompt screen",
+        "tone": "dark"
+      },
+      {
+        "src": "/projects/nimbus/nimbus2.webp",
+        "blur": "/projects/nimbus/nimbus2-blur.webp",
+        "w": 744,
+        "h": 409,
+        "device": "desktop",
+        "alt": "The customise panel",
+        "tone": "dark"
+      },
+      {
+        "src": "/projects/nimbus/live-mobile.webp",
+        "blur": "/projects/nimbus/live-mobile-blur.webp",
+        "w": 760,
+        "h": 1645,
+        "device": "mobile",
+        "alt": "Nimbus on a phone",
+        "tone": "dark"
+      },
+      {
+        "src": "/projects/nimbus/live-desktop-2.webp",
+        "blur": "/projects/nimbus/live-desktop-2-blur.webp",
+        "w": 1440,
+        "h": 900,
+        "device": "desktop",
+        "alt": "How Nimbus works",
+        "tone": "dark"
+      }
+    ],
+    "scroll": {
+      "src": "/projects/nimbus/scroll.webp",
+      "w": 960,
+      "h": 2814
+    }
+  },
+  "ljiljan": {
+    "accent": "#1c2b55",
+    "cover": 0,
+    "frames": [
+      {
+        "src": "/projects/ljiljan/og.webp",
+        "blur": "/projects/ljiljan/og-blur.webp",
+        "w": 1200,
+        "h": 630,
+        "device": "desktop",
+        "alt": "Ljiljan: learn the language your family speaks",
+        "tone": "dark"
+      },
+      {
+        "src": "/projects/ljiljan/live-desktop.webp",
+        "blur": "/projects/ljiljan/live-desktop-blur.webp",
+        "w": 1440,
+        "h": 900,
+        "device": "desktop",
+        "alt": "Choosing why you are learning",
+        "tone": "light"
+      },
+      {
+        "src": "/projects/ljiljan/live-mobile.webp",
+        "blur": "/projects/ljiljan/live-mobile-blur.webp",
+        "w": 760,
+        "h": 1645,
+        "device": "mobile",
+        "alt": "Ljiljan on a phone",
+        "tone": "light"
+      },
+      {
+        "src": "/projects/ljiljan/mark.webp",
+        "blur": "/projects/ljiljan/mark-blur.webp",
+        "w": 1024,
+        "h": 1024,
+        "device": "art",
+        "alt": "The Ljiljan lily mark",
+        "tone": "dark"
+      }
+    ],
+    "scroll": {
+      "src": "/projects/ljiljan/scroll.webp",
+      "w": 960,
+      "h": 713
+    }
+  },
+  "xsbl": {
+    "accent": "#6c65d1",
+    "cover": 0,
+    "frames": [
+      {
+        "src": "/projects/xsbl/xsbl2.webp",
+        "blur": "/projects/xsbl/xsbl2-blur.webp",
+        "w": 1680,
+        "h": 738,
+        "device": "desktop",
+        "alt": "From scan to pull request",
+        "tone": "dark",
+        "focus": "left top"
+      },
+      {
+        "src": "/projects/xsbl/live-desktop.webp",
+        "blur": "/projects/xsbl/live-desktop-blur.webp",
+        "w": 1440,
+        "h": 900,
+        "device": "desktop",
+        "alt": "XSBL homepage",
+        "tone": "dark"
+      },
+      {
+        "src": "/projects/xsbl/xsbl3.webp",
+        "blur": "/projects/xsbl/xsbl3-blur.webp",
+        "w": 1680,
+        "h": 755,
+        "device": "desktop",
+        "alt": "The XSBL dashboard",
+        "tone": "dark"
+      },
+      {
+        "src": "/projects/xsbl/live-mobile.webp",
+        "blur": "/projects/xsbl/live-mobile-blur.webp",
+        "w": 760,
+        "h": 1645,
+        "device": "mobile",
+        "alt": "XSBL on a phone",
+        "tone": "dark"
+      },
+      {
+        "src": "/projects/xsbl/live-desktop-2.webp",
+        "blur": "/projects/xsbl/live-desktop-2-blur.webp",
+        "w": 1440,
+        "h": 900,
+        "device": "desktop",
+        "alt": "Overlays do not work",
+        "tone": "dark"
+      }
+    ],
+    "scroll": {
+      "src": "/projects/xsbl/scroll.webp",
+      "w": 960,
+      "h": 3600
+    }
+  },
+  "keyfall": {
+    "accent": "#243485",
+    "cover": 0,
+    "frames": [
+      {
+        "src": "/projects/keyfall/roll.webp",
+        "blur": "/projects/keyfall/roll-blur.webp",
+        "w": 1600,
+        "h": 1000,
+        "device": "desktop",
+        "alt": "Notes falling onto an 88-key keyboard",
+        "tone": "dark"
+      },
+      {
+        "src": "/projects/keyfall/roll-close.webp",
+        "blur": "/projects/keyfall/roll-close-blur.webp",
+        "w": 1600,
+        "h": 1000,
+        "device": "art",
+        "alt": "Falling notes, close up",
+        "tone": "dark"
+      },
+      {
+        "src": "/projects/keyfall/roll-tall.webp",
+        "blur": "/projects/keyfall/roll-tall-blur.webp",
+        "w": 760,
+        "h": 1647,
+        "device": "mobile",
+        "alt": "Keyfall on an iPad-sized screen",
+        "tone": "dark"
+      }
+    ]
+  },
+  "halo": {
+    "accent": "#b58e2c",
+    "cover": 0,
+    "frames": [
+      {
+        "src": "/projects/halo/live-desktop-2.webp",
+        "blur": "/projects/halo/live-desktop-2-blur.webp",
+        "w": 1440,
+        "h": 900,
+        "device": "desktop",
+        "alt": "Neon type orbiting a golden bust",
+        "tone": "dark"
+      },
+      {
+        "src": "/projects/halo/halo3.webp",
+        "blur": "/projects/halo/halo3-blur.webp",
+        "w": 1680,
+        "h": 776,
+        "device": "desktop",
+        "alt": "Halo with its live controls",
+        "tone": "dark"
+      },
+      {
+        "src": "/projects/halo/live-mobile.webp",
+        "blur": "/projects/halo/live-mobile-blur.webp",
+        "w": 760,
+        "h": 1645,
+        "device": "mobile",
+        "alt": "Halo on a phone",
+        "tone": "dark"
+      }
+    ],
+    "scroll": {
+      "src": "/projects/halo/scroll.webp",
+      "w": 960,
+      "h": 600
+    }
+  },
+  "afs": {
+    "accent": "#253d5e",
+    "cover": 0,
+    "frames": [
+      {
+        "src": "/projects/afs/live-desktop.webp",
+        "blur": "/projects/afs/live-desktop-blur.webp",
+        "w": 1440,
+        "h": 900,
+        "device": "desktop",
+        "alt": "American Flooring Services homepage",
+        "tone": "dark",
+        "focus": "left top"
+      },
+      {
+        "src": "/projects/afs/afs-3.webp",
+        "blur": "/projects/afs/afs-3-blur.webp",
+        "w": 1680,
+        "h": 866,
+        "device": "desktop",
+        "alt": "Interactive map of states served",
+        "tone": "light"
+      },
+      {
+        "src": "/projects/afs/afs-4.webp",
+        "blur": "/projects/afs/afs-4-blur.webp",
+        "w": 760,
+        "h": 1116,
+        "device": "mobile",
+        "alt": "The state map on a phone",
+        "tone": "light"
+      },
+      {
+        "src": "/projects/afs/afs-1.webp",
+        "blur": "/projects/afs/afs-1-blur.webp",
+        "w": 1680,
+        "h": 866,
+        "device": "desktop",
+        "alt": "Brand partners and company figures",
+        "tone": "dark"
+      },
+      {
+        "src": "/projects/afs/live-desktop-2.webp",
+        "blur": "/projects/afs/live-desktop-2-blur.webp",
+        "w": 1440,
+        "h": 900,
+        "device": "desktop",
+        "alt": "The American Flooring advantage",
+        "tone": "light"
+      }
+    ],
+    "scroll": {
+      "src": "/projects/afs/scroll.webp",
+      "w": 960,
+      "h": 3600
+    }
+  }
+}

@@ -1,0 +1,434 @@
+:root {
+  /* a card's proportions, shared by the project page's hero (the same card, grown) */
+  --card-ratio: 1.136;
+  /* The gallery across the right half, in lengths from the page's centre line (where the right half and
+     the menu are both measured from): a base card set in from the middle of the right half towards the
+     centre of the page (by about half the room between it and the centre line), and the progress rail
+     centred in the room to its right. The card then widens towards whichever of the menu and the rail
+     is farther, until its gaps to the two are exactly the same. */
+  --card-w0: clamp(300px, 31vw, 480px);
+  --shift0: clamp(0px, calc((25vw - var(--card-w0) / 2) * 0.55), 130px);
+  --rail-x: calc(37.5vw - var(--shift0) / 2 + var(--card-w0) / 4);
+  /* where the menu's icons end, left of the centre line (half an 18px icon past the menu's middle) */
+  --menu-edge: calc(var(--menu-x) - 9px);
+  /* the smaller of the base card's two gaps (to the menu's icons, and to the rail's 2px line) */
+  --gallery-gap: min(
+    calc(25vw - var(--shift0) - var(--card-w0) / 2 + var(--menu-edge)),
+    calc(var(--rail-x) - 1px - 25vw + var(--shift0) - var(--card-w0) / 2)
+  );
+  --card-w: calc(var(--rail-x) - 1px + var(--menu-edge) - 2 * var(--gallery-gap));
+  --card-h: calc(var(--card-w) / var(--card-ratio));
+  /* how far left of the right half's middle the card sits: halfway between the menu and the rail */
+  --shift: calc(25vw - (var(--rail-x) - 1px - var(--menu-edge)) / 2);
+  /* the cards stacked above and below the focused one */
+  --card-gray: #e5e5e2;
+  --noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* the gallery's box, shared with its invisible twin (where a project's hero shrinks back to, see Morph).
+   It starts at the page's centre line, as the menu is placed from it, so the gaps either side of the card
+   come out exact whether or not the page has a scrollbar (vw counts the scrollbar, % does not) */
+.carousel,
+.dock-probe {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  width: 50vw;
+  height: 100vh;
+  height: 100dvh;
+}
+
+.dock-probe {
+  display: grid;
+  place-items: center;
+}
+
+.dock-probe > i {
+  width: var(--card-w);
+  height: var(--card-h);
+  translate: calc(var(--shift) * -1) 0;
+}
+
+.carousel {
+  z-index: 2;
+  --fade: clamp(48px, 7vh, 80px);
+}
+
+/* the stacked cards dissolve into the page at the top and bottom */
+.carousel-region {
+  position: absolute;
+  inset: 0;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--fade), #000 calc(100% - var(--fade)), transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 var(--fade), #000 calc(100% - var(--fade)), transparent);
+  display: grid;
+  place-items: center;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+}
+
+.carousel-region:active {
+  cursor: grabbing;
+}
+
+.drum {
+  position: relative;
+  width: var(--card-w);
+  height: var(--card-h);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  perspective: 1500px;
+  translate: calc(var(--shift) * -1) 0;
+  /* the cards' corners are sized from this box */
+  container-type: inline-size;
+}
+
+.slot {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  will-change: transform, opacity;
+}
+
+/* ---------- card ----------
+   Corners, type and spacing are sized relative to the card (cqw), so the same card shown larger (in flight,
+   or heading a project page) is simply that card grown: the radius is 34px on a 446px card. */
+
+.card {
+  position: absolute;
+  inset: 0;
+  display: block;
+  border-radius: 7.6cqw;
+  overflow: hidden;
+  isolation: isolate;
+  /* its corners, type and glass are sized from this box (both ways: the glass copies the whole card) */
+  container-type: size;
+  /* plain gray: the focused card is covered by its face, and as a card turns away its face fades into
+     this (--f: 0 in focus, 1 away) */
+  background: var(--card-gray);
+  /* a light rim, and a soft, wide shadow tinted like the card, as if it floats a little off the page
+     (the focused card only) */
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, calc(0.9 - var(--f, 0) * 0.9)) inset,
+    0 0 0 1px rgba(255, 255, 255, calc(0.55 - var(--f, 0) * 0.55)) inset,
+    0 4.5cqw 11cqw -4cqw
+      color-mix(
+        in srgb,
+        color-mix(in srgb, var(--card-accent, #6b7c9c) 45%, rgb(24 32 64)) calc(34% * (1 - var(--f, 0))),
+        transparent
+      );
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-drag: none;
+}
+
+.card.rim::after {
+  opacity: calc(0.7 - var(--f, 0) * 1.2);
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 4px;
+}
+
+/* the whole face (a soft wash of the project's colour shows until the site has loaded) */
+.card-media {
+  position: absolute;
+  inset: 0;
+  opacity: calc(1 - var(--f, 0) * 1.35);
+  background:
+    radial-gradient(95% 65% at 88% 102%, color-mix(in srgb, var(--card-accent, #6b7c9c) 20%, transparent), transparent 70%),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--card-accent, #6b7c9c) 26%, #eef1f7) 0%,
+      color-mix(in srgb, var(--card-accent, #6b7c9c) 11%, #f5f7fb) 56%,
+      #fbfcfe 100%
+    );
+}
+
+/* the site, the whole card. --grow clears the text and its veil away: a project's hero is all site (its
+   title and line are on the left), and the card in flight clears on the way there (see Morph) */
+.card-screen {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  /* the scroll is measured in this box (see site-scroll) */
+  container-type: size;
+}
+
+.card-cover,
+.card-scroll {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  max-width: none;
+}
+
+.card-cover {
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+}
+
+/* a full-length capture of the site, panned down and back up like a screen recording; --k is its
+   height over its width, so the far end is exactly the bottom of the capture (one shorter than the card
+   covers it instead, and holds still) */
+.card-scroll {
+  height: auto;
+  min-height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  animation-name: site-scroll;
+  animation-iteration-count: infinite;
+  animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+  will-change: translate;
+}
+
+@keyframes site-scroll {
+  0%,
+  7% {
+    translate: 0 0;
+  }
+  76%,
+  83% {
+    translate: 0 min(0px, calc(100cqh - 100cqw * var(--k, 1)));
+  }
+  100% {
+    translate: 0 0;
+  }
+}
+
+/* the foot of the card: the text on a band of frosted glass, which reaches a little above the title
+   whatever the card's size */
+.card-foot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 5.4cqw 6.4cqw 5.8cqw;
+  pointer-events: none;
+}
+
+/* The glass: the same site, blurred, under a light gradient in the project's colour, with a lit top edge.
+   A blurred copy of the card's own site rather than a backdrop filter, which breaks up on the gallery's
+   3D turn; its scroll runs in step with the one above it (see SiteScroll). */
+.card-glass {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  opacity: calc(1 - var(--grow, 0) * 1.6);
+}
+
+/* the whole card's site, lined up with the card's foot (a little larger, so the blur's soft edges stay out
+   of sight) */
+.card-glass-site {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100cqw;
+  height: 100cqh;
+  scale: 1.12;
+  transform-origin: 50% 100%;
+}
+
+.card-glass-site img {
+  filter: blur(4.4cqw) saturate(1.25);
+}
+
+.card-glass::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--card-accent, #6b7c9c) 10%, rgb(255 255 255 / 0.52)),
+    color-mix(in srgb, var(--card-accent, #6b7c9c) 14%, rgb(248 248 246 / 0.76))
+  );
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.7) inset;
+}
+
+.card-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  opacity: calc(1 - var(--grow, 0) * 1.6);
+}
+
+/* a soft light halo keeps the dark type clear of a dark site behind the veil */
+.card-title,
+.card-text,
+.card-cta {
+  text-shadow: 0 0 0.8em rgb(246 246 244 / 0.7);
+}
+
+.card-title {
+  margin: 0;
+  font-size: max(16px, 4.5cqw);
+  font-weight: 560;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: color-mix(in srgb, var(--card-accent, #6b7c9c) 14%, #121826);
+}
+
+.card-text {
+  margin: 1.8cqw 0 0;
+  max-width: 94%;
+  font-size: max(12px, 2.9cqw);
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--card-accent, #6b7c9c) 8%, #4c5260);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card-cta {
+  margin-top: 4.4cqw;
+  display: inline-flex;
+  align-items: center;
+  gap: 1.4cqw;
+  font-size: max(12px, 2.9cqw);
+  font-weight: 500;
+  color: #121826;
+}
+
+.card-cta svg {
+  width: 1.1em;
+  height: 1.1em;
+  transition: translate 0.5s var(--ease-out);
+}
+
+.card:hover .card-cta svg {
+  translate: 0.25em 0;
+}
+
+/* back from a project: the hero shrinks into the focused spot (see Morph) while the rest fades in */
+.carousel[data-arriving] .slot:not([data-focus]) .card,
+.carousel[data-arriving] .progress {
+  animation: gallery-arrive 0.9s var(--ease-out) 0.1s both;
+}
+
+@keyframes gallery-arrive {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ---------- progress ---------- */
+
+/* in the room between the gallery and the right edge of the page, as far from the card as the menu is */
+.progress {
+  position: absolute;
+  left: var(--rail-x);
+  top: 50%;
+  translate: -50% -50%;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* a 2px rail inside a wider hit area */
+.progress-track {
+  position: relative;
+  width: 18px;
+  height: clamp(110px, 18vh, 170px);
+  cursor: pointer;
+  touch-action: none;
+  border-radius: 6px;
+}
+
+.progress-track::before,
+.progress-fill {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  translate: -50% 0;
+  border-radius: 2px;
+}
+
+.progress-track::before {
+  background: rgba(22, 22, 22, 0.12);
+  transition: background-color 0.3s;
+}
+
+.progress-track:hover::before {
+  background: rgba(22, 22, 22, 0.2);
+}
+
+.progress-fill {
+  background: var(--ink);
+  transform: scaleY(var(--p, 0));
+  transform-origin: top;
+  transition: transform 0.75s var(--ease-out);
+}
+
+.progress-track:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 4px;
+}
+
+@media (hover: none) {
+  .card {
+    transform: none;
+  }
+}
+
+@media (max-width: 859px) {
+  :root {
+    --card-ratio: 1.25;
+    --card-w: min(84vw, 350px);
+    --card-h: calc(min(70vw, 290px, 30dvh) * 1.03);
+    --shift: 0px;
+  }
+
+  /* fills the space under the cube, its icon row and the progress rail; the drum fades out at both
+     edges */
+  .carousel,
+  .dock-probe {
+    left: 0;
+    width: 100vw;
+    top: calc(max(18px, env(safe-area-inset-top)) + var(--cube) + var(--btn) + 56px);
+    bottom: max(10px, env(safe-area-inset-bottom));
+    height: auto;
+  }
+
+  .carousel {
+    --fade: 36px;
+  }
+
+  /* a short rail across, under the menu icons (in the gap above the gallery) */
+  .progress {
+    left: 50%;
+    top: -21px;
+    translate: -50% -50%;
+  }
+
+  .progress-track {
+    width: clamp(96px, 30vw, 140px);
+    height: 18px;
+  }
+
+  .progress-track::before,
+  .progress-fill {
+    left: 0;
+    right: 0;
+    top: 50%;
+    bottom: auto;
+    width: auto;
+    height: 2px;
+    translate: 0 -50%;
+  }
+
+  .progress-fill {
+    transform: scaleX(var(--p, 0));
+    transform-origin: left;
+  }
+}

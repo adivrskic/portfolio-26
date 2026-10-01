@@ -1,0 +1,166 @@
+/* The cube's chat, in the About column (.info, see info.css): Qb's words in the soft grey with its key
+   words in ink, the visitor's in ink, and the line to type into right after the last message. */
+
+.chat-log {
+  display: grid;
+  gap: 22px;
+}
+
+.chat-msg {
+  /* the model's own line breaks */
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+/* (two classes: .info-text sets the grey and loads later) */
+.chat-msg.chat-msg--user {
+  color: var(--ink);
+}
+
+.chat-msg a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.16em;
+  text-decoration-color: color-mix(in srgb, var(--ink) 25%, transparent);
+  transition: text-decoration-color 0.3s;
+}
+
+.chat-msg a:hover {
+  text-decoration-color: var(--ink);
+}
+
+/* a message that arrives while the column is open rises in on its own */
+.chat-log [data-new] {
+  animation: chat-in 0.7s var(--ease-out) both;
+}
+
+@keyframes chat-in {
+  from {
+    opacity: 0;
+    translate: 0 12px;
+    filter: blur(4px);
+  }
+}
+
+/* Qb is thinking: three dots in the text's grey, a line's height */
+.chat-dots {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: calc(clamp(20px, 1.68vw, 25px) * 1.24);
+}
+
+.chat-dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ink-2);
+  animation: chat-dot 1.2s ease-in-out infinite;
+}
+
+.chat-dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.chat-dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes chat-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.25;
+  }
+  30% {
+    opacity: 1;
+  }
+}
+
+/* the line to type into: the text's own size, a hairline under it that darkens while typing */
+.chat-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  border-bottom: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
+  transition: border-color 0.3s;
+  /* it is kept in view this far above the column's lower edge as the conversation grows */
+  scroll-margin-bottom: 26vh;
+}
+
+.chat-form:focus-within {
+  border-color: var(--ink);
+}
+
+.chat-input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 0 10px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  font: inherit;
+  font-size: clamp(20px, 1.68vw, 25px);
+  line-height: 1.24;
+  letter-spacing: -0.012em;
+  color: var(--ink);
+}
+
+/* (the grey that passes AA: a placeholder is the only visible label here) */
+.chat-input::placeholder {
+  color: var(--ink-2);
+  opacity: 1;
+}
+
+/* the hairline shows the focus */
+.chat-input:focus-visible {
+  outline: none;
+}
+
+.chat-send {
+  flex: none;
+  opacity: 1;
+}
+
+.chat-send:disabled {
+  opacity: 0.2;
+  cursor: default;
+}
+
+.chat-send:disabled:active {
+  scale: 1;
+}
+
+/* a few questions to start with, in the column's small type */
+.chat-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+}
+
+.chat-chip {
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--ink);
+  opacity: 0.5;
+  transition: opacity 0.3s;
+}
+
+.chat-chip:hover,
+.chat-chip:focus-visible {
+  opacity: 1;
+}
+
+@media (max-width: 859px) {
+  .chat-form {
+    scroll-margin-bottom: 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-log [data-new] {
+    animation: none;
+  }
+}

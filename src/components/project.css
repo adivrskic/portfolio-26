@@ -1,0 +1,329 @@
+:root {
+  /* the project column: from the middle of the page to the right edge less the padding, and never so tall
+     (card-proportioned) that the next card can't show below it without scrolling */
+  --peek: clamp(110px, 17vh, 190px);
+  --hero-w: min(calc(50vw - var(--pad)), calc((100vh - 2 * var(--pad) - var(--peek)) * var(--card-ratio)));
+  --frame-ratio: var(--card-ratio);
+}
+
+.detail {
+  position: relative;
+  z-index: 2;
+  width: var(--hero-w);
+  margin: 0 var(--pad) 0 auto;
+  padding: var(--pad) 0;
+  /* corners are sized from the column's width */
+  container-type: inline-size;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pad);
+}
+
+/* ---------- hero: the gallery card, grown (see Morph) ---------- */
+
+/* the box and its invisible twin (measured while the page is still mounting) */
+.hero,
+.hero-probe {
+  width: var(--hero-w);
+  aspect-ratio: var(--card-ratio);
+}
+
+.hero {
+  position: relative;
+  width: 100%;
+  container-type: inline-size;
+}
+
+/* all site: the title and its line are on the left already */
+.hero .card {
+  --grow: 1;
+}
+
+.hero-probe {
+  position: fixed;
+  top: var(--pad);
+  right: var(--pad);
+}
+
+/* ---------- frame shell ---------- */
+
+.frame {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: var(--frame-ratio);
+  /* the same corners as the hero above */
+  border-radius: 7.6cqw;
+  overflow: hidden;
+  isolation: isolate;
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 0 0 1px rgba(255, 255, 255, 0.5) inset,
+    0 0 0 1px rgba(22, 22, 22, 0.05);
+  margin: 0;
+}
+
+.frame::after {
+  /* glossy rim */
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.1) 40%, rgba(255, 255, 255, 0.45));
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.frame-blur {
+  position: absolute;
+  inset: -12%;
+  width: 124%;
+  height: 124%;
+  max-width: none;
+  object-fit: cover;
+  /* on top of the blur baked into the image (a still image: it is drawn once) */
+  filter: blur(26px) saturate(1.15);
+  z-index: 0;
+}
+
+.frame-frost {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    radial-gradient(110% 70% at 12% -8%, rgba(255, 255, 255, 0.2), transparent 55%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0) 50%, rgba(10, 12, 24, 0.1));
+}
+
+.frame-frost::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--noise);
+  opacity: 0.12;
+  mix-blend-mode: overlay;
+}
+
+/* ---------- media ---------- */
+
+.frame-shot {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  width: 84%;
+  max-height: 78%;
+  aspect-ratio: var(--ratio, 1.6);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+/* very tall or very wide shots: let height drive the box */
+.frame--desktop .frame-shot {
+  width: min(84%, calc(78% * var(--ratio, 1.6) / var(--frame-ratio)));
+}
+
+.frame-shot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+}
+
+.frame--mobile .frame-shot {
+  width: auto;
+  height: 82%;
+  max-height: none;
+  aspect-ratio: 390 / 844;
+  border-radius: clamp(20px, 2.6vw, 34px);
+}
+
+.frame--art .frame-shot {
+  inset: 0;
+  translate: none;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* a frosted pill, so it reads over light and dark shots alike */
+.frame-caption {
+  position: absolute;
+  z-index: 3;
+  left: 18px;
+  bottom: 18px;
+  max-width: calc(100% - 36px);
+  display: flex;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.62);
+  -webkit-backdrop-filter: blur(14px) saturate(1.5);
+  backdrop-filter: blur(14px) saturate(1.5);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.frame-num {
+  color: var(--ink-2);
+}
+
+/* ---------- text (the 404 card) ---------- */
+
+.frame--text {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: clamp(24px, 2.6vw, 38px);
+  background: rgba(255, 255, 255, 0.62);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  backdrop-filter: blur(24px) saturate(1.6);
+  aspect-ratio: auto;
+}
+
+.frame-body {
+  font-size: clamp(20px, 1.85vw, 29px);
+  font-weight: 400;
+  line-height: 1.24;
+  letter-spacing: -0.015em;
+  max-width: 30ch;
+  text-wrap: pretty;
+}
+
+/* ---------- next project ---------- */
+
+.frame--next {
+  aspect-ratio: 1 / 0.62;
+  margin-top: var(--pad);
+  color: #fff;
+}
+
+.next-shot {
+  position: absolute;
+  z-index: 2;
+  right: 7%;
+  top: 50%;
+  width: 46%;
+  aspect-ratio: 16 / 10.4;
+  translate: 0 -50%;
+  border-radius: 14px;
+  overflow: hidden;
+  transition:
+    translate 0.8s var(--ease-out),
+    scale 0.8s var(--ease-out);
+}
+
+.next-shot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+}
+
+.frame--next:hover .next-shot {
+  translate: -6px -50%;
+  scale: 1.03;
+}
+
+.next-meta {
+  position: absolute;
+  z-index: 3;
+  left: clamp(22px, 3vw, 40px);
+  bottom: clamp(22px, 3vw, 38px);
+  display: grid;
+  gap: 6px;
+  text-shadow: 0 1px 16px rgba(0, 0, 0, 0.3);
+}
+
+.next-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-size: clamp(26px, 2.6vw, 40px);
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+
+.next-title svg {
+  width: 0.7em;
+  height: 0.7em;
+  transition: translate 0.6s var(--ease-out);
+}
+
+.frame--next:hover .next-title svg {
+  translate: 6px 0;
+}
+
+.next-kind {
+  opacity: 0.8;
+}
+
+@media (max-width: 859px) {
+  :root {
+    --hero-w: calc(100vw - 20px);
+    /* phones get a little more height for tall screenshots */
+    --frame-ratio: 0.98;
+  }
+
+  .detail {
+    width: auto;
+    margin: 0;
+    padding: 0 10px 10px;
+  }
+
+  .stack {
+    gap: 10px;
+  }
+
+  /* under the left column (its height is added when measured, see Morph) */
+  .hero-probe {
+    top: 0;
+    left: 10px;
+    right: 10px;
+    width: auto;
+  }
+
+  .frame--next {
+    aspect-ratio: 1 / 0.9;
+    margin-top: 10px;
+  }
+
+  .next-shot {
+    top: 9%;
+    left: 9%;
+    right: 9%;
+    width: auto;
+    translate: none;
+  }
+
+  .frame--next:hover .next-shot {
+    translate: none;
+  }
+}
+
+.frame--next[data-tone='light'] {
+  color: var(--ink);
+}
+
+.frame--next[data-tone='light'] .next-meta {
+  text-shadow: none;
+}

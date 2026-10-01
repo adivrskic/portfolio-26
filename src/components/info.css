@@ -1,0 +1,303 @@
+/* About, Contact and the cube's chat: a scrollable text column in the gallery's place */
+.info {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 50vw;
+  height: 100vh;
+  height: 100dvh;
+  z-index: 2;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  outline: none;
+  scrollbar-width: none;
+  /* text dissolves at the top and bottom edges as it scrolls, like the gallery */
+  --fade: clamp(90px, 15vh, 160px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--fade), #000 calc(100% - var(--fade)), transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 var(--fade), #000 calc(100% - var(--fade)), transparent);
+}
+
+.info::-webkit-scrollbar {
+  display: none;
+}
+
+/* starts near the cube's line; the rest is a scroll away */
+.info-inner {
+  display: grid;
+  gap: 26px;
+  max-width: 620px;
+  padding: 36vh clamp(24px, 6vw, 110px) 42vh clamp(24px, 4vw, 64px);
+}
+
+.info-text,
+.info-list {
+  font-size: clamp(20px, 1.68vw, 25px);
+  line-height: 1.24;
+  letter-spacing: -0.012em;
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+
+.info em {
+  font-style: normal;
+  color: var(--ink);
+}
+
+.info-group {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.info-label {
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--ink);
+}
+
+.info-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ink);
+}
+
+.info-dim {
+  color: var(--ink-2);
+}
+
+/* the toolkit: an area's name on the left, its tools in ink running on to the right, a soft dot between */
+.info-kit {
+  display: grid;
+  gap: 14px;
+  margin: 2px 0 0;
+}
+
+.info-kit-row {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.info-kit-label {
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--ink-2);
+}
+
+.info-kit-items {
+  min-width: 0;
+  margin: 0;
+  font-size: clamp(20px, 1.68vw, 25px);
+  line-height: 1.24;
+  letter-spacing: -0.012em;
+  color: var(--ink);
+  text-wrap: pretty;
+}
+
+/* a tool never breaks across lines; the dot after it stays with it */
+.info-kit-item {
+  white-space: nowrap;
+}
+
+.info-kit-item:not(:last-child)::after {
+  content: '·';
+  margin-left: 0.3em;
+  color: var(--ink-3);
+}
+
+.info-link,
+.info-social {
+  text-decoration: none;
+  transition: opacity 0.3s;
+}
+
+.info-link {
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.info-link:hover,
+.info-social:hover {
+  opacity: 0.6;
+}
+
+.info-social {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35em;
+}
+
+.info-social svg {
+  width: 0.6em;
+  height: 0.6em;
+  align-self: center;
+  opacity: 0.5;
+}
+
+.info-foot {
+  margin-top: 30px;
+}
+
+/* ---------- the contact form: a note to Adi in the column's own type, its blanks the fields ---------- */
+
+/* (registered, so the hairlines' colour can ease) */
+@property --line {
+  syntax: '<color>';
+  inherits: false;
+  initial-value: transparent;
+}
+
+.contact-form {
+  display: grid;
+  gap: 22px;
+}
+
+/* the note's own words in grey; what is typed into it in ink */
+.contact-line {
+  color: var(--ink-2);
+}
+
+/* a blank, and the message under the note: a hairline under each that draws in as its line rises,
+   darkens while typing, and turns red if something is missing */
+.contact-blank,
+.contact-message {
+  --line: color-mix(in srgb, var(--ink) 24%, transparent);
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  color: var(--ink);
+  background: linear-gradient(var(--line), var(--line)) 0 100% / 100% 1px no-repeat;
+  animation: contact-draw 0.9s var(--ease-out) var(--draw, 0.4s) both;
+  transition:
+    --line 0.3s,
+    background-color 600000s 0s;
+}
+
+@keyframes contact-draw {
+  from {
+    background-size: 0 1px;
+  }
+}
+
+.contact-blank[aria-invalid],
+.contact-message[aria-invalid] {
+  --line: var(--error);
+}
+
+.contact-blank:focus,
+.contact-message:focus {
+  --line: var(--ink);
+}
+
+/* the hairline shows the focus */
+.contact-blank:focus-visible,
+.contact-message:focus-visible {
+  outline: none;
+}
+
+/* (the grey that passes AA: a blank's placeholder is its visible label) */
+.contact-blank::placeholder,
+.contact-message::placeholder {
+  color: var(--ink-2);
+  opacity: 1;
+}
+
+/* as wide as what is in it (or its placeholder), never wider than the line */
+.contact-blank {
+  field-sizing: content;
+  min-width: 2ch;
+  max-width: 100%;
+  padding: 0 0.06em 0.05em;
+}
+
+/* it grows as the message does */
+.contact-message {
+  display: block;
+  width: 100%;
+  padding: 0 0 10px;
+  font-size: clamp(20px, 1.68vw, 25px);
+  line-height: 1.24;
+  letter-spacing: -0.012em;
+  resize: none;
+  overflow: hidden;
+}
+
+/* autofilled blanks keep the column's look */
+.contact-blank:-webkit-autofill {
+  -webkit-text-fill-color: var(--ink);
+}
+
+/* out of sight: only bots fill it in */
+.contact-trap {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.contact-send {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  margin-top: 4px;
+}
+
+.contact-send .btn:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.contact-status {
+  flex: 1 1 200px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+
+.contact-status[data-problem] {
+  color: var(--error);
+}
+
+.contact-status a {
+  color: var(--ink);
+}
+
+.contact-sent {
+  display: grid;
+  justify-items: start;
+  gap: 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .contact-blank,
+  .contact-message {
+    animation: none;
+  }
+}
+
+@media (max-width: 859px) {
+  .info {
+    position: relative;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .info-inner {
+    padding: 6px 20px 72px;
+    gap: 20px;
+  }
+
+  .info-kit-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}

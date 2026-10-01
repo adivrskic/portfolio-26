@@ -1,0 +1,392 @@
+:root {
+  /* surface */
+  --bg: #f3f3f1;
+  --ink: #161616;
+  /* the second tone of the two-tone type: 4.6:1 on the page, so it passes WCAG AA as body text (it was
+     #9a9a96, 2.5:1) */
+  --ink-2: #6e6e69;
+  --ink-3: #c4c4bf;
+  --line: rgba(22, 22, 22, 0.07);
+
+  /* glass */
+  --glass: rgba(255, 255, 255, 0.52);
+  --glass-strong: rgba(255, 255, 255, 0.74);
+  --glass-rim: rgba(255, 255, 255, 0.85);
+  --glass-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 0 0 1px rgba(255, 255, 255, 0.55) inset,
+    0 24px 48px -24px rgba(24, 28, 48, 0.28), 0 2px 6px -2px rgba(24, 28, 48, 0.08);
+
+  --accent: #ff4d23;
+  /* a problem in a form (fixed: --accent follows the selected project) */
+  --error: #d2462b;
+
+  /* type */
+  --font: 'Geist Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'Geist Mono Variable', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --t-name: clamp(20px, 1.55vw, 24px);
+  --t-body: 15px;
+  --t-card: clamp(19px, 1.5vw, 23px);
+
+  /* layout */
+  --gutter: clamp(16px, 2.2vw, 32px);
+  --radius-card: 34px;
+  --radius-btn: 15px;
+  --btn: 46px;
+
+  /* motion */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.785, 0.135, 0.15, 0.86);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  /* the scrollbar is always there (greyed out where there is nothing to scroll), so the page never
+     shifts sideways between the gallery and a scrolling project page */
+  overflow-y: scroll;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: var(--t-body);
+  line-height: 1.45;
+  font-feature-settings: 'ss01', 'cv11';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  min-height: 100dvh;
+  overscroll-behavior-y: none;
+}
+
+/* the scene takes its pointer events from here (see Scene): it has to cover the page, or a pointer over
+   the cube (where the left column lets events through) lands on <body> and the cube never hears it */
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+p {
+  margin: 0;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-weight: 450;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 30%, white);
+  color: var(--ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+/* the keyboard's way past the menu to the page itself: out of sight until it has focus */
+.skip {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 50;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 13px;
+  translate: 0 -160%;
+  transition: translate 0.3s var(--ease-out);
+}
+
+.skip:focus-visible {
+  translate: 0 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.mono {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+/* ---------- scene ---------- */
+
+.scene {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1.2s var(--ease-out);
+}
+
+/* fades in once its first frames have rendered: the cube appears inside the loader ring */
+.scene.is-visible {
+  opacity: 1;
+}
+
+.scene canvas {
+  display: block;
+}
+
+.scene-fallback {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(40vmax 40vmax at 25% 50%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 60%),
+    var(--bg);
+}
+
+/* ---------- glass primitives ---------- */
+
+.glass {
+  position: relative;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(22px) saturate(1.6);
+  backdrop-filter: blur(22px) saturate(1.6);
+  box-shadow: var(--glass-shadow);
+}
+
+/* glossy rim: a gradient hairline drawn with a masked pseudo element */
+.rim::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    150deg,
+    rgba(255, 255, 255, 0.95),
+    rgba(255, 255, 255, 0.15) 38%,
+    rgba(255, 255, 255, 0.05) 60%,
+    rgba(255, 255, 255, 0.6)
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+  pointer-events: none;
+}
+
+/* ---------- buttons ---------- */
+
+.btn {
+  position: relative;
+  height: var(--btn);
+  min-width: var(--btn);
+  border-radius: var(--radius-btn);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 18px;
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: blur(16px) saturate(1.5);
+  backdrop-filter: blur(16px) saturate(1.5);
+  /* a highlight and a hairline, no drop shadow */
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 0 0 1px rgba(22, 22, 22, 0.06);
+  transition:
+    background-color 0.35s var(--ease-in-out),
+    color 0.35s var(--ease-in-out),
+    scale 0.35s var(--ease-out);
+  white-space: nowrap;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn:hover {
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.btn:active {
+  scale: 0.94;
+}
+
+.btn--icon {
+  padding: 0;
+  width: var(--btn);
+}
+
+.btn--dark,
+.btn[aria-pressed='true'],
+.btn[aria-expanded='true'] {
+  background: var(--ink);
+  color: #fff;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset;
+}
+
+.btn--dark:hover,
+.btn[aria-pressed='true']:hover,
+.btn[aria-expanded='true']:hover {
+  background: #2a2a2a;
+}
+
+.btn svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.btn-label {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* bare icons: no background, just the glyph, brightening on hover */
+.icon-btn {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 12px;
+  color: var(--ink);
+  opacity: 0.5;
+  transition:
+    opacity 0.3s var(--ease-out),
+    scale 0.35s var(--ease-out);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.icon-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.icon-btn:hover,
+.icon-btn:focus-visible,
+.icon-btn[aria-pressed='true'],
+.icon-btn[data-active] {
+  opacity: 1;
+}
+
+.icon-btn:active {
+  scale: 0.88;
+}
+
+.icon-btn:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+
+/* icon-only buttons name themselves in a quiet tooltip below */
+[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  translate: -50% -3px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.25s,
+    translate 0.35s var(--ease-out);
+}
+
+@media (hover: hover) {
+  [data-tip]:hover::after {
+    opacity: 1;
+    translate: -50% 0;
+  }
+}
+
+[data-tip]:focus-visible::after {
+  opacity: 1;
+  translate: -50% 0;
+}
+
+/* ---------- the tuning panel (?tune, see Tuner) ---------- */
+
+.tuner {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 100;
+  width: 300px;
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 8px;
+}
+
+/* ---------- text roll (lines slide inside a mask) ---------- */
+
+.roll {
+  display: block;
+  overflow: hidden;
+  padding-bottom: 0.08em;
+}
+
+.roll > * {
+  display: block;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    /* (or an endless one, like a card's site scroll, would flicker through its frames) */
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

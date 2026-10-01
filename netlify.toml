@@ -1,3 +1,34 @@
 [build]
   command = "npm run build"
   publish = "dist"
+
+[build.environment]
+  # Vite 7 needs Node 20.19+ or 22.12+
+  NODE_VERSION = "22"
+
+# The chat and the contact form are Netlify Functions (netlify/functions), served at /api/chat and
+# /api/contact. Set their keys in the site's environment variables: ANTHROPIC_API_KEY and RESEND_API_KEY
+# (see .env.example for the optional ones).
+[functions]
+  # each function bundled into one file, with what it imports (netlify/lib)
+  node_bundler = "esbuild"
+
+# Security headers for every page. The policy allows only this site's own scripts, styles, images, fonts
+# and API (inline styles are allowed: the animation libraries set styles directly, and ?tune's panel
+# injects its own); nothing may frame the site.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; media-src 'self'; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()"
+    Cross-Origin-Opener-Policy = "same-origin"
+
+# Vite names its built files by their contents, so they never change: cache them for good
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

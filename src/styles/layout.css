@@ -1,0 +1,403 @@
+:root {
+  --cube: clamp(198px, min(24.3vw, 37.8vh), 360px);
+  /* the space kept between the right-hand column and the edges of the page */
+  --pad: clamp(16px, 1.65vw, 30px);
+  /* how far left of the page's centre line the upright menu stands (the gallery's card keeps the same
+     gap to its icons as to the progress rail, see carousel.css) */
+  --menu-x: 30px;
+}
+
+html[data-cube-hover] {
+  cursor: grab;
+}
+
+html[data-cube-drag],
+html[data-cube-drag] * {
+  cursor: grabbing !important;
+}
+
+/* ---------- left column: the cube, a row of icons under it (and the project title on project pages) ---------- */
+
+.left {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 50vw;
+  z-index: 3;
+  display: grid;
+  /* a definite row, so the stage below can be held to the screen's height */
+  grid-template-rows: minmax(0, 1fr);
+  place-items: center;
+  padding-block: clamp(20px, 4vh, 44px);
+  pointer-events: none;
+}
+
+.stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-height: 100%;
+}
+
+.stage > * {
+  flex-shrink: 0;
+}
+
+.cube-anchor {
+  width: var(--cube);
+  height: var(--cube);
+}
+
+/* the cube's chat for the keyboard: out of sight until it has focus, then a quiet label on the cube */
+.cube-chat-link {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--cube) / 2);
+  translate: -50% -50%;
+  z-index: 3;
+  padding: 9px 14px;
+  border-radius: 12px;
+  background: var(--bg);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.cube-chat-link:not(:focus-visible) {
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+/* height animates open/closed, so the spacing lives inside */
+.caption {
+  overflow: hidden;
+  text-align: center;
+  pointer-events: auto;
+}
+
+.caption-title {
+  padding-top: clamp(18px, 3vh, 32px);
+}
+
+.caption-title,
+.caption-sub {
+  font-size: var(--t-name);
+  line-height: 1.16;
+  letter-spacing: -0.018em;
+  font-weight: 450;
+}
+
+.caption-sub {
+  color: var(--ink-2);
+}
+
+.roll {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  padding-bottom: 0.1em;
+  margin-bottom: -0.1em;
+}
+
+.roll-line {
+  display: block;
+  white-space: nowrap;
+}
+
+/* ---------- the case study, over the cube ----------
+   The cube stays where it is, its blocks parted and blurred (see VoxelCube and the lens in Scene); the
+   text runs down a column of its own the full height of the page, centred on the cube: its first line
+   starts level with the menu's back arrow (--back-mid, measured in LeftColumn) and it scrolls on up
+   over the cube. On phones it runs on under the title. */
+
+.brief {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 25vw;
+  translate: -50% 0;
+  width: min(440px, 40vw);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  pointer-events: auto;
+  /* lines dissolve at the top and bottom of the page as they scroll */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 4vh, #000 18vh, #000 calc(100% - 12vh), transparent);
+  mask-image: linear-gradient(to bottom, transparent 4vh, #000 18vh, #000 calc(100% - 12vh), transparent);
+}
+
+.brief::-webkit-scrollbar {
+  display: none;
+}
+
+.brief:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 6px;
+  border-radius: 6px;
+}
+
+/* the title's line is centred on the back arrow; the end can scroll up past the middle */
+.brief-inner {
+  display: grid;
+  gap: 20px;
+  padding: calc(var(--back-mid, 50vh) - var(--t-name) * 0.58) 0 40vh;
+  font-size: 14px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.brief-summary {
+  font-size: 16px;
+  line-height: 1.4;
+  letter-spacing: -0.005em;
+}
+
+.brief-label {
+  margin-bottom: 6px;
+  font-weight: 400;
+}
+
+.brief-title,
+.brief-kind {
+  font-size: var(--t-name);
+  line-height: 1.16;
+  letter-spacing: -0.018em;
+  font-weight: 450;
+}
+
+.brief-kind {
+  color: var(--ink-2);
+}
+
+/* the title under the cube steps aside while the study (which carries it) is over the cube */
+.caption-title,
+.caption-sub {
+  transition: opacity 0.45s var(--ease-out);
+}
+
+.left[data-brief] .caption-title,
+.left[data-brief] .caption-sub {
+  opacity: 0;
+}
+
+/* a shade darker than elsewhere: it reads over the blurred cube */
+.brief-body {
+  color: #6c6c68;
+}
+
+.brief-facts {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.brief-facts > div {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.brief-facts dt {
+  color: var(--ink-2);
+}
+
+.brief-facts dd {
+  margin: 0;
+}
+
+/* the menu stands upright in the middle of the page, just left of the centre line (clear of a project's
+   hero, which starts there); on phones it is a row under the cube */
+.actions {
+  position: fixed;
+  top: 50%;
+  left: calc(50% - var(--menu-x));
+  translate: -50% -50%;
+  display: grid;
+  justify-items: center;
+  pointer-events: auto;
+}
+
+.actions-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  justify-content: center;
+}
+
+/* separates the panels (About, Contact) from the outbound links */
+.actions-sep {
+  width: 16px;
+  height: 1px;
+  margin: 8px 0;
+  background: rgba(22, 22, 22, 0.12);
+}
+
+.actions-back {
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+/* the open section (About/Contact) gets a small dot beside its icon */
+.icon-btn[data-active]::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--ink);
+  translate: 0 -50%;
+}
+
+/* upright, the names show to the left of the icons */
+.actions [data-tip]::after {
+  top: 50%;
+  left: auto;
+  right: calc(100% + 8px);
+  translate: 3px -50%;
+}
+
+@media (hover: hover) {
+  .actions [data-tip]:hover::after {
+    translate: 0 -50%;
+  }
+}
+
+.actions [data-tip]:focus-visible::after {
+  translate: 0 -50%;
+}
+
+.main {
+  position: relative;
+  z-index: 2;
+}
+
+/* it takes focus after a page change (see App), but isn't a control: no ring */
+.main:focus {
+  outline: none;
+}
+
+/* two project pages sliding past each other: the right column above the left one meanwhile (on phones the
+   page leaving covers the title and menu at the top of the page until it has gone, see ProjectPage) */
+html[data-page-slide] .main {
+  z-index: 4;
+}
+
+.missing {
+  position: fixed;
+  inset: 0 0 0 50vw;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.missing-card {
+  width: min(520px, 100%);
+  min-height: 0;
+  aspect-ratio: auto;
+  gap: 28px;
+  /* outside the project column, so a fixed radius rather than one sized from the column */
+  border-radius: var(--radius-card);
+}
+
+/* ---------- single column ---------- */
+
+@media (max-width: 859px) {
+  :root {
+    --cube: min(45vw, 23.4dvh, 225px);
+    --t-name: 19px;
+    --btn: 44px;
+  }
+
+  .left {
+    position: relative;
+    width: 100%;
+    bottom: auto;
+    display: block;
+    padding-block: max(18px, env(safe-area-inset-top)) 0;
+  }
+
+  /* one column: the page scrolls, so the study simply runs on under the title (which stays) */
+  .left[data-brief] .caption-title,
+  .left[data-brief] .caption-sub {
+    opacity: 1;
+  }
+
+  .brief-head {
+    display: none;
+  }
+
+  .brief {
+    position: static;
+    translate: none;
+    width: auto;
+    margin-inline: 20px;
+    overflow: visible;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .brief-inner {
+    padding: clamp(18px, 2.6vh, 28px) 0 0;
+  }
+
+  .caption-title {
+    padding-top: 10px;
+  }
+
+  .actions {
+    position: static;
+    translate: none;
+    margin: 14px 0 18px;
+    min-height: var(--btn);
+  }
+
+  .actions-row,
+  .actions-back {
+    flex-direction: row;
+  }
+
+  .actions-sep {
+    width: 1px;
+    height: 16px;
+    margin: 0 8px;
+  }
+
+  .icon-btn[data-active]::before {
+    left: 50%;
+    top: auto;
+    bottom: 0;
+    translate: -50% 0;
+  }
+
+  .actions [data-tip]::after {
+    top: calc(100% + 10px);
+    left: 50%;
+    right: auto;
+    translate: -50% -3px;
+  }
+
+  .actions [data-tip]:hover::after,
+  .actions [data-tip]:focus-visible::after {
+    translate: -50% 0;
+  }
+
+  .missing {
+    position: relative;
+    inset: auto;
+    padding: 12px;
+  }
+}
