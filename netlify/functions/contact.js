@@ -1,16 +1,15 @@
-// The contact form (and emails Qb sends from the chat): delivers them with Resend.
+// The contact form (and emails Qb sends from the chat): delivers them with Resend. How the email looks is
+// in ../lib/email.js.
 // Required env: RESEND_API_KEY
 // Optional env: CONTACT_TO_EMAIL (default adivrskic123@gmail.com),
 //               CONTACT_FROM_EMAIL (must be a Resend-verified sender/domain; defaults to
 //               onboarding@resend.dev, which only delivers to the Resend account owner's inbox —
 //               fine for a personal contact form)
+import { contactEmail } from '../lib/email.js'
 import { allowedOrigin, clientIp, env, json, preflight, rateLimit } from '../lib/http.js'
 
 // contact submissions are rare: limit hard
 const limited = rateLimit(5, 10 * 60 * 1000)
-
-const esc = (s) =>
-  String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
 const str = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '')
 
@@ -34,8 +33,6 @@ export default async (req, context) => {
   const email = str(body?.email, 200)
   const message = str(body?.message, 5000)
   const source = str(body?.source, 40) || 'contact-form'
-  // (a line break in what goes into the subject could inject email headers)
-  const oneLine = (s) => s.replace(/[\r\n]+/g, ' ')
   if (!name || !message || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return json(400, { error: 'Missing or invalid fields' }, req)
   }
@@ -44,22 +41,8 @@ export default async (req, context) => {
   if (!apiKey) return json(500, { error: 'Email is not configured', code: 'no-key' }, req)
 
   const to = env('CONTACT_TO_EMAIL') || 'adivrskic123@gmail.com'
-  const from = env('CONTACT_FROM_EMAIL') || 'Portfolio Contact <onboarding@resend.dev>'
-
-  const rows = [
-    ['From', `${name} <${email}>`],
-    ['Source', source],
-  ]
-  const html = `
-    <div style="font-family:-apple-system,Segoe UI,sans-serif;max-width:560px">
-      <h2 style="margin:0 0 12px;font-weight:500">New portfolio message</h2>
-      <table style="border-collapse:collapse;font-size:14px">
-        ${rows
-          .map(([k, v]) => `<tr><td style="padding:4px 12px 4px 0;color:#888">${esc(k)}</td><td style="padding:4px 0">${esc(v)}</td></tr>`)
-          .join('')}
-      </table>
-      <p style="white-space:pre-wrap;border-left:3px solid #ddd;padding:8px 12px;margin-top:16px;font-size:14px">${esc(message)}</p>
-    </div>`
+  const from = env('CONTACT_FROM_EMAIL') || 'adivrskic.dev <onboarding@resend.dev>'
+  const { subject, html, text } = contactEmail({ name, email, message, source })
 
   try {
     const res = await fetch('https://api.resend.com/emails', {
@@ -69,8 +52,9 @@ export default async (req, context) => {
         from,
         to: [to],
         reply_to: email,
-        subject: oneLine(`Portfolio: ${name}${source === 'contact-form' ? '' : ` (via ${source})`}`),
+        subject,
         html,
+        text,
       }),
     })
     if (!res.ok) {

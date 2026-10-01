@@ -32,6 +32,7 @@ The chat and the contact form need keys. Copy `.env.example` to `.env.local` and
 | What the chat (Qb) knows and how it talks: bio, projects, rules, the email it can send; its model | `PERSONAL_CONTEXT` and `MODEL` in `netlify/functions/chat.js` (or set `CHAT_MODEL`) |
 | The chat's greeting and starter questions | `greeting` in `src/state/chat.ts`, `SUGGESTIONS` in `src/components/Chat.tsx` |
 | Where the contact form (and Qb's emails) go | `CONTACT_TO_EMAIL` / `CONTACT_FROM_EMAIL` (see `.env.example`) |
+| How those emails look (the card, its dark mode and the plain-text copy) | `contactEmail` in `netlify/lib/email.js` |
 
 Project order in `PROJECTS` is the carousel order. `accent` sets the cube's glow for that project (it is pushed towards a saturated mid-tone automatically). Private repos simply omit `links.repo`.
 
