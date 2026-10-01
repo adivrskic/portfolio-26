@@ -145,8 +145,8 @@ type Fields = { name: string; email: string; message: string; company: string }
 type Problems = Partial<Record<'name' | 'email' | 'message', string>>
 
 const BLANK: Fields = { name: '', email: '', message: '', company: '' }
-/** the form's parts in the column's stagger: the note with its blanks, the message, the send button */
-const FORM_STEPS = 3
+/** the form's parts in the column's stagger: its label, the name, the email, the message, the send button */
+const FORM_STEPS = 5
 
 /** what is still missing, in words that finish "Just need …" */
 function check(f: Fields): Problems {
@@ -161,9 +161,9 @@ function check(f: Fields): Problems {
 /** "a", "a and b", "a, b and c" */
 const listed = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`)
 
-/** when a block of the column starts to rise (see reveal.ts): a blank's hairline draws in just after */
+/** when a block of the column starts to rise (see reveal.ts): a field's hairline draws in just after */
 const rises = (i: number) => 0.08 + i * 0.07
-const drawAt = (i: number, after = 0) => ({ '--draw': `${(rises(i) + 0.38 + after).toFixed(2)}s` }) as CSSProperties
+const drawAt = (i: number) => ({ '--draw': `${(rises(i) + 0.38).toFixed(2)}s` }) as CSSProperties
 
 /** the form fading as one: once sent (for the thank-you), and as the column leaves */
 const fadeAway = { opacity: 0, y: -12, filter: 'blur(4px)', transition: { duration: 0.32, ease: [0.7, 0, 0.84, 0] } } as const
@@ -181,9 +181,8 @@ const shell: Variants = {
 }
 
 /**
- * Name, email, message, send, written as a note to Adi in the column's own type: the blanks in its
- * sentence are the fields (each as wide as what is typed in it), and their hairlines draw in as the note
- * rises. Posted to the contact function (netlify/functions/contact.js).
+ * Name, email, message, send: plain fields in the column's own type, each with its name over it and a
+ * hairline under it that draws in as it rises. Posted to the contact function (netlify/functions/contact.js).
  */
 function ContactForm({ order }: { order: number }) {
   const [fields, setFields] = useState(BLANK)
@@ -233,9 +232,6 @@ function ContactForm({ order }: { order: number }) {
     setStatus('idle')
   }
 
-  // a blank sizes to what is in it (field-sizing where it is supported, its size attribute elsewhere)
-  const size = (value: string, placeholder: string) => Math.max(value.length, placeholder.length) + 1
-
   return (
     // once sent, the form falls away for a thank-you
     <AnimatePresence mode="wait">
@@ -258,58 +254,56 @@ function ContactForm({ order }: { order: number }) {
           variants={shell}
           exit={fadeAway}
         >
-          <motion.p className="info-text contact-line" variants={block} custom={order}>
-            Hi Adi, I'm{' '}
+          <motion.p className="info-label contact-title" variants={block} custom={order}>
+            Send a message:
+          </motion.p>
+          <motion.label className="contact-field" variants={block} custom={order + 1}>
+            <span className="contact-label">Name</span>
             <input
-              className="contact-blank"
+              className="contact-input"
               name="name"
               type="text"
               autoComplete="name"
-              placeholder="your name"
-              aria-label="Your name"
               aria-describedby="contact-status"
-              size={size(fields.name, 'your name')}
               value={fields.name}
               onChange={edit('name')}
               aria-invalid={!!problems.name || undefined}
-              style={drawAt(order)}
+              style={drawAt(order + 1)}
             />
-            , and you can reach me at{' '}
+          </motion.label>
+          <motion.label className="contact-field" variants={block} custom={order + 2}>
+            <span className="contact-label">Email</span>
             <input
-              className="contact-blank"
+              className="contact-input"
               name="email"
               type="email"
               inputMode="email"
               autoComplete="email"
-              placeholder="your email"
-              aria-label="Your email"
               aria-describedby="contact-status"
-              size={size(fields.email, 'your email')}
               value={fields.email}
               onChange={edit('email')}
               aria-invalid={!!problems.email || undefined}
-              style={drawAt(order, 0.12)}
+              style={drawAt(order + 2)}
             />
-            .
-          </motion.p>
-          <motion.div variants={block} custom={order + 1}>
+          </motion.label>
+          <motion.label className="contact-field" variants={block} custom={order + 3}>
+            <span className="contact-label">Message</span>
             <textarea
-              className="contact-message"
+              className="contact-input contact-message"
               name="message"
               rows={2}
               placeholder="Tell me a little about it…"
-              aria-label="Your message"
               aria-describedby="contact-status"
               value={fields.message}
               onChange={edit('message')}
               onInput={grow}
               aria-invalid={!!problems.message || undefined}
-              style={drawAt(order + 1)}
+              style={drawAt(order + 3)}
             />
-          </motion.div>
+          </motion.label>
           {/* left empty by people (it is out of sight): a bot that fills it in is thanked and ignored */}
           <input className="contact-trap" name="company" tabIndex={-1} autoComplete="off" aria-hidden="true" value={fields.company} onChange={edit('company')} />
-          <motion.div className="contact-send" variants={block} custom={order + 2}>
+          <motion.div className="contact-send" variants={block} custom={order + 4}>
             <button type="submit" className="btn btn--dark" disabled={status === 'sending'}>
               <span className="btn-label">{status === 'sending' ? 'Sending…' : 'Send'}</span>
               <IconArrowRight />

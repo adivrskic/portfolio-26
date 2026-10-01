@@ -9,9 +9,9 @@ import './chat.css'
 const SUGGESTIONS = ['What does Adi do?', 'How was this site built?', 'Is he available for work?']
 
 /**
- * The cube's chat, in the About column's type: Qb's words in grey with its key words in ink, the
- * visitor's in ink, and the line to type into right after the last of them. The conversation itself
- * lives in state/chat (it outlasts the panel).
+ * The cube's chat, in the About column's type: Qb's words on the left in grey with its key words in ink,
+ * the visitor's on the right in ink, and the line to type into right after the last of them. The
+ * conversation itself lives in state/chat (it outlasts the panel).
  */
 export function Chat() {
   const messages = useChat((s) => s.messages)

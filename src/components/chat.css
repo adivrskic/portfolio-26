@@ -1,5 +1,6 @@
 /* The cube's chat, in the About column (.info, see info.css): Qb's words in the soft grey with its key
-   words in ink, the visitor's in ink, and the line to type into right after the last message. */
+   words in ink on the left, the visitor's in ink on the right, and the line to type into right after the
+   last message. */
 
 .chat-log {
   display: grid;
@@ -12,8 +13,12 @@
   overflow-wrap: anywhere;
 }
 
-/* (two classes: .info-text sets the grey and loads later) */
+/* the visitor's on the right, in ink; Qb's on the left
+   (two classes: .info-text sets the grey and loads later) */
 .chat-msg.chat-msg--user {
+  justify-self: end;
+  max-width: 82%;
+  text-align: right;
   color: var(--ink);
 }
 
