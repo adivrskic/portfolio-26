@@ -74,6 +74,12 @@ Bosnian for diaspora and heritage speakers: a monorepo with a Next.js web app, a
 XSBL — Accessibility SaaS (2026) · https://xsbl.io
 WCAG 2.2 scanning with axe-core that explains every issue with an AI-suggested fix and can open the GitHub pull request that fixes it; a GitHub Action re-scans after every deploy. Scheduled scans, score trends, Slack and email alerts, PDF and VPAT reports, an accessibility simulator, a browser extension, client dashboards, an audit log and compliance-evidence export.
 
+HOME DASHBOARD — Wall tablet app (2026)
+A smart home dashboard for a wall-mounted Android tablet, installable as a PWA or packaged as a native app with Capacitor. Swipeable screens: a clock over a photo slideshow with the day's next events and a guest Wi-Fi QR code; weather from OpenWeatherMap One Call 3.0 with government alerts and a 12-hour rain graph (falling back to the classic endpoints automatically); Google and Outlook calendars with local events, to-do and shopping lists and voice dictation; Home Assistant lights, thermostats, locks and sensors live over WebSocket; a Google Maps traffic map with RainViewer radar; Spotify now-playing. Kitchen timers that ring over every screen, a light/dark theme that follows the real sunset, a burn-in-safe ambient screensaver, photos kept on the device in IndexedDB, and a crash watchdog that reloads with exponential backoff. React 18, Vite 5, Capacitor.
+
+EARNINGS TRACKER FOR PROLIFIC — Chrome extension (2026) · https://chromewebstore.google.com/detail/earnings-tracker-for-prol/hialabmkpbjngojonnafjmfgkpplfkbp
+A Manifest V3 extension, published on the Chrome Web Store, that shows what you've earned on Prolific today, this week, month, year and all time, split into approved and pending, inside Prolific's own pages and look: header totals with a daily-goal ring that becomes a clock during a study, your history with each researcher on the Studies page, and a full earnings panel and dashboard (goals and pace, charts, a calendar of the year, researcher stats, a search across the whole history with one-click completion codes). Yearly reports convert each month at its average exchange rate and download for Excel (a dependency-free .xlsx writer), CSV or PDF; optional notifications and keyboard shortcuts. Privacy-first: it never calls Prolific's API or touches the sign-in; a main-world script only watches the responses Prolific's own app receives, everything stays in chrome.storage, and a test checks that it never makes a request. Records are stored by month and a service worker keeps a small digest of totals, so a Prolific page costs the same with 100 submissions as with 20,000. Vanilla JavaScript with no build step, tested on Node's test runner.
+
 KEYFALL — Piano practice (2026)
 YouTube links, recordings or MIDI files become notes falling onto an 88-key keyboard; it runs on a computer and is played from an iPad over local Wi-Fi. Two transcription engines: a GPU piano model on ONNX Runtime that captures pedal and velocity, and Spotify's Basic Pitch in the browser for any instrument. 10–150% speed without pitch change, A–B loops, hand split, wait mode, scoring from on-screen keys, a MIDI keyboard or the iPad microphone, and sheet music with fingering and chords.
 
@@ -82,6 +88,9 @@ Neon 3D text orbiting a sculpted bust, lifted by bloom; live controls for text, 
 
 AMERICAN FLOORING — Client website (2025) · https://americanflooringservices.com
 A website for a commercial flooring contractor, every page built from content blocks in an embedded Sanity studio; an interactive US state map and a subcontractor application that generates a PDF with pdf-lib and emails it to the team. Next.js 15, Sanity, SCSS.
+
+PINNACLE ACCOUNTING — Client website (2026) · https://pinnacleacctga.com
+A website for Pinnacle Tax & Accounting (bookkeeping, tax, business advisory, insurance audit support and payroll), built around booking a consultation: deep navy and a classic serif for a calm, trustworthy feel; every service leads to a consultation form that takes the service of interest and supporting documents, through Netlify Forms with a honeypot; an About page with the team and client testimonials. React 19, Vite 7, React Router 7, Sass.
 
 Also (not on this site): PILLOW, a neumorphism React component library; ASCEND, a Chrome start page with live news, weather and traffic; README GENERATOR, AI documentation from GitHub repo analysis.
 

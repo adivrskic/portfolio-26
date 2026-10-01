@@ -15,6 +15,7 @@ export const TARGETS = [
   { slug: 'afs', url: 'https://americanflooringservices.com' },
   { slug: 'ljiljan', url: 'https://ljiljan.netlify.app' },
   { slug: 'halo', url: 'https://halo-effect.netlify.app' },
+  { slug: 'pinnacle', url: 'https://pinnacleacctga.com', sections: 4 },
 ]
 
 export const wait = (ms) => new Promise((r) => setTimeout(r, ms))

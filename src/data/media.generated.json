@@ -435,5 +435,165 @@
       "w": 960,
       "h": 3600
     }
+  },
+  "dashboard": {
+    "accent": "#ff4d23",
+    "cover": 0,
+    "frames": [
+      {
+        "src": "/projects/dashboard/time.webp",
+        "blur": "/projects/dashboard/time-blur.webp",
+        "w": 1680,
+        "h": 1050,
+        "device": "desktop",
+        "alt": "The clock over a photo slideshow, with the next events",
+        "tone": "light",
+        "focus": "left center"
+      },
+      {
+        "src": "/projects/dashboard/weather.webp",
+        "blur": "/projects/dashboard/weather-blur.webp",
+        "w": 1680,
+        "h": 1050,
+        "device": "desktop",
+        "alt": "Weather, with the next 12 hours of rain",
+        "tone": "light"
+      },
+      {
+        "src": "/projects/dashboard/calendar.webp",
+        "blur": "/projects/dashboard/calendar-blur.webp",
+        "w": 1680,
+        "h": 1050,
+        "device": "desktop",
+        "alt": "The calendar beside the to-do and shopping lists",
+        "tone": "light"
+      },
+      {
+        "src": "/projects/dashboard/time-dark.webp",
+        "blur": "/projects/dashboard/time-dark-blur.webp",
+        "w": 1680,
+        "h": 1050,
+        "device": "desktop",
+        "alt": "After sunset the theme turns dark on its own",
+        "tone": "dark"
+      },
+      {
+        "src": "/projects/dashboard/calendar-dark.webp",
+        "blur": "/projects/dashboard/calendar-dark-blur.webp",
+        "w": 1680,
+        "h": 1050,
+        "device": "desktop",
+        "alt": "The calendar at night",
+        "tone": "dark"
+      }
+    ]
+  },
+  "earnings": {
+    "accent": "#124eb8",
+    "cover": 0,
+    "frames": [
+      {
+        "src": "/projects/earnings/screenshot-1-panel.webp",
+        "blur": "/projects/earnings/screenshot-1-panel-blur.webp",
+        "w": 1280,
+        "h": 800,
+        "device": "desktop",
+        "alt": "The earnings panel, on top of Prolific",
+        "tone": "light",
+        "focus": "left top"
+      },
+      {
+        "src": "/projects/earnings/screenshot-2-studies.webp",
+        "blur": "/projects/earnings/screenshot-2-studies-blur.webp",
+        "w": 1280,
+        "h": 800,
+        "device": "desktop",
+        "alt": "Your history with each researcher, on the Studies page",
+        "tone": "light"
+      },
+      {
+        "src": "/projects/earnings/screenshot-3-popup.webp",
+        "blur": "/projects/earnings/screenshot-3-popup-blur.webp",
+        "w": 1280,
+        "h": 800,
+        "device": "desktop",
+        "alt": "Approved and pending from the toolbar, on any tab",
+        "tone": "dark"
+      },
+      {
+        "src": "/projects/earnings/screenshot-4-insights.webp",
+        "blur": "/projects/earnings/screenshot-4-insights-blur.webp",
+        "w": 1280,
+        "h": 800,
+        "device": "desktop",
+        "alt": "A calendar of the year, and the hours you earn most",
+        "tone": "light"
+      },
+      {
+        "src": "/projects/earnings/screenshot-5-reports.webp",
+        "blur": "/projects/earnings/screenshot-5-reports-blur.webp",
+        "w": 1280,
+        "h": 800,
+        "device": "desktop",
+        "alt": "Yearly reports for Excel, CSV or PDF",
+        "tone": "light"
+      }
+    ]
+  },
+  "pinnacle": {
+    "accent": "#131c43",
+    "cover": 0,
+    "frames": [
+      {
+        "src": "/projects/pinnacle/live-desktop.webp",
+        "blur": "/projects/pinnacle/live-desktop-blur.webp",
+        "w": 1440,
+        "h": 900,
+        "device": "desktop",
+        "alt": "Pinnacle Tax & Accounting homepage",
+        "tone": "dark"
+      },
+      {
+        "src": "/projects/pinnacle/live-desktop-2.webp",
+        "blur": "/projects/pinnacle/live-desktop-2-blur.webp",
+        "w": 1440,
+        "h": 900,
+        "device": "desktop",
+        "alt": "Each service leads to a consultation",
+        "tone": "light"
+      },
+      {
+        "src": "/projects/pinnacle/live-mobile.webp",
+        "blur": "/projects/pinnacle/live-mobile-blur.webp",
+        "w": 760,
+        "h": 1645,
+        "device": "mobile",
+        "alt": "Pinnacle on a phone",
+        "tone": "dark"
+      },
+      {
+        "src": "/projects/pinnacle/live-desktop-5.webp",
+        "blur": "/projects/pinnacle/live-desktop-5-blur.webp",
+        "w": 1440,
+        "h": 900,
+        "device": "desktop",
+        "alt": "The closing call to action",
+        "tone": "dark"
+      },
+      {
+        "src": "/projects/pinnacle/live-desktop-contact.webp",
+        "blur": "/projects/pinnacle/live-desktop-contact-blur.webp",
+        "w": 1440,
+        "h": 900,
+        "device": "desktop",
+        "alt": "The consultation request form",
+        "tone": "light"
+      }
+    ],
+    "scroll": {
+      "src": "/projects/pinnacle/scroll.webp",
+      "w": 960,
+      "h": 3600
+    }
   }
 }

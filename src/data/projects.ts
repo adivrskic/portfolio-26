@@ -155,6 +155,54 @@ export const PROJECTS: Project[] = [
     ],
   }),
   project({
+    slug: 'dashboard',
+    accent: '#d97e58',
+    title: 'Home Dashboard',
+    kind: 'Wall tablet app',
+    year: '2026',
+    summary: 'A tablet on the wall for the whole house: time, weather, calendar, smart home and music, a swipe apart.',
+    stack: ['React 18', 'Vite 5', 'Capacitor', 'PWA', 'Home Assistant', 'OpenWeatherMap', 'Google Maps', 'Spotify API'],
+    links: {},
+    sections: [
+      {
+        label: 'Overview',
+        body: 'A smart home dashboard for a wall-mounted Android tablet, installable as a PWA or packaged as a native app with Capacitor. Each screen is a swipe away: a clock over a photo slideshow with the day’s next events, the weather, the calendar, Home Assistant, a traffic and rain-radar map, and Spotify.',
+      },
+      {
+        label: 'Screens',
+        body: 'Weather brings government alerts and a 12-hour rain graph, falling back to the classic API when a key isn’t enrolled. Google and Outlook calendars sit beside local events and to-do and shopping lists with voice dictation; Home Assistant lights, thermostats and locks update live over its WebSocket API.',
+      },
+      {
+        label: 'Always on',
+        body: 'Built to live on a wall: the theme follows the real sunrise and sunset, a drifting screensaver prevents burn-in, kitchen timers ring over every screen, guests scan a QR code for the Wi-Fi, and a crash watchdog reloads with backoff instead of leaving a white screen.',
+      },
+    ],
+  }),
+  project({
+    slug: 'earnings',
+    accent: '#0c4bba',
+    title: 'Earnings Tracker',
+    kind: 'Chrome extension',
+    year: '2026',
+    summary: 'What you’ve earned on Prolific today, this week and all time — approved and pending — right inside Prolific.',
+    stack: ['Manifest V3', 'JavaScript', 'Service worker', 'chrome.storage', 'Frankfurter API', 'node:test'],
+    links: { live: 'https://chromewebstore.google.com/detail/earnings-tracker-for-prol/hialabmkpbjngojonnafjmfgkpplfkbp' },
+    sections: [
+      {
+        label: 'Overview',
+        body: 'Earnings Tracker for Prolific adds up what you’ve made today, this week, month, year and all time, split into approved and pending. It lives in Prolific’s own pages and look: totals and a goal ring in the header, your history with each researcher on the Studies page, and a full earnings panel one click away.',
+      },
+      {
+        label: 'Privacy',
+        body: 'It never calls Prolific’s API or touches the sign-in. A main-world script only watches the responses Prolific’s own app receives, everything stays in the browser, and a test checks that the script never makes a request.',
+      },
+      {
+        label: 'At scale',
+        body: 'Records are stored by month and a service worker keeps a small digest of totals, so a Prolific page costs the same with 100 submissions as with 20,000. Yearly reports convert each month at its average exchange rate and download for Excel through a dependency-free .xlsx writer.',
+      },
+    ],
+  }),
+  project({
     slug: 'keyfall',
     accent: '#b8f53a',
     title: 'Keyfall',
@@ -218,6 +266,26 @@ export const PROJECTS: Project[] = [
       {
         label: 'Features',
         body: 'An interactive US state map, CMS-driven page blocks, and a subcontractor application that generates a PDF with pdf-lib and emails it to the team.',
+      },
+    ],
+  }),
+  project({
+    slug: 'pinnacle',
+    accent: '#1a2555',
+    title: 'Pinnacle Accounting',
+    kind: 'Client website',
+    year: '2026',
+    summary: 'A website for a tax and accounting firm, built around booking a consultation.',
+    stack: ['React 19', 'Vite 7', 'React Router 7', 'Sass', 'Netlify Forms'],
+    links: { live: 'https://pinnacleacctga.com' },
+    sections: [
+      {
+        label: 'Overview',
+        body: 'A website for Pinnacle Tax & Accounting: bookkeeping, tax, business advisory, insurance audit support and payroll. Deep navy and a classic serif give it the calm, trustworthy feel the work calls for.',
+      },
+      {
+        label: 'Features',
+        body: 'Every service leads to a consultation request. The form takes the service of interest and supporting documents, through Netlify Forms with a honeypot against spam, and an About page adds the team and client testimonials.',
       },
     ],
   }),
