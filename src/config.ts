@@ -99,36 +99,36 @@ export const defaults = {
     /** the edge of the screen the bars come in from */
     edge: 'bottom' as 'right' | 'left' | 'top' | 'bottom',
     /** how far in from the edge the longest bars reach, px */
-    reach: 60,
+    reach: 70,
     /** how many bars along the edge (100+ for tiny cubes) */
-    lines: 306,
+    lines: 302,
     /** the gap between cubes, as a share of the spacing */
     gap: 0,
     /** corner rounding of each cube, as a share of its size */
     rounding: 0.45,
     /** how much shorter the bars at the ends of the edge reach than the middle ones (a parabola) */
-    taper: 1,
+    taper: 0,
     /** how much smaller the cubes get by the far end (0.5 = half size) */
-    shrink: 1,
+    shrink: 0.28,
     /** where along the reach the cubes start to fade and to blur (0 = at the edge, 1 = at the end) */
-    fadeFrom: 1,
-    blurFrom: 1,
+    fadeFrom: 0.68,
+    blurFrom: 0.66,
     /** strongest blur at the far end, px */
-    blur: 12.3,
-    opacity: 0.38,
+    blur: 24,
+    opacity: 0.4,
 
     // ---- motion
     /** how full the bars run on average */
-    energy: 0.29,
+    energy: 0.16,
     /** how much the bars swell and ebb in slow waves */
-    waves: 0.72,
+    waves: 0.68,
     /** overall tempo */
-    speed: 0.39,
+    speed: 0.26,
     /** how often beats ripple through the bars, and how hard */
-    beats: 4.1,
-    beatStrength: 1.8,
+    beats: 3,
+    beatStrength: 2.6,
     /** how much scrolling the gallery pumps them up */
-    scrollPump: 0.55,
+    scrollPump: 0.8,
     /** how fast the bars jump up, and fall back */
     attack: 21,
     release: 14.4,
