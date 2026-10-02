@@ -131,13 +131,13 @@ export const config = {
 
     // ---- depth: the band as a ring seen from inside it, its middle the furthest part
     /** how much nearer (bigger) its ends are than its middle (1 = flat) */
-    depth: 2.4,
+    depth: 3.2,
     /** how much fainter its far middle is, as if through a haze (0 = not at all, 1 = gone) */
-    haze: 0.35,
+    haze: 0.45,
     /** the ring seen from a little above, its nearer parts lower: how far its ends drop below its middle,
      *  px (0 = level; negative, seen from below, they rise). From the middle across the page only (not
      *  from an edge, nor down a phone's screen) */
-    arch: 40,
+    arch: 56,
 
     // ---- motion
     /** how full the bars run on average */
