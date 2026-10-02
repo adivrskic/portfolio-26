@@ -109,7 +109,7 @@ export const config = {
      *  of the screen instead, top to bottom, and grow left and right) */
     edge: 'center' as 'right' | 'left' | 'top' | 'bottom' | 'center',
     /** how far in from the edge the longest bars reach, px (from the middle, each way) */
-    reach: 90,
+    reach: 115,
     /** how many bars along the edge (100+ for tiny cubes) */
     lines: 400,
     /** how many on a phone: far fewer, so its cubes are bigger */
@@ -128,6 +128,16 @@ export const config = {
     /** strongest blur at the far end, px */
     blur: 24,
     opacity: 0.2,
+
+    // ---- depth: the band as a ring seen from inside it, its middle the furthest part
+    /** how much nearer (bigger) its ends are than its middle (1 = flat) */
+    depth: 2.4,
+    /** how much fainter its far middle is, as if through a haze (0 = not at all, 1 = gone) */
+    haze: 0.35,
+    /** the ring seen from a little above, its nearer parts lower: how far its ends drop below its middle,
+     *  px (0 = level; negative, seen from below, they rise). From the middle across the page only (not
+     *  from an edge, nor down a phone's screen) */
+    arch: 40,
 
     // ---- motion
     /** how full the bars run on average */

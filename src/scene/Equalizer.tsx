@@ -9,9 +9,11 @@ import { glowColor } from './palette'
 /**
  * The equalizer is drawn on top of the finished frame, after the tilt-shift lens (so its cubes stay sharp
  * where the lens blurs, on the cube's side of the page), on a layer of its own; but it reads as behind
- * everything. The big cube is also on CUBE_DEPTH, so its depth can go in first and the cube stays in front
- * where they meet; and the cube's shadow on its floor (with the light that casts it) is on SHADOW_ONLY,
- * drawn alone into a small soft target the cubes are shaded by, so they lie under the shadow too.
+ * everything. The big cube (its blocks, and the orb at its centre) is also on CUBE_DEPTH, so its depth can
+ * go in first and the cube stays in front where they meet; under the orb's soft glow (its haze, and its
+ * bloom) the cubes fade out (see uCore); and the cube's shadow on its floor (with the light that casts it)
+ * is on SHADOW_ONLY, drawn alone into a small soft target the cubes are shaded by, so they lie under the
+ * shadow too.
  */
 export const OVERLAY = 1
 export const CUBE_DEPTH = 2
@@ -30,6 +32,13 @@ const vertexShader = /* glsl */ `
   uniform float uCell;
   uniform float uReach;
   uniform float uLines;
+  uniform float uAlong;
+  uniform float uRing;
+  uniform float uRingA;
+  uniform float uArch;
+  uniform float uHaze;
+  uniform vec3 uCore;
+  uniform float uCoreGlow;
   uniform float uTime;
   uniform float uFade;
   uniform float uShrink;
@@ -56,8 +65,21 @@ const vertexShader = /* glsl */ `
     vec4 lv = texture2D(uLevels, vec2((line + 0.5) / uLines, 0.5));
     float level = lv.r;
     float peak = lv.g;
-    float dist = (col + 0.5) * uPitch;
-    float t = dist / uReach;
+
+    // depth: the band is a ring seen from inside it, its middle the furthest part and its ends the
+    // nearest (uRingA = sqrt(depth^2 - 1), uRing = asinh of it; both 0 for a flat band). Each bar is as
+    // wide as its cubes, so towards the middle they shrink and crowd together, and at the ends they are
+    // depth times the middle's size: the bars of a ring, as a flat screen sees them
+    float n = 2.0 * (line + 0.5) / uLines - 1.0;
+    float e = exp(n * uRing);
+    float near = 0.5 * (e + 1.0 / e);
+    float at = uRingA > 0.0 ? 0.5 * (e - 1.0 / e) / uRingA : n;
+    float scale = (uRingA > 0.0 ? uRing / uRingA : 1.0) * near;
+    float far = uRingA > 0.0 ? 1.0 - (near - 1.0) / (sqrt(1.0 + uRingA * uRingA) - 1.0) : 0.0;
+
+    // (a bar the same number of cubes long wherever it is, just nearer or further)
+    float dist = (col + 0.5) * uPitch * scale;
+    float t = (col + 0.5) * uPitch / uReach;
 
     // the bar: whole cubes up to its level, the next one growing in. Near the tip cubes drop out at
     // random, so the end is ragged like an LED wall
@@ -67,24 +89,30 @@ const vertexShader = /* glsl */ `
     float held = uPeaks * step(level + 1.5, peak) * (1.0 - step(0.5, abs(col + 0.5 - peak)));
     float lit = max(on, held);
 
-    // on the way out the cubes shrink (parabolically), blur and fade
-    float size = uCell * max(0.0, 1.0 - uShrink * t * t) * lit;
-    float soft = mix(0.45, max(0.45, uBlur), smoothstep(uBlurFrom, 1.0, t));
-    float alpha = (1.0 - smoothstep(uFadeFrom, 1.0, t)) * uFade;
+    // on the way out the cubes shrink (parabolically), blur and fade; and the far middle is a little
+    // fainter, as if through a haze
+    float size = uCell * scale * max(0.0, 1.0 - uShrink * t * t) * lit;
+    float soft = mix(0.45, max(0.45, uBlur * scale), smoothstep(uBlurFrom, 1.0, t));
+    float alpha = (1.0 - smoothstep(uFadeFrom, 1.0, t)) * uFade * (1.0 - uHaze * far);
     if (size < 0.05 || alpha < 0.003 || t > 1.0) {
       gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
       return;
     }
 
-    // a quad around the cube with room for its blur, in screen px: along the edge, then in from it
+    // a quad around the cube with room for its blur, in screen px: along the edge, then in from it (the
+    // ring seen from a little above, its nearer parts lower: uArch at its ends)
     float ext = size * 0.5 + soft * 1.6 + 0.5;
     vLocal = vec2(position.x, -position.y) * 2.0 * ext;
-    vec2 p = uOrigin + uAcross * ((line + 0.5) * uPitch) + uDir * (dist * way) + vLocal;
+    vec2 p = uOrigin + uAcross * (0.5 * uAlong * (1.0 + at)) + uDir * (dist * way - uArch * (1.0 - far)) + vLocal;
     // far back, so the big cube (which writes depth) stays in front where they meet
     gl_Position = vec4(p.x / uView.x * 2.0 - 1.0, 1.0 - p.y / uView.y * 2.0, 0.999, 1.0);
     vHalf = size * 0.5;
     vSoft = soft;
-    vAlpha = alpha;
+    // under the cube's glowing core the band fades out, as if its light washed over it: the orb itself is
+    // in the depth the cube writes, but its haze and bloom are soft (uCore: where it is and how far its
+    // glow reaches, px; uCoreGlow, how bright it is)
+    float glowAt = length(p - vLocal - uCore.xy) / max(uCore.z, 1.0);
+    vAlpha = alpha * (1.0 - uCoreGlow * (1.0 - smoothstep(0.3, 1.0, glowAt)));
 
     // shades of the project's colour drift across the field in slow diagonal bands, dithered where
     // they meet; the held peaks are the sparkle shade
@@ -143,9 +171,10 @@ const hsl = { h: 0, s: 0, l: 0 }
  * peak held a moment and dropping back; the reach is a parabola (longest in the middle of the edge); on
  * the way out the cubes shrink, blur and fade. Or from the middle of the page, across it: each bar grows
  * up and down from there at once, mirrored (on a phone, down it, growing left and right, with far fewer
- * bars). Shades of the project in focus. Beats ripple along the bars,
- * and scrolling the gallery pumps them up. With the gallery only, by default: the bars draw back in
- * elsewhere, and grow out with the gallery once the intro is over. Every setting is in src/config.ts.
+ * bars), with depth, like a ring seen from inside it. Shades of the project in focus. Beats ripple along
+ * the bars, and scrolling the gallery pumps them up. With the gallery only, by default: the bars draw
+ * back in elsewhere, and grow out with the gallery once the intro is over. Every setting is in
+ * src/config.ts.
  */
 export function Equalizer() {
   const width = useThree((s) => s.size.width)
@@ -223,6 +252,13 @@ export function Equalizer() {
           uCell: { value: 6 },
           uReach: { value: 500 },
           uLines: { value: 112 },
+          uAlong: { value: 1 },
+          uRing: { value: 0 },
+          uRingA: { value: 0 },
+          uArch: { value: 0 },
+          uHaze: { value: 0 },
+          uCore: { value: new THREE.Vector3() },
+          uCoreGlow: { value: 0 },
           uTime: { value: 0 },
           uFade: { value: 0 },
           uShrink: { value: 0.5 },
@@ -376,6 +412,18 @@ export function Equalizer() {
     u.uCell.value = pitch * (1 - cfg.gap)
     u.uReach.value = reach
     u.uLines.value = lines
+    // depth: how much nearer the band's ends are than its middle (see the vertex shader)
+    const ring = cfg.depth > 1.001 ? Math.sqrt(cfg.depth * cfg.depth - 1) : 0
+    u.uRingA.value = ring
+    u.uRing.value = Math.asinh(ring)
+    u.uAlong.value = along
+    // (from the middle, across the page, only: bars from an edge would leave it, and down a phone's screen
+    // a ring seen from the side would only lean over)
+    u.uArch.value = flat ? cfg.arch : 0
+    u.uHaze.value = Math.min(1, Math.max(0, cfg.haze))
+    // the cube's glowing core, which it stays behind (see the vertex shader)
+    u.uCore.value.set(bus.core.x, bus.core.y, bus.core.r)
+    u.uCoreGlow.value = bus.core.glow
     u.uTime.value = T
     u.uFade.value = THREE.MathUtils.smoothstep(s.vis, 0, 0.12) * cfg.opacity
     u.uShrink.value = cfg.shrink

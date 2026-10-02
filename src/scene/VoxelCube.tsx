@@ -568,6 +568,7 @@ export function VoxelCube() {
       q: new THREE.Quaternion(),
       q2: new THREE.Quaternion(),
       s: new THREE.Vector3(),
+      core: new THREE.Vector3(),
     }),
     [],
   )
@@ -587,8 +588,10 @@ export function VoxelCube() {
     const cfg = config.cube
     const scale = ((bus.view.size * visibleH) / state.size.height / SILHOUETTE) * cfg.size
     g.scale.setScalar(scale)
-    // also on the layer the equalizer's pass reads the cube's depth from (see Equalizer)
+    // also on the layer the equalizer's pass reads the cube's depth from (see Equalizer): its blocks, and
+    // the orb at its centre, seen through them when they part
     m.layers.enable(CUBE_DEPTH)
+    core.current?.layers.enable(CUBE_DEPTH)
 
     // ---- the shadow, on a floor a little below the cube, tilted with its resting pose (so the floor
     // is seen from a little above, like a product shot on a seamless backdrop, and more or less so by
@@ -860,6 +863,15 @@ export function VoxelCube() {
       hazeMat.current.color.copy(s.glow)
       hazeMat.current.opacity = Math.min(1, lit) * HAZE_OPACITY * (0.92 + Math.sin(t * 1.7) * 0.08)
       haze.current.visible = hazeMat.current.opacity > 0.002
+    }
+    // where the core is on the page, how far its glow (haze and bloom) reaches and how bright it is: the
+    // equalizer, drawn over the finished frame, fades under it so it stays behind (see Equalizer)
+    if (core.current) {
+      tmp.core.setFromMatrixPosition(core.current.matrixWorld).project(cam)
+      bus.core.x = (tmp.core.x + 1) * 0.5 * state.size.width
+      bus.core.y = (1 - tmp.core.y) * 0.5 * state.size.height
+      bus.core.r = HAZE_SIZE * 0.6 * scale * (state.size.height / visibleH)
+      bus.core.glow = Math.min(1, lit)
     }
     // and on the floor under it, a pool of its light
     if (floorGlow.current && floorGlowMat.current) {

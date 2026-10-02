@@ -77,6 +77,10 @@ export const bus = {
   cube: { x: 0, y: 0, size: 0, ready: false },
   /** where the cube is drawn right now: eases towards `cube`, so effects can follow it in flight */
   view: { x: 0, y: 0, size: 0, ready: false },
+  /** the cube's core, as drawn: where (CSS px, viewport space), how far its glow reaches (px), and how
+   *  bright it glows (0 while the cube is closed). The equalizer, drawn over the finished frame, fades
+   *  under it */
+  core: { x: 0, y: 0, r: 0, glow: 0 },
   /** the gallery's continuous position (virtual index); NaN when no gallery is driving the cube */
   drum: Number.NaN,
   /** the intro flight from the loader ring to the cube's spot, in time (0 in the ring, 1 once landed);
