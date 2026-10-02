@@ -273,12 +273,11 @@ html[data-cube-drag] * {
   }
 }
 
-/* separates the panels (About, Contact) from the outbound links */
+/* sets the panels (About, Contact) apart from the outbound links: just a little more room, no rule */
 .actions-sep {
   width: 16px;
-  height: 1px;
-  margin: 8px 0;
-  background: rgba(22, 22, 22, 0.12);
+  height: 0;
+  margin: 13px 0;
 }
 
 .actions-back {
@@ -443,9 +442,9 @@ html[data-page-slide] .main {
   }
 
   .actions-sep {
-    width: 1px;
+    width: 0;
     height: 16px;
-    margin: 0 8px;
+    margin: 0 13px;
   }
 
   .icon-btn[data-active]::before {
