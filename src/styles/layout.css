@@ -176,14 +176,10 @@ html[data-cube-drag] * {
   color: var(--ink-2);
 }
 
-/* the title under the cube steps aside while the study (which carries it) is over the cube */
-.caption-title,
-.caption-sub {
-  transition: opacity 0.45s var(--ease-out);
-}
-
-.left[data-brief] .caption-title,
-.left[data-brief] .caption-sub {
+/* the title under the cube is out of sight while the study carries it up to the back arrow and back down
+   (see Lifted in LeftColumn): the two swap in the same frame, at the caption's spot */
+.left[data-lifted] .caption-title,
+.left[data-lifted] .caption-sub {
   opacity: 0;
 }
 
@@ -331,23 +327,24 @@ html[data-page-slide] .main {
   }
 
   /* one column: the page scrolls, so the study simply runs on under the title (which stays) */
-  .left[data-brief] .caption-title,
-  .left[data-brief] .caption-sub {
-    opacity: 1;
-  }
-
   .brief-head {
     display: none;
   }
 
+  /* (clipped while it unfolds: what isn't open yet stays out of sight) */
   .brief {
     position: static;
     translate: none;
     width: auto;
     margin-inline: 20px;
-    overflow: visible;
+    overflow: hidden;
     -webkit-mask-image: none;
     mask-image: none;
+  }
+
+  /* its parts rise in one after another as it unfolds, carried along with it */
+  .brief-inner > * {
+    animation: brief-rise 1s var(--ease-out) calc(0.08s + var(--i, 0) * 0.075s) both;
   }
 
   .brief-inner {
@@ -399,5 +396,19 @@ html[data-page-slide] .main {
     position: relative;
     inset: auto;
     padding: 12px;
+  }
+}
+
+/* (the case study's parts rising in on phones, see above) */
+@keyframes brief-rise {
+  from {
+    opacity: 0;
+    translate: 0 22px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brief-inner > * {
+    animation: none !important;
   }
 }
