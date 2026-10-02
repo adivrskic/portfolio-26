@@ -45,9 +45,9 @@ export const config = {
 
     // ---- spin: once it has landed it keeps turning
     /** how fast it is spinning as it lands (radians a second: the intro's turn carries on) */
-    spinLanding: 0.2,
+    spinLanding: 0.12,
     /** the slow spin it settles to */
-    spin: 0.18,
+    spin: 0.1,
     /** how long its momentum takes to settle (after the landing, or a fling), seconds */
     momentum: 6.3,
     /** while it is parted (About, Contact, the chat, a project's case study) the cube stops and each

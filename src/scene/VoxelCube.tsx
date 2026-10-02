@@ -703,6 +703,9 @@ export function VoxelCube() {
     s.tiltX = THREE.MathUtils.damp(s.tiltX, tx, 1.2, dt)
     s.tiltY = THREE.MathUtils.damp(s.tiltY, ty, 1.2, dt)
     const sway = reduced ? 0 : cfg.sway
+    // (its rhythm: slow enough that its swing round never outpaces the spin, so the cube keeps turning the
+    // one way, as at most seven tenths of the spin's speed; and its nod as slow again)
+    const swayRate = Math.min(0.21, (0.7 * cfg.spin) / Math.max(0.01, 0.3 * cfg.sway))
     // the intro flight: one heavy turn (its front swinging round to the right) that lands still spinning,
     // at the speed and slowing the spin above carries on with, the same way; the top tips towards the
     // viewer as it draws back into the scene
@@ -715,9 +718,9 @@ export function VoxelCube() {
     const leaning = (reduced ? 1 : lean(bus.flight)) * cfg.lean
     const nod = reduced ? 0 : depth(bus.flight) * 0.14
     g.rotation.set(
-      cfg.pitch + Math.sin(t * 0.16 + 1.2) * 0.05 * sway + s.tiltY * 0.16 * leaning + nod,
+      cfg.pitch + Math.sin(t * swayRate * 0.76 + 1.2) * 0.05 * sway + s.tiltY * 0.16 * leaning + nod,
       cfg.yaw +
-        Math.sin(t * 0.21) * 0.3 * sway +
+        Math.sin(t * swayRate) * 0.3 * sway +
         s.yawDrag +
         s.tiltX * 0.3 * leaning +
         turning,
