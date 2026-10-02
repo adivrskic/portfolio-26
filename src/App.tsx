@@ -9,7 +9,6 @@ import { LeftColumn } from './components/LeftColumn'
 import { Loader } from './components/Loader'
 import { InfoSection } from './components/InfoSection'
 import { Morph } from './components/Morph'
-import { tuning } from './config'
 import { ProjectPage } from './components/ProjectPage'
 import './styles/layout.css'
 
@@ -96,11 +95,6 @@ export default function App() {
     if (firstTitle.current) firstTitle.current = false
     else setHeard(document.title)
   }, [project, panel, known, slug])
-
-  // ?tune: the settings panel for the cube and the equalizer (its code only loads then)
-  useEffect(() => {
-    if (tuning) import('./components/Tuner').then((m) => m.mountTuner())
-  }, [])
 
   // on the single-column layout the cube anchor scrolls with the page
   useEffect(() => {

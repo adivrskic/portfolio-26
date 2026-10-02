@@ -1,14 +1,7 @@
-import { create } from 'zustand'
-
 /**
  * Settings for the cube and the equalizer.
- *
- * Edit the defaults below, or play with them live: open the site with ?tune (e.g. localhost:5173/?tune)
- * and a panel appears. While ?tune is on, your changes are kept in this browser across reloads (the
- * intro only plays on load: "Replay intro" reloads), and "Copy settings" puts them on the clipboard
- * to paste back here. Without ?tune the site always uses these defaults.
  */
-export const defaults = {
+export const config = {
   cube: {
     // ---- size and pose
     /** size relative to its spot in the layout */
@@ -167,41 +160,3 @@ export const defaults = {
     sparkle: 0.18,
   },
 }
-
-export type Config = typeof defaults
-
-const KEY = 'portfolio-tune'
-export const tuning = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('tune')
-
-/** the live settings: the defaults, plus what was tuned in this browser while ?tune is on */
-export const config: Config = structuredClone(defaults)
-if (tuning) {
-  try {
-    const saved = JSON.parse(localStorage.getItem(KEY) ?? 'null')
-    if (saved) for (const part of ['cube', 'equalizer'] as const) Object.assign(config[part], saved[part])
-  } catch {
-    /* nothing saved, or storage unavailable */
-  }
-}
-
-export function saveTuning() {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(config))
-  } catch {
-    /* storage unavailable: changes still apply until reload */
-  }
-}
-
-export function clearTuning() {
-  try {
-    localStorage.removeItem(KEY)
-  } catch {
-    /* storage unavailable */
-  }
-}
-
-/** bumps when a setting changes that needs something rebuilt (the equalizer's cubes, the blocks' shape) */
-export const useTuning = create<{ rev: number; bump: () => void }>((set) => ({
-  rev: 0,
-  bump: () => set((s) => ({ rev: s.rev + 1 })),
-}))

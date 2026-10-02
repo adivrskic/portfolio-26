@@ -14,8 +14,8 @@
   node_bundler = "esbuild"
 
 # Security headers for every page. The policy allows only this site's own scripts, styles, images, fonts
-# and API (inline styles are allowed: the animation libraries set styles directly, and ?tune's panel
-# injects its own); nothing may frame the site.
+# and API (inline styles are allowed: the animation libraries set styles directly); nothing may frame
+# the site.
 [[headers]]
   for = "/*"
   [headers.values]

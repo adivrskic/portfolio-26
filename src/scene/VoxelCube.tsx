@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame, type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
-import { config, useTuning } from '../config'
+import { config } from '../config'
 import { bus, useUI } from '../state/store'
 import { depth, lean, turnAngle } from './flight'
 import { ATLAS_COLS, ATLAS_ROWS, createLetterAtlas, glyphIndex, NAME_ROWS } from './letters'
@@ -330,8 +330,6 @@ const fragmentLight = /* glsl */ `#include <transmission_fragment>
 export function VoxelCube() {
   const reduced = useMemo(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches, [])
   const puzzle = useMemo(() => buildPuzzle(reduced ? 0 : Math.max(0, Math.round(config.cube.scramble))), [reduced])
-  // the blocks' shape is rebuilt when it is tuned
-  useTuning((s) => s.rev)
   const vox = PITCH * (1 - config.cube.gap)
   const rounding = config.cube.rounding
   const voxels = puzzle.voxels

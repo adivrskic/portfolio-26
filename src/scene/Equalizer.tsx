@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
-import { config, useTuning } from '../config'
+import { config } from '../config'
 import { bus, useUI } from '../state/store'
 import { BREAKPOINT } from './Backdrop'
 import { glowColor } from './palette'
@@ -151,8 +151,6 @@ export function Equalizer() {
   const width = useThree((s) => s.size.width)
   const height = useThree((s) => s.size.height)
   const reduced = useMemo(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches, [])
-  // the layout below is rebuilt when it is tuned
-  useTuning((s) => s.rev)
   const cfg = config.equalizer
 
   const phone = width < BREAKPOINT

@@ -353,20 +353,6 @@ h3 {
   translate: -50% 0;
 }
 
-/* ---------- the tuning panel (?tune, see Tuner) ---------- */
-
-.tuner {
-  position: fixed;
-  top: 8px;
-  left: 8px;
-  z-index: 100;
-  width: 300px;
-  max-height: calc(100vh - 16px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  border-radius: 8px;
-}
-
 /* ---------- text roll (lines slide inside a mask) ---------- */
 
 .roll {
