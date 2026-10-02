@@ -327,16 +327,21 @@ export function Equalizer() {
     const dt = Math.min(delta, 1 / 30)
     const s = sim.current
     const ui = useUI.getState()
-    const shown =
-      cfg.show === 'always' ? ui.ready : cfg.show === 'home' ? ui.ready && ui.view === 'home' && !ui.panel : false
+    // (in the intro it comes in once the loader's ring is half full, behind the cube in it)
+    const here = cfg.show === 'always' || (cfg.show === 'home' && ui.view === 'home' && !ui.panel)
+    const shown = here && (ui.ready || bus.ring >= 0.5)
     // out with the gallery, back in (a little quicker) when it goes
     s.vis = THREE.MathUtils.damp(s.vis, shown ? 1 : 0, shown ? 1.3 : 3.5, dt)
-    if (!reduced) s.time += dt * cfg.speed
+    // it comes in quiet, low and slow with only small beats, and wakes to its full height, tempo and beats
+    // as the cube flies to its spot
+    const wake = ui.ready ? 1 : THREE.MathUtils.smoothstep(bus.flight, 0.05, 0.95)
+    if (!reduced) s.time += dt * cfg.speed * (0.35 + 0.65 * wake)
     const T = s.time
 
     // beats at an uneven tempo, each rippling along the bars from where it lands
     if (!reduced && cfg.beats > 0 && T >= s.nextBeat) {
-      s.beats.push({ t: T, amp: (0.14 + Math.random() * 0.3) * cfg.beatStrength, at: Math.random() * 1.6 - 0.8 })
+      const amp = (0.14 + Math.random() * 0.3) * cfg.beatStrength * (0.15 + 0.85 * wake)
+      s.beats.push({ t: T, amp, at: Math.random() * 1.6 - 0.8 })
       s.nextBeat = T + (0.45 + Math.random() * 0.9) / cfg.beats
     }
     for (let i = s.beats.length - 1; i >= 0; i--) if (T - s.beats[i].t > 1.6) s.beats.splice(i, 1)
@@ -365,7 +370,7 @@ export function Equalizer() {
         e += b.amp * Math.exp(-front * front * 60) * Math.exp(-age * 2.4)
       }
       e += s.pump * cfg.scrollPump * (0.22 + 0.18 * Math.sin(r * 0.73 + T * 10))
-      const target = Math.min(1, Math.max(0, e)) * envelope * s.vis
+      const target = Math.min(1, Math.max(0, e)) * envelope * s.vis * (0.3 + 0.7 * wake)
       // a quick attack and a slow release, like a meter
       const lv = s.level[r]
       const level = lv + (target - lv) * (1 - Math.exp(-dt * (target > lv ? cfg.attack : cfg.release)))

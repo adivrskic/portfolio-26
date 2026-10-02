@@ -89,6 +89,8 @@ export const bus = {
   /** the loading puzzle: how far the scrambled cube has turned back to solved (0..1); the loader's ring
    *  fills with it and the intro waits for it */
   solve: 0,
+  /** how far the loader's ring has filled (0..1, as shown): the equalizer comes in halfway */
+  ring: 0,
   pointer: { x: -9999, y: -9999, active: false },
   /** frames left during which anchors are re-measured every frame (to follow CSS transitions) */
   dirty: 90,

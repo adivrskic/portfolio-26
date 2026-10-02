@@ -80,6 +80,7 @@ export function Loader() {
       )
       shown += (target - shown) * (1 - Math.exp(-dt * 6))
       if (target >= 1 && shown > 0.996) shown = 1
+      bus.ring = shown
       ring.current?.style.setProperty('stroke-dashoffset', String(CIRCUMFERENCE * (1 - shown)))
       const pct = Math.round(shown * 100)
       if (label.current) label.current.textContent = String(pct)
