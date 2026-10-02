@@ -1,3 +1,10 @@
+/* (registered, so a phone's page can ease its fade in as it starts to scroll, see .detail) */
+@property --under {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
 :root {
   /* the project column: from the middle of the page to the right edge less the padding, and never so tall
      (card-proportioned) that the next card can't show below it without scrolling */
@@ -274,10 +281,36 @@
     --frame-ratio: 0.98;
   }
 
+  /* a project page on a phone: the cube, its title and the menu stay at the top of the screen, and the page
+     scrolls under them, its top edge fading out once it has moved (and blurring, see .left-veil) */
   .detail {
+    position: fixed;
+    top: var(--header-h, 320px);
+    right: 0;
+    bottom: 0;
+    left: 0;
     width: auto;
     margin: 0;
     padding: 0 10px 10px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--under));
+    mask-image: linear-gradient(to bottom, transparent, #000 var(--under));
+    transition: --under 0.4s var(--ease-out);
+  }
+
+  .detail::-webkit-scrollbar {
+    display: none;
+  }
+
+  html[data-scrolled-under] .detail {
+    --under: 64px;
+  }
+
+  /* the case study, at the top of the page */
+  .detail > .brief {
+    margin: 0 10px 16px;
   }
 
   .stack {

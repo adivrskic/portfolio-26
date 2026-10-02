@@ -39,11 +39,12 @@ export default function App() {
 
   // from one project page to another the pages slide past each other, both at once: on to the next
   // project, up; back to the previous one, down (see ProjectPage). Not when the next project's picture
-  // grows into its hero (see Morph): that page simply comes in under it
+  // grows into its hero (see Morph): that page simply comes in under it; and not on a phone, where the
+  // cube, the title and the menu stay at the top of the screen (a page would slide across them)
   const lastIndex = useRef(-1)
   const slid = useMemo<0 | 1 | -1>(() => {
     const from = lastIndex.current
-    if (index < 0 || from < 0 || from === index || reducedMotion()) return 0
+    if (index < 0 || from < 0 || from === index || reducedMotion() || window.innerWidth < 860) return 0
     return index === (from - 1 + PROJECTS.length) % PROJECTS.length ? -1 : 1
   }, [index])
   const slide = expanding ? 0 : slid

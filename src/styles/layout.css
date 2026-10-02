@@ -33,6 +33,11 @@ html[data-cube-drag] * {
   pointer-events: none;
 }
 
+/* (a phone's project page only, below) */
+.left-veil {
+  display: none;
+}
+
 .stage {
   position: relative;
   display: flex;
@@ -115,7 +120,7 @@ html[data-cube-drag] * {
    The cube stays where it is, its blocks parted and blurred (see VoxelCube and the lens in Scene); the
    text runs down a column of its own the full height of the page, centred on the cube: its first line
    starts level with the menu's back arrow (--back-mid, measured in LeftColumn) and it scrolls on up
-   over the cube. On phones it runs on under the title. */
+   over the cube. On phones it opens at the top of the project page instead (see ProjectPage). */
 
 .brief {
   position: fixed;
@@ -355,7 +360,29 @@ html[data-page-slide] .main {
     padding-block: max(18px, env(safe-area-inset-top)) 0;
   }
 
-  /* one column: the page scrolls, so the study simply runs on under the title (which stays) */
+  /* a phone's project page: where the page scrolls under this column (see .detail in project.css), a band
+     that blurs it as it goes, showing once the page has moved */
+  .left[data-view='project'] .left-veil {
+    display: block;
+    position: fixed;
+    top: var(--header-h, 320px);
+    left: 0;
+    right: 0;
+    height: 64px;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    -webkit-mask-image: linear-gradient(to bottom, #000 15%, transparent);
+    mask-image: linear-gradient(to bottom, #000 15%, transparent);
+    opacity: 0;
+    transition: opacity 0.4s var(--ease-out);
+    pointer-events: none;
+  }
+
+  html[data-scrolled-under] .left[data-view='project'] .left-veil {
+    opacity: 1;
+  }
+
+  /* one column: the study opens at the top of the page, under the title (which stays) */
   .brief-head {
     display: none;
   }

@@ -106,9 +106,11 @@ function CameraRig() {
       const dx = c.x - f.x
       const dy = c.y - f.y
       const len = Math.hypot(dx, dy) || 1
-      // not a straight line: the path bows (up for a sideways flight, outwards for an upward one) and the
-      // cube draws back into the scene on the way, coming forward again as it lands
-      const bow = reduced ? 0 : config.cube.flightBow * len * arc(k)
+      // not a straight line: the path bows (up for a sideways flight) and the cube draws back into the scene
+      // on the way, coming forward again as it lands. On a phone it flies straight up: no bow (it would
+      // swing out to the side), only the depth
+      const compact = state.size.width < BREAKPOINT
+      const bow = reduced || compact ? 0 : config.cube.flightBow * len * arc(k)
       const near = reduced ? 1 : 1 - config.cube.flightDepth * depth(f.t)
       v.x = f.x + dx * k - (dy / len) * bow
       v.y = f.y + dy * k + (dx / len) * bow

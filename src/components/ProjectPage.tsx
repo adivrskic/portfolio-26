@@ -1,10 +1,11 @@
-import { useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
-import { motion, useIsPresent, usePresenceData, type Variants } from 'motion/react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
+import { AnimatePresence, motion, useIsPresent, usePresenceData, type Variants } from 'motion/react'
 import { Link, useNavigate } from 'react-router'
 import type { Media, Project } from '../data/types'
 import { useUI, type Leaving } from '../state/store'
 import { CardFace, restartScroll } from './CardFace'
 import { IconArrowRight } from './Icons'
+import { Brief, underTitle, useUpright } from './LeftColumn'
 import './project.css'
 
 const EASE_OUT = [0.16, 1, 0.3, 1] as const
@@ -74,6 +75,18 @@ export function ProjectPage({ project, next, arrive = 0 }: { project: Project; n
   const rest = project.media.filter((m) => m.src !== project.cover)
   const ref = useRef<HTMLElement>(null)
   const [from] = useState(arrive)
+  // On a phone the page scrolls on its own, under the cube, its title and the menu, which stay at the top
+  // of the screen (see project.css): its top edge blurs and fades once it has moved, and the case study
+  // opens at its top (brought into view)
+  const upright = useUpright()
+  const study = useUI((s) => s.ready && s.infoMode)
+  useEffect(() => {
+    if (!upright && study) ref.current?.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [study, upright])
+  const onScroll = () => {
+    if (!upright) document.documentElement.toggleAttribute('data-scrolled-under', (ref.current?.scrollTop ?? 0) > 4)
+  }
+  useEffect(() => () => document.documentElement.removeAttribute('data-scrolled-under'), [])
   // leaving for another project page: hold still where it is, then slide out
   const present = useIsPresent()
   const leaving = usePresenceData() as Leaving | undefined
@@ -102,7 +115,24 @@ export function ProjectPage({ project, next, arrive = 0 }: { project: Project; n
       onAnimationComplete={(done) => {
         if (done === 'here') ref.current?.style.removeProperty('clip-path')
       }}
+      onScroll={onScroll}
     >
+      {/* a phone's case study, at the top of the page (on wide screens it is over the cube, see LeftColumn) */}
+      <AnimatePresence initial={false}>
+        {!upright && study && (
+          <motion.div
+            key="study"
+            id="project-brief"
+            className="brief"
+            role="region"
+            aria-label={`${project.title}: case study`}
+            tabIndex={0}
+            {...underTitle}
+          >
+            <Brief project={project} />
+          </motion.div>
+        )}
+      </AnimatePresence>
       <div className="stack">
         <Hero project={project} still={from !== 0} />
         {rest.map((m, i) => (

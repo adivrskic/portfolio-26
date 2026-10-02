@@ -74,13 +74,28 @@ export function LeftColumn({ project }: { project: Project | null }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [brief, setInfoMode])
 
+  // how tall this column is: on a phone's project page it stays at the top, and the page scrolls under it
+  // from there (--header-h, see project.css)
+  const aside = useRef<HTMLElement>(null)
+  useLayoutEffect(() => {
+    const el = aside.current
+    if (!el) return
+    const root = document.documentElement
+    const ro = new ResizeObserver(() => root.style.setProperty('--header-h', `${Math.round(el.offsetHeight)}px`))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
   return (
     <aside
+      ref={aside}
       className="left"
       data-view={project ? 'project' : 'home'}
       data-panel={panel ?? undefined}
       data-brief={brief || undefined}
     >
+      {/* (a phone's project page: where the page scrolls under this column, it blurs as it goes) */}
+      <div className="left-veil" aria-hidden="true" />
       {/* the name lives on the cube; keep it for screen readers and search */}
       {!project && (
         <h1 className="sr-only">
@@ -123,11 +138,12 @@ export function LeftColumn({ project }: { project: Project | null }) {
           )}
         </AnimatePresence>
 
-        {/* the written case study (the info button opens it): over the cube, lifted up off the title under
-            it to the back arrow; on phones, under the title. (Its custom: the project now on screen, so a
-            study closing on its way to another project, or home, simply fades) */}
+        {/* the written case study (the info button opens it), over the cube: it comes up from the title under
+            it to the back arrow (on phones it opens at the top of the page instead, see ProjectPage). (Its
+            custom: the project now on screen, so a study closing on its way to another project, or home,
+            simply fades) */}
         <AnimatePresence initial={false} custom={project?.slug}>
-          {brief && project && (
+          {brief && project && upright && (
             <motion.div
               key={`brief-${project.slug}`}
               id="project-brief"
@@ -138,15 +154,10 @@ export function LeftColumn({ project }: { project: Project | null }) {
               aria-label={`${project.title}: case study`}
               tabIndex={0}
               style={backMid !== null ? ({ '--back-mid': `${backMid}px` } as CSSProperties) : undefined}
-              {...(upright ? {} : underTitle)}
             >
-              {upright ? (
-                <Lifted slug={project.slug}>
-                  <Brief project={project} />
-                </Lifted>
-              ) : (
+              <Lifted slug={project.slug}>
                 <Brief project={project} />
-              )}
+              </Lifted>
             </motion.div>
           )}
         </AnimatePresence>
@@ -415,11 +426,11 @@ function Lifted({ slug, children }: { slug: string; children: ReactNode }) {
 }
 
 /**
- * Under the title (phones): it unfolds with some weight, on a spring that gathers speed, carries on a
- * touch past its full height and settles back (about a second), its parts rising in one after another
- * as it opens (see layout.css)
+ * At the top of a phone's project page (see ProjectPage): it unfolds with some weight, on a spring that
+ * gathers speed, carries on a touch past its full height and settles back (about a second), its parts
+ * rising in one after another as it opens (see layout.css)
  */
-const underTitle = {
+export const underTitle = {
   initial: { opacity: 0, height: 0 },
   animate: {
     opacity: 1,
@@ -434,7 +445,7 @@ const underTitle = {
 
 const UPRIGHT = '(min-width: 860px)'
 
-function useUpright() {
+export function useUpright() {
   const [upright, setUpright] = useState(() => window.matchMedia(UPRIGHT).matches)
   useEffect(() => {
     const mq = window.matchMedia(UPRIGHT)
@@ -446,7 +457,7 @@ function useUpright() {
 }
 
 /** what a project was and how it was built: a summary, the case study's sections, year and stack */
-function Brief({ project: p }: { project: Project }) {
+export function Brief({ project: p }: { project: Project }) {
   return (
     <div className="brief-inner">
       {/* over the cube the study carries the title (the one under the cube steps aside) */}
