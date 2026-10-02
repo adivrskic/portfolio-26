@@ -5,16 +5,35 @@ import { PROJECTS } from '../data/projects'
 import type { Project } from '../data/types'
 import { bus, useUI, type Leaving } from '../state/store'
 import { CardFace } from './CardFace'
-import { Roll } from './Roll'
 import './carousel.css'
 
 const COUNT = PROJECTS.length
 /** virtual slots rendered on each side of the focused one */
 const SPAN = 4
 const mod = (i: number, m: number) => ((i % m) + m) % m
+const smoothstep = (a: number, b: number, x: number) => {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)))
+  return t * t * (3 - 2 * t)
+}
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
 /** the first appearance (once the cube has landed) comes in a beat sooner than later returns */
 let introPlayed = false
+
+/**
+ * Where a card sits on the drum, one step from the focused one and two: how far up or down (as a share of
+ * the card's height), how far it has tipped back (deg), and its size. Turned away, a card is just its
+ * outline, its number and its name (see carousel.css).
+ */
+type Pose = { y: number; rx: number; sc: number }
+const REST: Pose = { y: 0, rx: 0, sc: 1 }
+const NEAR: Pose = { y: 0.74, rx: 64, sc: 0.84 }
+const NEXT: Pose = { y: 1.08, rx: 74, sc: 0.7 }
+/** how much further down the ones below go, as a share of the card's height: room for the name under it
+ *  (more of a phone's shorter card) */
+const ROOM = 0.18
+const ROOM_COMPACT = 0.3
+/** a project's number, as the cards and the name under the focused one show it */
+const numberOf = (p: Project) => String(PROJECTS.indexOf(p) + 1).padStart(2, '0')
 
 /** leaving: when the focused card grows into a project (see Morph) the rest simply fades */
 const shell: Variants = {
@@ -48,6 +67,7 @@ export function Carousel() {
   const slots = useRef(new Map<number, HTMLLIElement>())
   const region = useRef<HTMLDivElement>(null)
   const drum = useRef<HTMLUListElement>(null)
+  const label = useRef<HTMLSpanElement>(null)
   const anim = useRef<AnimationPlaybackControls | null>(null)
   const cardH = useRef(360)
   const drag = useRef({ id: -1, y: 0, start: 0, moved: 0, down: false, captured: false, lastY: 0, lastT: 0, vel: 0 })
@@ -60,24 +80,17 @@ export function Carousel() {
     const s = spread.get()
     const compact = window.innerWidth < 860
     // the neighbours sit in close enough to show whole, clear of the page's edges (and the equalizer)
-    const Y1 = h * (compact ? 0.72 : 0.78)
-    const STEP = h * (compact ? 0.075 : 0.1)
+    const lift = compact ? 0.92 : 1
     slots.current.forEach((el, vi) => {
       const d = vi - v
       const ad = Math.abs(d)
       const sgn = d < 0 ? -1 : 1
-      let y: number
-      let rx: number
-      let sc: number
-      if (ad <= 1) {
-        y = d * Y1 * s
-        rx = d * 98 * s
-        sc = 1 - 0.2 * ad
-      } else {
-        y = sgn * (Y1 + (ad - 1) * STEP) * s
-        rx = sgn * 98 * s
-        sc = 0.8
-      }
+      // from the focused pose to one step away, on to two, and on the same way past it
+      const [a, b, k] = ad <= 1 ? [REST, NEAR, ad] : [NEAR, NEXT, ad - 1]
+      const at = (x: keyof Pose) => a[x] + (b[x] - a[x]) * k
+      const y = (sgn * at('y') * lift + (d > 0 ? Math.min(ad, 1) * (compact ? ROOM_COMPACT : ROOM) : 0)) * h * s
+      const rx = sgn * Math.min(at('rx'), NEXT.rx) * s
+      const sc = Math.max(0.4, at('sc'))
       // two cards stacked on either side (a third would run into the page's edge, and the equalizer)
       const op = ad > 2.2 ? Math.max(0, 1 - (ad - 2.2) / 0.5) : 1
       el.style.transform = `translate3d(0, ${y.toFixed(2)}px, 0) scale(${sc.toFixed(4)}) rotateX(${rx.toFixed(2)}deg)`
@@ -87,7 +100,16 @@ export function Carousel() {
       el.style.setProperty('--f', Math.min(ad, 1).toFixed(3))
       el.toggleAttribute('data-focus', ad < 0.5)
     })
-  }, [])
+    // the name under the card: there while the drum is at a project, gone a third of the way to the next
+    // one (it changes, unseen, halfway) and while it spins on past several
+    const name = label.current
+    if (name) {
+      const off = Math.abs(v - Math.round(v))
+      const k = (1 - smoothstep(0.04, 0.3, off)) * (1 - smoothstep(1.5, 3.5, Math.abs(pos.getVelocity())))
+      name.style.opacity = k.toFixed(3)
+      name.style.translate = `0 ${((1 - k) * 5).toFixed(2)}px`
+    }
+  }, [pos])
 
   useEffect(
     () =>
@@ -341,12 +363,16 @@ export function Carousel() {
         onPointerCancel={onPointerUp}
       >
         <div className="drum-box">
-          {/* the project in focus, named just under its card: its title, and what it is (rolling on to the
-              next as the gallery turns; the cards pass over it, on the page beneath them). The card itself
-              carries the name for screen readers, and the gallery announces each one */}
+          {/* the project in focus, named just under its card: its number, and its title over what it is (as
+              the cards turned away show theirs), fading out as the gallery turns and back in as it settles on
+              the next (see layout; the cards pass over it, on the page beneath them). The card itself carries
+              the name for screen readers, and the gallery announces each one */}
           <p className="drum-label" aria-hidden="true">
-            <Roll className="drum-title" text={PROJECTS[active]?.title ?? ''} />
-            <Roll className="drum-kind" text={PROJECTS[active]?.kind ?? ''} delay={0.06} />
+            <span ref={label} className="tag drum-label-in">
+              <span className="tag-n">{numberOf(PROJECTS[mod(base, COUNT)])}</span>
+              <span className="tag-t">{PROJECTS[mod(base, COUNT)]?.title}</span>
+              <span className="tag-k">{PROJECTS[mod(base, COUNT)]?.kind}</span>
+            </span>
           </p>
           <ul ref={drum} className="drum">
             {virtual.map((vi) => {
@@ -465,6 +491,12 @@ function Card({
     >
       {/* the site scrolls on the card in focus */}
       <CardFace project={p} live={focusable} />
+      {/* turned away, a card shows its number and its name, as the one in focus has them under it */}
+      <span className="tag card-mark" aria-hidden="true">
+        <span className="tag-n">{numberOf(p)}</span>
+        <span className="tag-t">{p.title}</span>
+        <span className="tag-k">{p.kind}</span>
+      </span>
     </a>
   )
 }
