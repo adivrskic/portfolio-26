@@ -176,7 +176,7 @@
   box-shadow:
     0 1px 0 rgba(255, 255, 255, calc(0.9 - var(--f, 0) * 0.9)) inset,
     0 0 0 1px rgba(255, 255, 255, calc(0.55 - var(--f, 0) * 0.55)) inset,
-    0 0 0 1px rgba(22, 22, 22, calc(var(--f, 0) * 0.2)) inset,
+    0 0 0 1px rgba(22, 22, 22, calc(var(--f, 0) * 0.14)) inset,
     0 4.5cqw 11cqw -4cqw
       color-mix(
         in srgb,
@@ -191,13 +191,14 @@
   opacity: calc(0.7 - var(--f, 0) * 2);
 }
 
-/* turned away, its number and name at its top left, in the type of the name under the focused card */
+/* turned away, its number and name at its top left, in the type of the name under the focused card (a
+   little lighter, as its outline is) */
 .card-mark {
   position: absolute;
   left: 6.5cqw;
   top: 6cqw;
   font-size: 3.2cqw;
-  opacity: calc(var(--f, 0) * 2 - 1);
+  opacity: calc((var(--f, 0) * 2 - 1) * 0.7);
   pointer-events: none;
 }
 
