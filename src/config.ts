@@ -110,34 +110,37 @@ export const defaults = {
 
   equalizer: {
     /** where it shows: with the gallery only, on every page, or nowhere */
-    show: 'home' as 'home' | 'always' | 'never',
+    show: 'always' as 'home' | 'always' | 'never',
     /** the edge of the screen the bars come in from, or the middle of it ('center': the bars line up across
-     *  the page and grow up and down from there at once, mirrored) */
-    edge: 'bottom' as 'right' | 'left' | 'top' | 'bottom' | 'center',
+     *  the page and grow up and down from there at once, mirrored; on a phone they line up down the middle
+     *  of the screen instead, top to bottom, and grow left and right) */
+    edge: 'center' as 'right' | 'left' | 'top' | 'bottom' | 'center',
     /** how far in from the edge the longest bars reach, px (from the middle, each way) */
-    reach: 70,
+    reach: 90,
     /** how many bars along the edge (100+ for tiny cubes) */
-    lines: 302,
+    lines: 400,
+    /** how many on a phone: far fewer, so its cubes are bigger */
+    phoneLines: 120,
     /** the gap between cubes, as a share of the spacing */
     gap: 0,
     /** corner rounding of each cube, as a share of its size */
-    rounding: 0.45,
+    rounding: 0.23,
     /** how much shorter the bars at the ends of the edge reach than the middle ones (a parabola) */
     taper: 0,
     /** how much smaller the cubes get by the far end (0.5 = half size) */
-    shrink: 0.28,
+    shrink: 0.78,
     /** where along the reach the cubes start to fade and to blur (0 = at the edge, 1 = at the end) */
-    fadeFrom: 0.68,
-    blurFrom: 0.66,
+    fadeFrom: 0,
+    blurFrom: 0.77,
     /** strongest blur at the far end, px */
     blur: 24,
-    opacity: 0.4,
+    opacity: 0.2,
 
     // ---- motion
     /** how full the bars run on average */
-    energy: 0.16,
+    energy: 0.2,
     /** how much the bars swell and ebb in slow waves */
-    waves: 0.68,
+    waves: 0.85,
     /** overall tempo */
     speed: 0.26,
     /** how often beats ripple through the bars, and how hard */
@@ -159,9 +162,9 @@ export const defaults = {
     /** lightness of the darkest and the lightest shade */
     deep: 0.3,
     light: 0.7,
-    saturation: 1,
+    saturation: 1.63,
     /** hue shift of the sparkle shade */
-    sparkle: 0.08,
+    sparkle: 0.18,
   },
 }
 

@@ -142,7 +142,8 @@ const hsl = { h: 0, s: 0, l: 0 }
  * line along the edge (100+ of them). Each bar's level jumps up quickly and falls back slowly, with its
  * peak held a moment and dropping back; the reach is a parabola (longest in the middle of the edge); on
  * the way out the cubes shrink, blur and fade. Or from the middle of the page, across it: each bar grows
- * up and down from there at once, mirrored. Shades of the project in focus. Beats ripple along the bars,
+ * up and down from there at once, mirrored (on a phone, down it, growing left and right, with far fewer
+ * bars). Shades of the project in focus. Beats ripple along the bars,
  * and scrolling the gallery pumps them up. With the gallery only, by default: the bars draw back in
  * elsewhere, and grow out with the gallery once the intro is over. Every setting is in src/config.ts.
  */
@@ -154,14 +155,18 @@ export function Equalizer() {
   useTuning((s) => s.rev)
   const cfg = config.equalizer
 
-  const side = cfg.edge === 'left' || cfg.edge === 'right'
+  const phone = width < BREAKPOINT
   const middle = cfg.edge === 'center'
+  // from the middle, a phone's bars line up down the screen (top to bottom) and grow left and right
+  const down = middle && phone
+  const side = cfg.edge === 'left' || cfg.edge === 'right' || down
   const along = side ? height : width
   const across = side ? width : height
-  // never across the whole screen (only a strip on a phone's sides, and from the middle, half of it each way)
-  const most = side && width < BREAKPOINT ? 0.36 : middle ? 0.45 : 0.9
+  // never across the whole screen (from the middle, half of it each way; only a strip on a phone's sides)
+  const most = middle ? 0.45 : side && phone ? 0.36 : 0.9
   const reach = Math.max(20, Math.min(cfg.reach, across * most))
-  const lines = Math.max(4, Math.round(cfg.lines))
+  // (far fewer on a phone, so its cubes are bigger)
+  const lines = Math.max(4, Math.round(phone ? cfg.phoneLines : cfg.lines))
   const pitch = along / lines
   const cols = Math.ceil(reach / pitch) + 1
 
@@ -358,12 +363,14 @@ export function Equalizer() {
     u.uHot.value.setHSL(hsl.h + cfg.sparkle, Math.min(1, sat * 1.05), 0.6)
 
     // which edge: where the bars start, which way they grow, and which way the bars line up (from the
-    // middle, across the page and up, each bar's mirror image growing down)
+    // middle, across the page and up, each bar's mirror image growing down; on a phone, down the page and
+    // to the right, the mirror image growing left)
     const edge = cfg.edge
-    u.uOrigin.value.set(edge === 'right' ? width : 0, edge === 'bottom' ? height : edge === 'center' ? height / 2 : 0)
+    const flat = middle && !down
+    u.uOrigin.value.set(edge === 'right' ? width : down ? width / 2 : 0, edge === 'bottom' ? height : flat ? height / 2 : 0)
     u.uDir.value.set(
-      edge === 'right' ? -1 : edge === 'left' ? 1 : 0,
-      edge === 'bottom' || edge === 'center' ? -1 : edge === 'top' ? 1 : 0,
+      edge === 'right' ? -1 : edge === 'left' || down ? 1 : 0,
+      edge === 'bottom' || flat ? -1 : edge === 'top' ? 1 : 0,
     )
     u.uAcross.value.set(side ? 0 : 1, side ? 1 : 0)
     u.uView.value.set(width, height)

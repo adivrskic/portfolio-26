@@ -7,7 +7,14 @@ type Choice = { options: Record<string, string | number>; label?: string }
 type Spec = Record<string, Range | Choice | { label?: string } | null>
 
 /** settings that change what is built (the blocks' shape, the equalizer's layout), not just how it looks */
-const REBUILD = new Set(['cube.gap', 'cube.rounding', 'equalizer.edge', 'equalizer.reach', 'equalizer.lines'])
+const REBUILD = new Set([
+  'cube.gap',
+  'cube.rounding',
+  'equalizer.edge',
+  'equalizer.reach',
+  'equalizer.lines',
+  'equalizer.phoneLines',
+])
 
 const CUBE: Record<string, Spec> = {
   'Size & pose': {
@@ -81,6 +88,7 @@ const EQUALIZER: Record<string, Spec> = {
     show: { options: { 'gallery only': 'home', 'every page': 'always', off: 'never' } },
     reach: { min: 40, max: 1600, step: 10 },
     lines: { min: 8, max: 400, step: 1 },
+    phoneLines: { min: 8, max: 400, step: 1, label: 'lines on a phone' },
   },
   Cubes: {
     gap: { min: 0, max: 0.8, step: 0.01 },
@@ -129,20 +137,21 @@ function addFolders(parent: FolderApi | Pane, part: Part, groups: Record<string,
   }
 }
 
-/** only what differs from the defaults, as lines to paste into src/config.ts */
+/** sliders leave floating-point tails (0.44999999999999996): rounded, they read as what was set */
+const tidy = (v: unknown) => (typeof v === 'number' ? Number(v.toFixed(4)) : v)
+
+/** only what differs from the defaults (not just by a slider's tail), as lines to paste into src/config.ts */
 function changes() {
   const lines: string[] = []
   for (const part of ['cube', 'equalizer'] as Part[]) {
     const now = config[part] as Record<string, unknown>
     const was = defaults[part] as Record<string, unknown>
-    const diff = Object.keys(now).filter((k) => now[k] !== was[k])
+    const diff = Object.keys(now).filter((k) => tidy(now[k]) !== tidy(was[k]))
     if (!diff.length) continue
     lines.push(`// ${part}`)
     for (const k of diff) {
-      const v = now[k]
-      // sliders leave floating-point tails (0.44999999999999996): round them
-      const shown = typeof v === 'string' ? `'${v}'` : typeof v === 'number' ? Number(v.toFixed(4)) : v
-      lines.push(`${k}: ${shown},`)
+      const v = tidy(now[k])
+      lines.push(`${k}: ${typeof v === 'string' ? `'${v}'` : v},`)
     }
   }
   return lines.length ? lines.join('\n') : '// no changes from the defaults'
