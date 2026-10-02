@@ -72,17 +72,60 @@
   cursor: grabbing;
 }
 
-.drum {
+/* the drum and the name under its card in focus, set in from the middle of the right half together */
+.drum-box {
   position: relative;
   width: var(--card-w);
   height: var(--card-h);
+  translate: calc(var(--shift) * -1) 0;
+}
+
+.drum {
+  position: relative;
+  width: 100%;
+  height: 100%;
   margin: 0;
   padding: 0;
   list-style: none;
   perspective: 1500px;
-  translate: calc(var(--shift) * -1) 0;
   /* the cards' corners are sized from this box */
   container-type: inline-size;
+}
+
+/* the project in focus, named just under its card, on the page (the cards pass over it): its title in ink
+   at the card's left edge, what it is in grey at its right; it comes in once the card has risen */
+.drum-label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + clamp(14px, 1.5vw, 22px));
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  margin: 0;
+  padding: 0 0.15em;
+  font-size: clamp(15px, 1.2vw, 19px);
+  line-height: 1.2;
+  letter-spacing: -0.012em;
+  pointer-events: none;
+  animation: label-in 1.1s var(--ease-out) 0.9s backwards;
+}
+
+.drum-title {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.drum-kind {
+  color: var(--ink-2);
+  text-align: right;
+}
+
+@keyframes label-in {
+  from {
+    opacity: 0;
+  }
 }
 
 .slot {
@@ -334,23 +377,26 @@
     --card-w: min(84vw, 350px);
     --card-h: calc(min(70vw, 290px, 30dvh) * 1.03);
     --shift: 0px;
-    /* the project's name under the cube: its two lines and the space above them (see layout.css) */
-    --caption-h: calc(10px + 2 * var(--t-name) * 1.16);
   }
 
-  /* fills the space under the cube, the project's name under it, its icon row and the progress rail; the
-     drum fades out at both edges */
+  /* fills the space under the cube, its icon row and the progress rail; the drum fades out at both edges */
   .carousel,
   .dock-probe {
     left: 0;
     width: 100vw;
-    top: calc(max(18px, env(safe-area-inset-top)) + var(--cube) + var(--caption-h) + var(--btn) + 56px);
+    top: calc(max(18px, env(safe-area-inset-top)) + var(--cube) + var(--btn) + 56px);
     bottom: max(10px, env(safe-area-inset-bottom));
     height: auto;
   }
 
   .carousel {
     --fade: 36px;
+  }
+
+  /* (closer to its card: the next one sits nearer on a phone) */
+  .drum-label {
+    top: calc(100% + 10px);
+    font-size: 14px;
   }
 
   /* a short rail across, under the menu icons (in the gap above the gallery) */
@@ -389,7 +435,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .progress-track::before,
-  .progress-fill {
+  .progress-fill,
+  .drum-label {
     animation: none;
   }
 }

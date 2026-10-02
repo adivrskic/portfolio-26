@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, animate, motion, usePresence, usePresenceData, type AnimationPlaybackControls } from 'motion/react'
 import { Link } from 'react-router'
-import { PROJECTS } from '../data/projects'
 import { SITE } from '../data/site'
 import type { Project, Social } from '../data/types'
 import { useUI } from '../state/store'
@@ -34,9 +33,6 @@ const SOCIAL_ICONS: Record<Social['icon'], typeof IconGitHub> = {
 
 export function LeftColumn({ project }: { project: Project | null }) {
   const panel = useUI((s) => s.panel)
-  const active = useUI((s) => s.active)
-  // the project the caption under the cube names (none while About, Contact or the chat is open)
-  const named = project ?? (panel ? null : (PROJECTS[active] ?? null))
   const infoMode = useUI((s) => s.infoMode)
   const setInfoMode = useUI((s) => s.setInfoMode)
   const ready = useUI((s) => s.ready)
@@ -101,31 +97,27 @@ export function LeftColumn({ project }: { project: Project | null }) {
           </Link>
         )}
 
-        {/* under the cube, the project's name: the one open, or the one in focus in the gallery (rolling
-            on to the next as the gallery turns). With About, Contact or the chat open it keeps its place,
-            empty, so the cube stays put (on phones, where the page simply runs on, it goes) */}
+        {/* under the cube on a project page, its name (in the gallery it is under the card in focus) */}
         <AnimatePresence initial={false}>
-          {placed && (project || !panel || upright) && (
+          {placed && project && (
             <motion.div
               key="caption"
               className="caption"
-              // the title's space is there before the cube sets off (so it flies to its final spot), and
-              // the title comes in once it has landed
+              // arriving straight on a project page, the title's space is there before the cube sets off
+              // (so it flies to its final spot) and the title fades in once it has landed
               initial={{ opacity: 0, height: ready ? 0 : 'auto' }}
               animate={{
                 opacity: ready ? 1 : 0,
                 height: 'auto',
-                transition: { duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: project ? 0 : 0.2 },
+                transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] },
               }}
               exit={{ opacity: 0, height: 0, transition: { duration: 0.35 } }}
             >
-              {/* a heading on a project page; in the gallery it only echoes the card in focus, which the
-                  gallery announces itself */}
-              <p className="caption-title" {...(project ? { role: 'heading', 'aria-level': 1 } : { 'aria-hidden': true })}>
-                <Roll text={named?.title ?? ' '} />
-              </p>
-              <p className="caption-sub" aria-hidden={project ? undefined : true}>
-                <Roll text={named?.kind ?? ' '} delay={0.06} />
+              <h1 className="caption-title">
+                <Roll text={project.title} />
+              </h1>
+              <p className="caption-sub">
+                <Roll text={project.kind} delay={0.06} />
               </p>
             </motion.div>
           )}

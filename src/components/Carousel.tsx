@@ -5,6 +5,7 @@ import { PROJECTS } from '../data/projects'
 import type { Project } from '../data/types'
 import { bus, useUI, type Leaving } from '../state/store'
 import { CardFace } from './CardFace'
+import { Roll } from './Roll'
 import './carousel.css'
 
 const COUNT = PROJECTS.length
@@ -339,29 +340,38 @@ export function Carousel() {
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
       >
-        <ul ref={drum} className="drum">
-          {virtual.map((vi) => {
-            const p = PROJECTS[mod(vi, COUNT)]
-            return (
-              <li
-                key={vi}
-                className="slot"
-                aria-hidden={vi !== target.current}
-                ref={(el) => {
-                  if (el) slots.current.set(vi, el)
-                  else slots.current.delete(vi)
-                }}
-              >
-                <Card
-                  project={p}
-                  focusable={vi === target.current}
-                  standIn={vi === target.current && p.slug === morphSlug}
-                  onClick={(e) => onCardClick(e, vi, p.slug)}
-                />
-              </li>
-            )
-          })}
-        </ul>
+        <div className="drum-box">
+          {/* the project in focus, named just under its card: its title, and what it is (rolling on to the
+              next as the gallery turns; the cards pass over it, on the page beneath them). The card itself
+              carries the name for screen readers, and the gallery announces each one */}
+          <p className="drum-label" aria-hidden="true">
+            <Roll className="drum-title" text={PROJECTS[active]?.title ?? ''} />
+            <Roll className="drum-kind" text={PROJECTS[active]?.kind ?? ''} delay={0.06} />
+          </p>
+          <ul ref={drum} className="drum">
+            {virtual.map((vi) => {
+              const p = PROJECTS[mod(vi, COUNT)]
+              return (
+                <li
+                  key={vi}
+                  className="slot"
+                  aria-hidden={vi !== target.current}
+                  ref={(el) => {
+                    if (el) slots.current.set(vi, el)
+                    else slots.current.delete(vi)
+                  }}
+                >
+                  <Card
+                    project={p}
+                    focusable={vi === target.current}
+                    standIn={vi === target.current && p.slug === morphSlug}
+                    onClick={(e) => onCardClick(e, vi, p.slug)}
+                  />
+                </li>
+              )
+            })}
+          </ul>
+        </div>
       </div>
 
       <Progress active={active} onSeek={(i) => goTo(nearestVirtual(i))} />
