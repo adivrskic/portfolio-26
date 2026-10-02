@@ -12,7 +12,7 @@ const COUNT = PROJECTS.length
 const SPAN = 4
 const mod = (i: number, m: number) => ((i % m) + m) % m
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
-/** the first appearance (once the cube has landed) rolls in further and slower than later returns */
+/** the first appearance (once the cube has landed) comes in a beat sooner than later returns */
 let introPlayed = false
 
 /** leaving: when the focused card grows into a project (see Morph) the rest simply fades */
@@ -35,15 +35,13 @@ export function Carousel() {
   const [arriving, setArriving] = useState(docking)
   // the card standing in for a hero in flight (hidden until it lands, see Morph)
   const morphSlug = useUI((s) => s.morph?.slug)
-  // every time the gallery appears it rolls up into place: a long, slow roll after the intro,
-  // a shorter one when coming back from About/Contact or a project
+  // the gallery always comes in already on its project (the first time, the first one): it rises and
+  // fades in as a whole, rather than rolling up through the projects before it
   const [intro] = useState(() => (reducedMotion() || docking ? null : introPlayed ? 'return' : 'first'))
-  const start = intro === 'first' ? initial - 1.75 : intro === 'return' ? initial - 0.9 : initial
-  const rolling = useRef(intro !== null)
-  const pos = useMotionValue(start)
+  const pos = useMotionValue(initial)
   const target = useRef(initial)
-  const [base, setBase] = useState(Math.round(start))
-  const baseRef = useRef(Math.round(start))
+  const [base, setBase] = useState(initial)
+  const baseRef = useRef(initial)
   const slots = useRef(new Map<number, HTMLLIElement>())
   const region = useRef<HTMLDivElement>(null)
   const drum = useRef<HTMLUListElement>(null)
@@ -90,8 +88,8 @@ export function Carousel() {
     () =>
       pos.on('change', (v) => {
         layout(v)
-        // the cube turns with the gallery (not during the intro roll)
-        if (!rolling.current) bus.drum = v
+        // the cube turns with the gallery
+        bus.drum = v
         const b = Math.round(v)
         if (b !== baseRef.current) {
           baseRef.current = b
@@ -122,7 +120,6 @@ export function Carousel() {
   // so a new step while one is still moving keeps its momentum instead of restarting from rest.
   const goTo = useCallback(
     (t: number, velocity?: number) => {
-      rolling.current = false
       target.current = t
       anim.current?.stop()
       anim.current = animate(
@@ -155,31 +152,14 @@ export function Carousel() {
     return () => clearTimeout(t)
   }, [docking, arriving])
 
-  // first appearance: roll the drum up into place on a slow spring as the gallery fades in;
-  // afterwards the gallery's position drives the cube
+  // the gallery's position drives the cube from the start
   useEffect(() => {
-    if (rolling.current) {
-      introPlayed = true
-      const roll = animate(
-        pos,
-        initial,
-        intro === 'first'
-          ? { type: 'spring', stiffness: 26, damping: 11.5, mass: 1.6, delay: 0.15 }
-          : { type: 'spring', stiffness: 34, damping: 13, mass: 1.5, delay: 0.12 },
-      )
-      anim.current = roll
-      roll.then(() => {
-        if (anim.current !== roll) return
-        rolling.current = false
-        bus.drum = pos.get()
-      })
-    } else {
-      bus.drum = pos.get()
-    }
+    introPlayed = true
+    bus.drum = pos.get()
     return () => {
       bus.drum = Number.NaN
     }
-  }, [initial, intro, pos])
+  }, [pos])
 
   // wheel / trackpad: one project per gesture, inertia tails don't skip ahead
   useEffect(() => {

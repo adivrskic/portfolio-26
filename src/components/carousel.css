@@ -211,14 +211,17 @@
   pointer-events: none;
 }
 
-/* The glass: the same site, blurred, under a light gradient in the project's colour, with a lit top edge.
-   A blurred copy of the card's own site rather than a backdrop filter, which breaks up on the gallery's
-   3D turn; its scroll runs in step with the one above it (see SiteScroll). */
+/* The glass: just the site behind the words, blurred, under a light frost so they read on any site. It
+   feathers in at its top edge instead of starting on a line. A blurred copy of the card's own site rather
+   than a backdrop filter, which breaks up on the gallery's 3D turn; its scroll runs in step with the one
+   above it (see SiteScroll). */
 .card-glass {
   position: absolute;
   inset: 0;
   overflow: hidden;
   opacity: calc(1 - var(--grow, 0) * 1.6);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 5cqw);
+  mask-image: linear-gradient(to bottom, transparent, #000 5cqw);
 }
 
 /* the whole card's site, lined up with the card's foot (a little larger, so the blur's soft edges stay out
@@ -234,19 +237,15 @@
 }
 
 .card-glass-site img {
-  filter: blur(4.4cqw) saturate(1.25);
+  filter: blur(4.8cqw);
 }
 
+/* (lighter where it feathers in, enough under the words that dark type reads on a dark site too) */
 .card-glass::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--card-accent, #6b7c9c) 10%, rgb(255 255 255 / 0.52)),
-    color-mix(in srgb, var(--card-accent, #6b7c9c) 14%, rgb(248 248 246 / 0.76))
-  );
-  box-shadow: 0 1px 0 rgb(255 255 255 / 0.7) inset;
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.3), rgb(255 255 255 / 0.62) 42%, rgb(255 255 255 / 0.68));
 }
 
 .card-body {
@@ -270,7 +269,7 @@
   font-weight: 560;
   letter-spacing: -0.02em;
   line-height: 1.15;
-  color: color-mix(in srgb, var(--card-accent, #6b7c9c) 14%, #121826);
+  color: #121826;
 }
 
 .card-text {
@@ -278,7 +277,7 @@
   max-width: 94%;
   font-size: max(12px, 2.9cqw);
   line-height: 1.5;
-  color: color-mix(in srgb, var(--card-accent, #6b7c9c) 8%, #4c5260);
+  color: #353a45;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
@@ -304,6 +303,44 @@
 
 .card:hover .card-cta svg {
   translate: 0.25em 0;
+}
+
+/* the card in focus lifts a little under the pointer, its shadow deepening beneath it (the shadow is the
+   slot's: the card's own follows the drum every frame, so it can't ease) */
+@media (hover: hover) and (pointer: fine) {
+  .slot .card {
+    transition:
+      translate 0.7s var(--ease-out),
+      scale 0.7s var(--ease-out);
+  }
+
+  /* a soft dark pool under the card's lower half, blurred out */
+  .slot::before {
+    content: '';
+    position: absolute;
+    left: 10%;
+    right: 10%;
+    bottom: 0;
+    height: 46%;
+    border-radius: 50%;
+    background: rgb(24 28 48 / 0.26);
+    filter: blur(5cqw);
+    opacity: 0;
+    transition:
+      opacity 0.7s var(--ease-out),
+      translate 0.7s var(--ease-out);
+    pointer-events: none;
+  }
+
+  .slot[data-focus] .card:hover {
+    translate: 0 -1.8cqw;
+    scale: 1.015;
+  }
+
+  .slot[data-focus]:has(.card:hover)::before {
+    opacity: 1;
+    translate: 0 2.4cqw;
+  }
 }
 
 /* back from a project: the hero shrinks into the focused spot (see Morph) while the rest fades in */
@@ -373,12 +410,6 @@
 .progress-track:focus-visible {
   outline: 2px solid var(--ink);
   outline-offset: 4px;
-}
-
-@media (hover: none) {
-  .card {
-    transform: none;
-  }
 }
 
 @media (max-width: 859px) {
