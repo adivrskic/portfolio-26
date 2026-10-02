@@ -433,6 +433,7 @@ export function VoxelCube() {
     hovered: -1,
     dragging: false,
     dragX: 0,
+    dragY: 0,
     dragT: 0,
     dragMoved: 0,
     twist: null as Twist | null,
@@ -503,19 +504,22 @@ export function VoxelCube() {
       const dtE = Math.max(8, now - s.dragT) / 1000
       s.dragX = e.clientX
       s.dragT = now
-      s.dragMoved += Math.abs(dx)
+      // (up and down too: a swipe that scrolls the page is never a click)
+      s.dragMoved += Math.abs(dx) + Math.abs(e.clientY - s.dragY)
+      s.dragY = e.clientY
       s.yawDrag += dx * 0.009
       s.yawVel = THREE.MathUtils.lerp(s.yawVel, (dx * 0.009) / dtE, 0.6)
     }
-    const up = () => {
+    const up = (e: PointerEvent) => {
       const s = sim.current
       if (!s.dragging) return
       s.dragging = false
       // flung: it keeps spinning that way, settling back to its slow spin
       s.spinDir = Math.sign(s.yawVel) || s.spinDir
       document.documentElement.removeAttribute('data-cube-drag')
-      // a click (not a spin): a slice turns, and the cube's chat opens (or closes)
-      if (s.dragMoved < 4) {
+      // a click (not a spin, and not a touch the browser took over to scroll the page, which cancels it):
+      // a slice turns, and the cube's chat opens (or closes)
+      if (e.type === 'pointerup' && s.dragMoved < 4) {
         const ui = useUI.getState()
         ui.requestTwist()
         ui.askChat()
@@ -552,6 +556,7 @@ export function VoxelCube() {
     const s = sim.current
     s.dragging = true
     s.dragX = e.nativeEvent.clientX
+    s.dragY = e.nativeEvent.clientY
     s.dragT = performance.now()
     s.dragMoved = 0
     s.yawVel = 0

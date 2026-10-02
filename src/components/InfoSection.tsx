@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router'
 import { SITE } from '../data/site'
 import { Chat } from './Chat'
 import { IconArrowRight, IconArrowUpRight } from './Icons'
+import { useUpright } from './LeftColumn'
 import { Rich } from './Rich'
 import { block } from './reveal'
 import './info.css'
@@ -33,6 +34,14 @@ export function InfoSection({ kind }: { kind: InfoKind }) {
     ref.current?.focus({ preventScroll: true })
   }, [])
 
+  // On a phone the column scrolls under the cube and the menu, which stay at the top of the screen (see
+  // info.css): its top edge blurs and fades once it has moved
+  const upright = useUpright()
+  const onScroll = () => {
+    if (!upright) document.documentElement.toggleAttribute('data-scrolled-under', (ref.current?.scrollTop ?? 0) > 4)
+  }
+  useEffect(() => () => document.documentElement.removeAttribute('data-scrolled-under'), [])
+
   return (
     <motion.section
       ref={ref}
@@ -40,13 +49,16 @@ export function InfoSection({ kind }: { kind: InfoKind }) {
       tabIndex={-1}
       aria-label={LABELS[kind]}
       data-scroll-own
-      // text, not the cube: a click here never reaches the scene
-      data-block-scene
       initial="hidden"
       animate="show"
       exit="exit"
+      onScroll={onScroll}
     >
-      <div className="info-inner">{kind === 'about' ? <About /> : kind === 'contact' ? <Contact /> : <Chat />}</div>
+      {/* text, not the cube: a click here never reaches the scene (on a phone the column covers the screen,
+          the cube too, so only its text keeps the scene out) */}
+      <div className="info-inner" data-block-scene>
+        {kind === 'about' ? <About /> : kind === 'contact' ? <Contact /> : <Chat />}
+      </div>
     </motion.section>
   )
 }

@@ -277,13 +277,21 @@
 }
 
 @media (max-width: 859px) {
+  /* the cube and the menu stay at the top of the screen and the column scrolls under them, its top edge
+     fading out once it has moved (and blurring, see .left-veil), as a project page does: it covers the
+     whole screen, starting below them, so a drag anywhere but on the menu's buttons scrolls it */
   .info {
-    position: relative;
-    width: 100%;
+    inset: 0;
+    width: auto;
     height: auto;
-    overflow: visible;
-    -webkit-mask-image: none;
-    mask-image: none;
+    padding-top: var(--header-h, 270px);
+    -webkit-mask-image: linear-gradient(to bottom, transparent var(--header-h, 270px), #000 calc(var(--header-h, 270px) + var(--under)));
+    mask-image: linear-gradient(to bottom, transparent var(--header-h, 270px), #000 calc(var(--header-h, 270px) + var(--under)));
+    transition: --under 0.4s var(--ease-out);
+  }
+
+  html[data-scrolled-under] .info {
+    --under: 64px;
   }
 
   .info-inner {

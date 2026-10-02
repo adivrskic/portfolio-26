@@ -50,7 +50,7 @@ export function Chat() {
       const r = form.current?.getBoundingClientRect()
       if (r) follow.current = r.top < window.innerHeight
     }
-    // capture: the column scrolls itself on wide screens, the page does on phones
+    // capture: the column scrolls itself (scroll events don't bubble)
     window.addEventListener('scroll', onScroll, { capture: true, passive: true })
     return () => window.removeEventListener('scroll', onScroll, { capture: true })
   }, [])

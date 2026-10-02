@@ -74,8 +74,8 @@ export function LeftColumn({ project }: { project: Project | null }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [brief, setInfoMode])
 
-  // how tall this column is: on a phone's project page it stays at the top, and the page scrolls under it
-  // from there (--header-h, see project.css)
+  // how tall this column is: on a phone's project page (and About, Contact and the chat) it stays at the
+  // top, and the page scrolls under it from there (--header-h, see project.css and info.css)
   const aside = useRef<HTMLElement>(null)
   useLayoutEffect(() => {
     const el = aside.current
@@ -94,7 +94,7 @@ export function LeftColumn({ project }: { project: Project | null }) {
       data-panel={panel ?? undefined}
       data-brief={brief || undefined}
     >
-      {/* (a phone's project page: where the page scrolls under this column, it blurs as it goes) */}
+      {/* (on a phone, where the page scrolls under this column, it blurs as it goes) */}
       <div className="left-veil" aria-hidden="true" />
       {/* the name lives on the cube; keep it for screen readers and search */}
       {!project && (

@@ -1,3 +1,11 @@
+/* (registered, so on a phone the page under the header can ease its fade in as it starts to scroll: see
+   .detail in project.css and .info in info.css) */
+@property --under {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
 :root {
   --cube: clamp(198px, min(24.3vw, 37.8vh), 360px);
   /* the space kept between the right-hand column and the edges of the page */
@@ -33,7 +41,7 @@ html[data-cube-drag] * {
   pointer-events: none;
 }
 
-/* (a phone's project page only, below) */
+/* (on a phone, where the page scrolls under the column, below) */
 .left-veil {
   display: none;
 }
@@ -360,9 +368,20 @@ html[data-page-slide] .main {
     padding-block: max(18px, env(safe-area-inset-top)) 0;
   }
 
-  /* a phone's project page: where the page scrolls under this column (see .detail in project.css), a band
-     that blurs it as it goes, showing once the page has moved */
-  .left[data-view='project'] .left-veil {
+  /* the page scrolls under this column (a project page, About, Contact and the chat: see .detail in
+     project.css and .info in info.css) and covers the screen behind it, so a drag on the title, the cube or
+     between the menu's buttons reaches it and scrolls it: only the buttons themselves take a touch */
+  .caption,
+  .actions {
+    pointer-events: none;
+  }
+
+  .actions :is(a, button) {
+    pointer-events: auto;
+  }
+
+  /* where the page scrolls under this column, a band that blurs it as it goes, showing once it has moved */
+  .left:is([data-view='project'], [data-panel]) .left-veil {
     display: block;
     position: fixed;
     top: var(--header-h, 320px);
@@ -378,7 +397,7 @@ html[data-page-slide] .main {
     pointer-events: none;
   }
 
-  html[data-scrolled-under] .left[data-view='project'] .left-veil {
+  html[data-scrolled-under] .left:is([data-view='project'], [data-panel]) .left-veil {
     opacity: 1;
   }
 
