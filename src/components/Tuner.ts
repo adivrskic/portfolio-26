@@ -74,7 +74,10 @@ const CUBE: Record<string, Spec> = {
 
 const EQUALIZER: Record<string, Spec> = {
   Placement: {
-    edge: { options: { right: 'right', left: 'left', top: 'top', bottom: 'bottom' } },
+    edge: {
+      options: { right: 'right', left: 'left', top: 'top', bottom: 'bottom', 'centre (mirrored)': 'center' },
+      label: 'from',
+    },
     show: { options: { 'gallery only': 'home', 'every page': 'always', off: 'never' } },
     reach: { min: 40, max: 1600, step: 10 },
     lines: { min: 8, max: 400, step: 1 },

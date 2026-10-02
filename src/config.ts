@@ -111,9 +111,10 @@ export const defaults = {
   equalizer: {
     /** where it shows: with the gallery only, on every page, or nowhere */
     show: 'home' as 'home' | 'always' | 'never',
-    /** the edge of the screen the bars come in from */
-    edge: 'bottom' as 'right' | 'left' | 'top' | 'bottom',
-    /** how far in from the edge the longest bars reach, px */
+    /** the edge of the screen the bars come in from, or the middle of it ('center': the bars line up across
+     *  the page and grow up and down from there at once, mirrored) */
+    edge: 'bottom' as 'right' | 'left' | 'top' | 'bottom' | 'center',
+    /** how far in from the edge the longest bars reach, px (from the middle, each way) */
     reach: 70,
     /** how many bars along the edge (100+ for tiny cubes) */
     lines: 302,

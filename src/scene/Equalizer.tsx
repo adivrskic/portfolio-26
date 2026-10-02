@@ -20,7 +20,7 @@ export const SHADOW_ONLY = 3
 const SHADOW_SCALE = 4
 
 const vertexShader = /* glsl */ `
-  attribute vec2 aCell;
+  attribute vec3 aCell;
   attribute vec2 aRand;
   uniform vec2 uView;
   uniform vec2 uOrigin;
@@ -52,6 +52,7 @@ const vertexShader = /* glsl */ `
   void main() {
     float col = aCell.x;   // cubes in from the edge
     float line = aCell.y;  // bars along the edge
+    float way = aCell.z;   // 1, or -1 for the mirrored copy of a bar (from the middle of the screen)
     vec4 lv = texture2D(uLevels, vec2((line + 0.5) / uLines, 0.5));
     float level = lv.r;
     float peak = lv.g;
@@ -78,7 +79,7 @@ const vertexShader = /* glsl */ `
     // a quad around the cube with room for its blur, in screen px: along the edge, then in from it
     float ext = size * 0.5 + soft * 1.6 + 0.5;
     vLocal = vec2(position.x, -position.y) * 2.0 * ext;
-    vec2 p = uOrigin + uAcross * ((line + 0.5) * uPitch) + uDir * dist + vLocal;
+    vec2 p = uOrigin + uAcross * ((line + 0.5) * uPitch) + uDir * (dist * way) + vLocal;
     // far back, so the big cube (which writes depth) stays in front where they meet
     gl_Position = vec4(p.x / uView.x * 2.0 - 1.0, 1.0 - p.y / uView.y * 2.0, 0.999, 1.0);
     vHalf = size * 0.5;
@@ -137,12 +138,13 @@ type Beat = { t: number; amp: number; at: number }
 const hsl = { h: 0, s: 0, l: 0 }
 
 /**
- * Coming in from an edge of the page (the right, by default): an equalizer of tiny cubes, one bar per
+ * Coming in from an edge of the page (the bottom, by default): an equalizer of tiny cubes, one bar per
  * line along the edge (100+ of them). Each bar's level jumps up quickly and falls back slowly, with its
  * peak held a moment and dropping back; the reach is a parabola (longest in the middle of the edge); on
- * the way out the cubes shrink, blur and fade. Shades of the project in focus. Beats ripple along the
- * bars, and scrolling the gallery pumps them up. With the gallery only, by default: the bars draw back
- * in elsewhere, and grow out with the gallery once the intro is over. Every setting is in src/config.ts.
+ * the way out the cubes shrink, blur and fade. Or from the middle of the page, across it: each bar grows
+ * up and down from there at once, mirrored. Shades of the project in focus. Beats ripple along the bars,
+ * and scrolling the gallery pumps them up. With the gallery only, by default: the bars draw back in
+ * elsewhere, and grow out with the gallery once the intro is over. Every setting is in src/config.ts.
  */
 export function Equalizer() {
   const width = useThree((s) => s.size.width)
@@ -153,37 +155,43 @@ export function Equalizer() {
   const cfg = config.equalizer
 
   const side = cfg.edge === 'left' || cfg.edge === 'right'
+  const middle = cfg.edge === 'center'
   const along = side ? height : width
   const across = side ? width : height
-  // never across the whole screen (and only a strip on a phone's sides)
-  const reach = Math.max(20, Math.min(cfg.reach, across * (side && width < BREAKPOINT ? 0.36 : 0.9)))
+  // never across the whole screen (only a strip on a phone's sides, and from the middle, half of it each way)
+  const most = side && width < BREAKPOINT ? 0.36 : middle ? 0.45 : 0.9
+  const reach = Math.max(20, Math.min(cfg.reach, across * most))
   const lines = Math.max(4, Math.round(cfg.lines))
   const pitch = along / lines
   const cols = Math.ceil(reach / pitch) + 1
 
-  // one quad per cube, instanced over lines × cols
+  // one quad per cube, instanced over lines × cols (twice from the middle: each bar and its mirror image,
+  // the same cubes, so the two halves match exactly)
   const geometry = useMemo(() => {
     const base = new THREE.PlaneGeometry(1, 1)
     const g = new THREE.InstancedBufferGeometry()
     g.index = base.index
     g.setAttribute('position', base.getAttribute('position'))
-    const n = lines * cols
-    const cell = new Float32Array(n * 2)
+    const ways = middle ? [1, -1] : [1]
+    const n = lines * cols * ways.length
+    const cell = new Float32Array(n * 3)
     const rand = new Float32Array(n * 2)
     let i = 0
-    for (let r = 0; r < lines; r++)
-      for (let c = 0; c < cols; c++, i++) {
-        cell[i * 2] = c
-        cell[i * 2 + 1] = r
-        rand[i * 2] = hash(r, c, 1)
-        rand[i * 2 + 1] = hash(r, c, 2)
-      }
-    g.setAttribute('aCell', new THREE.InstancedBufferAttribute(cell, 2))
+    for (const way of ways)
+      for (let r = 0; r < lines; r++)
+        for (let c = 0; c < cols; c++, i++) {
+          cell[i * 3] = c
+          cell[i * 3 + 1] = r
+          cell[i * 3 + 2] = way
+          rand[i * 2] = hash(r, c, 1)
+          rand[i * 2 + 1] = hash(r, c, 2)
+        }
+    g.setAttribute('aCell', new THREE.InstancedBufferAttribute(cell, 3))
     g.setAttribute('aRand', new THREE.InstancedBufferAttribute(rand, 2))
     g.instanceCount = n
     base.dispose()
     return g
-  }, [lines, cols])
+  }, [lines, cols, middle])
 
   // each bar's level and held peak (in cubes), read by the vertex shader
   const levels = useMemo(() => {
@@ -349,10 +357,14 @@ export function Equalizer() {
     u.uLight.value.setHSL(hsl.h - 0.015, Math.min(1, sat * 0.8), cfg.light)
     u.uHot.value.setHSL(hsl.h + cfg.sparkle, Math.min(1, sat * 1.05), 0.6)
 
-    // which edge: where the bars start, which way they grow, and which way the bars line up
+    // which edge: where the bars start, which way they grow, and which way the bars line up (from the
+    // middle, across the page and up, each bar's mirror image growing down)
     const edge = cfg.edge
-    u.uOrigin.value.set(edge === 'right' ? width : 0, edge === 'bottom' ? height : 0)
-    u.uDir.value.set(edge === 'right' ? -1 : edge === 'left' ? 1 : 0, edge === 'bottom' ? -1 : edge === 'top' ? 1 : 0)
+    u.uOrigin.value.set(edge === 'right' ? width : 0, edge === 'bottom' ? height : edge === 'center' ? height / 2 : 0)
+    u.uDir.value.set(
+      edge === 'right' ? -1 : edge === 'left' ? 1 : 0,
+      edge === 'bottom' || edge === 'center' ? -1 : edge === 'top' ? 1 : 0,
+    )
     u.uAcross.value.set(side ? 0 : 1, side ? 1 : 0)
     u.uView.value.set(width, height)
     u.uPitch.value = pitch

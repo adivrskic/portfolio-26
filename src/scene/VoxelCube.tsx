@@ -421,7 +421,7 @@ export function VoxelCube() {
     yawDrag: 0,
     yawVel: 0,
     landed: false,
-    spinDir: -1,
+    spinDir: 1,
     /** parted (and since when); how much room the blocks have to turn in (0..1); a flick to hand out */
     wasParted: false,
     partedAt: 0,
@@ -683,8 +683,8 @@ export function VoxelCube() {
     if (!s.landed && bus.flight >= 1) {
       // the intro's turn hands its speed over and carries on the same way
       s.landed = true
-      s.yawVel = -landSpeed
-      s.spinDir = -1
+      s.yawVel = landSpeed
+      s.spinDir = 1
     }
     if (s.landed && !s.dragging) {
       const still = s.room > 0.5
@@ -702,14 +702,14 @@ export function VoxelCube() {
     s.tiltX = THREE.MathUtils.damp(s.tiltX, tx, 1.2, dt)
     s.tiltY = THREE.MathUtils.damp(s.tiltY, ty, 1.2, dt)
     const sway = reduced ? 0 : cfg.sway
-    // the intro flight: one heavy turn (the front leads towards the spot) that lands still spinning, at
-    // the speed and slowing the spin above carries on with; the top tips towards the viewer as it draws
-    // back into the scene
+    // the intro flight: one heavy turn (its front swinging round to the right) that lands still spinning,
+    // at the speed and slowing the spin above carries on with, the same way; the top tips towards the
+    // viewer as it draws back into the scene
     const total = Math.PI * 2 * cfg.flightTurns
     const turning = reduced
       ? 0
-      : total -
-        turnAngle(bus.flight, total, landSpeed * flightS, (-(landSpeed - idleSpeed) * flightS * flightS) / settle)
+      : turnAngle(bus.flight, total, landSpeed * flightS, (-(landSpeed - idleSpeed) * flightS * flightS) / settle) -
+        total
     // the pointer only pulls on it once it is landing (in flight the path is set)
     const leaning = (reduced ? 1 : lean(bus.flight)) * cfg.lean
     const nod = reduced ? 0 : depth(bus.flight) * 0.14
