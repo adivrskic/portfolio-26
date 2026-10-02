@@ -44,6 +44,11 @@ export const defaults = {
     tintOrbit: 0.1,
     /** while the cube is open, its centre glows in the project's colour this much (0 = not at all) */
     coreGlow: 1,
+    /** and blooms: how much brighter than white the glowing sphere burns (only what is brighter than white
+     *  blooms, so nothing else on the page does), how strongly it blooms, and how far the bloom spreads */
+    coreHeat: 3,
+    coreBloom: 1.5,
+    coreBloomRadius: 0.75,
 
     // ---- spin: once it has landed it keeps turning
     /** how fast it is spinning as it lands (radians a second: the intro's turn carries on) */
@@ -68,13 +73,23 @@ export const defaults = {
     /** how soft the whole cube goes behind a project's case study (Info), px */
     infoBlur: 16,
 
-    // ---- shadow (on a floor under the cube, from a light of its own)
-    /** how dark it is (0 = none) */
+    // ---- the floor under the cube, and the shadow on it (from a light of its own)
+    /** how dark the shadow is (0 = none), and its colour */
     shadow: 0.31,
-    /** how soft its edge is */
+    shadowColor: '#2a241e',
+    /** how soft its edge is, and the detail it is drawn at (a smaller map blurs wider and softer) */
     shadowSoftness: 12.5,
+    shadowMap: 256,
     /** how far below the cube the floor is, as a share of the cube's size */
     shadowDrop: 2,
+    /** the floor's tilt on top of the cube's resting pitch (radians): more, and it is seen more from above */
+    floorTilt: 0,
+    /** where the shadow's light comes from: its direction around the cube (radians), and how slanted it is
+     *  (0 = straight down, under the cube; more, a longer shadow falling further away) */
+    shadowAngle: -2.59,
+    shadowSlant: 0.34,
+    /** while the cube is open, its glowing centre lights the floor under it in the project's colour */
+    floorGlow: 0.4,
 
     // ---- the loading puzzle (applies on reload)
     /** quarter turns to undo while the page loads (0 = starts solved) */

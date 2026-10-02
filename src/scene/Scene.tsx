@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Environment, Lightformer, PerformanceMonitor } from '@react-three/drei'
 import { EffectComposer } from '@react-three/postprocessing'
+import { BloomEffect } from 'postprocessing'
 import * as THREE from 'three'
 import { reportLoad } from '../state/loading'
 import { bus, markLayoutDirty, useUI } from '../state/store'
@@ -147,9 +148,17 @@ function FirstFrames({ onReady }: { onReady: () => void }) {
   return null
 }
 
+/** only what is brighter than white blooms: the cube's glowing core while it is open (see coreHeat) */
+const BLOOM_THRESHOLD = 1.05
+
 function Effects() {
   const tilt = useMemo(() => new TiltShiftEffect(), [])
   useEffect(() => () => tilt.dispose(), [tilt])
+  const bloom = useMemo(
+    () => new BloomEffect({ mipmapBlur: true, luminanceThreshold: BLOOM_THRESHOLD, luminanceSmoothing: 0.3, intensity: 1, radius: 0.72 }),
+    [],
+  )
+  useEffect(() => () => bloom.dispose(), [bloom])
   // a project's case study is open: the whole cube goes soft behind it
   const veil = useRef(0)
   useFrame((state, delta) => {
@@ -170,10 +179,15 @@ function Effects() {
     const v = veil.current
     const blur = THREE.MathUtils.lerp(config.cube.tiltShift, config.cube.infoBlur, v)
     tilt.set(focus, band, ramp, blur * state.viewport.dpr, region, soft, v)
+    bloom.intensity = config.cube.coreBloom
+    bloom.mipmapBlurPass.radius = config.cube.coreBloomRadius
   })
+  // the bloom after the lens (which draws its blur from the frame as rendered, so it would drop a glow
+  // added before it)
   return (
     <EffectComposer multisampling={4}>
       <primitive object={tilt} />
+      <primitive object={bloom} />
     </EffectComposer>
   )
 }

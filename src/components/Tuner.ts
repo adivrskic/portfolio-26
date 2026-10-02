@@ -3,7 +3,7 @@ import { clearTuning, config, defaults, saveTuning, useTuning } from '../config'
 
 type Part = 'cube' | 'equalizer'
 type Range = { min: number; max: number; step: number; label?: string }
-type Choice = { options: Record<string, string>; label?: string }
+type Choice = { options: Record<string, string | number>; label?: string }
 type Spec = Record<string, Range | Choice | { label?: string } | null>
 
 /** settings that change what is built (the blocks' shape, the equalizer's layout), not just how it looks */
@@ -33,6 +33,9 @@ const CUBE: Record<string, Spec> = {
     tintLight: { min: 0, max: 10, step: 0.05, label: 'tint' },
     tintOrbit: { min: 0, max: 3, step: 0.01, label: 'tint orbit' },
     coreGlow: { min: 0, max: 3, step: 0.05, label: 'core glow (open)' },
+    coreHeat: { min: 1, max: 6, step: 0.05, label: 'core brightness' },
+    coreBloom: { min: 0, max: 4, step: 0.05, label: 'core bloom' },
+    coreBloomRadius: { min: 0, max: 1, step: 0.01, label: 'bloom spread' },
   },
   Spin: {
     spin: { min: 0, max: 1.5, step: 0.01, label: 'slow spin' },
@@ -47,10 +50,16 @@ const CUBE: Record<string, Spec> = {
     tiltShift: { min: 0, max: 30, step: 0.5, label: 'tilt-shift blur' },
     infoBlur: { min: 0, max: 40, step: 0.5, label: 'blur behind info' },
   },
-  Shadow: {
+  'Floor & shadow': {
     shadow: { min: 0, max: 0.8, step: 0.01, label: 'darkness' },
+    shadowColor: { label: 'shadow colour' },
     shadowSoftness: { min: 1, max: 30, step: 0.5, label: 'softness' },
-    shadowDrop: { min: 0, max: 2, step: 0.01, label: 'drop below' },
+    shadowMap: { options: { '128 (softest)': 128, '256': 256, '512': 512, '1024 (crispest)': 1024 }, label: 'detail' },
+    shadowDrop: { min: 0, max: 3, step: 0.01, label: 'drop below' },
+    floorTilt: { min: -0.8, max: 0.8, step: 0.01, label: 'floor tilt' },
+    shadowAngle: { min: -3.14, max: 3.14, step: 0.01, label: 'light direction' },
+    shadowSlant: { min: 0, max: 1.2, step: 0.01, label: 'light slant' },
+    floorGlow: { min: 0, max: 2, step: 0.05, label: 'core glow on floor' },
   },
   'Intro (replay to see)': {
     scramble: { min: 0, max: 30, step: 1, label: 'scramble turns' },

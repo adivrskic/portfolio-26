@@ -6,7 +6,7 @@ import { config, useTuning } from '../config'
 import { bus, useUI } from '../state/store'
 import { depth, lean, turnAngle } from './flight'
 import { ATLAS_COLS, ATLAS_ROWS, createLetterAtlas, glyphIndex, NAME_ROWS } from './letters'
-import { CUBE_DEPTH } from './Equalizer'
+import { CUBE_DEPTH, SHADOW_ONLY } from './Equalizer'
 import { glowColor } from './palette'
 
 const N = 3
@@ -30,6 +30,12 @@ const KICK = 5
 const CORE_LIGHT = 2.2
 const HAZE_SIZE = 1.9
 const HAZE_OPACITY = 0.5
+/** its pool of light on the floor (times config.cube.floorGlow): how wide (in the cube's units) and how
+ *  strong */
+const FLOOR_GLOW_SIZE = 3.2
+const FLOOR_GLOW_OPACITY = 0.32
+/** how high the light that casts the shadow stands over the floor (its slant reaches out from under it) */
+const LIGHT_HEIGHT = 9
 const WHITE = new THREE.Color(1, 1, 1)
 
 /** a soft round falloff, for the haze around the core */
@@ -342,6 +348,8 @@ export function VoxelCube() {
   const hazeMat = useRef<THREE.SpriteMaterial>(null)
   const hazeMap = useMemo(hazeTexture, [])
   useEffect(() => () => hazeMap.dispose(), [hazeMap])
+  const floorGlow = useRef<THREE.Mesh>(null)
+  const floorGlowMat = useRef<THREE.MeshBasicMaterial>(null)
   const tintA = useRef<THREE.PointLight>(null)
   const key = useRef<THREE.DirectionalLight>(null)
   const fill = useRef<THREE.HemisphereLight>(null)
@@ -433,6 +441,7 @@ export function VoxelCube() {
     glow2: new THREE.Color(),
     coupled: { axis: 0, layer: 0, dir: 1, angle: 0, vel: 0 } as Twist,
     color: '',
+    shadowColor: '',
     puzzle: null as { voxels: Voxel[]; solve: Move[] } | null,
     solve: [] as Move[],
     move: null as (Move & { t0: number; angle: number }) | null,
@@ -579,12 +588,32 @@ export function VoxelCube() {
     m.layers.enable(CUBE_DEPTH)
 
     // ---- the shadow, on a floor a little below the cube, tilted with its resting pose (so the floor
-    // is seen from a little above, like a product shot on a seamless backdrop); it follows the cube's
-    // size through the intro and the layout
-    if (floorFrame.current) floorFrame.current.rotation.x = cfg.pitch
-    if (floor.current) floor.current.position.y = -scale * (1 + cfg.shadowDrop)
-    if (floorMat.current) floorMat.current.opacity = cfg.shadow
-    if (shade.current) shade.current.shadow.radius = cfg.shadowSoftness
+    // is seen from a little above, like a product shot on a seamless backdrop, and more or less so by
+    // floorTilt); it follows the cube's size through the intro and the layout
+    if (floorFrame.current) floorFrame.current.rotation.x = cfg.pitch + cfg.floorTilt
+    const floorY = -scale * (1 + cfg.shadowDrop)
+    if (floor.current) floor.current.position.y = floorY
+    if (floorMat.current) {
+      floorMat.current.opacity = cfg.shadow
+      if (s.shadowColor !== cfg.shadowColor) floorMat.current.color.set((s.shadowColor = cfg.shadowColor))
+    }
+    if (shade.current) {
+      const light = shade.current
+      light.shadow.radius = cfg.shadowSoftness
+      // where its light comes from: around the cube, and how far from straight overhead
+      const reach = LIGHT_HEIGHT * cfg.shadowSlant
+      light.position.set(Math.sin(cfg.shadowAngle) * reach, LIGHT_HEIGHT, Math.cos(cfg.shadowAngle) * reach)
+      // the shadow's detail: a new size means a new map
+      if (light.shadow.mapSize.x !== cfg.shadowMap) {
+        light.shadow.mapSize.set(cfg.shadowMap, cfg.shadowMap)
+        light.shadow.dispose()
+        light.shadow.map = null
+        light.shadow.mapPass = null
+      }
+    }
+    // the shadow on its own, for the equalizer to lie under (see SHADOW_ONLY): the floor, and its light
+    floor.current?.layers.enable(SHADOW_ONLY)
+    shade.current?.layers.enable(SHADOW_ONLY)
 
     // ---- the blocks part a little while About/Contact is open (never inside the loader)
     // the tunable look, applied as it changes
@@ -810,7 +839,13 @@ export function VoxelCube() {
     // project's colour, lighting the blocks' inner faces and with a soft haze around it (a reply
     // starting, or a project change, brightens it for a moment); closed, it is dark
     const lit = fx.uOpen.value * cfg.coreGlow * (1 + s.pulse * 0.6)
-    if (coreMat.current) coreMat.current.color.copy(s.glow).lerp(WHITE, 0.3).multiplyScalar(0.55 + 0.6 * Math.min(1, lit))
+    // (lit, it burns brighter than white, by coreHeat: that is what blooms, see Effects in Scene)
+    const burn = Math.min(1, lit)
+    if (coreMat.current)
+      coreMat.current.color
+        .copy(s.glow)
+        .lerp(WHITE, 0.3)
+        .multiplyScalar((0.55 + 0.6 * burn) * (1 + (cfg.coreHeat - 1) * burn))
     if (core.current) core.current.scale.setScalar(1 + Math.sin(t * 1.7) * 0.03 + s.pulse * 0.04)
     if (coreLight.current) {
       coreLight.current.color.copy(s.glow)
@@ -822,6 +857,14 @@ export function VoxelCube() {
       hazeMat.current.color.copy(s.glow)
       hazeMat.current.opacity = Math.min(1, lit) * HAZE_OPACITY * (0.92 + Math.sin(t * 1.7) * 0.08)
       haze.current.visible = hazeMat.current.opacity > 0.002
+    }
+    // and on the floor under it, a pool of its light
+    if (floorGlow.current && floorGlowMat.current) {
+      floorGlowMat.current.color.copy(s.glow)
+      floorGlowMat.current.opacity = burn * cfg.floorGlow * FLOOR_GLOW_OPACITY * (0.94 + Math.sin(t * 1.7) * 0.06)
+      floorGlow.current.visible = floorGlowMat.current.opacity > 0.002
+      floorGlow.current.position.y = -scale * (1 + cfg.shadowDrop) + 0.002
+      floorGlow.current.scale.setScalar(FLOOR_GLOW_SIZE * scale)
     }
   }, -1)
 
@@ -854,12 +897,13 @@ export function VoxelCube() {
         </sprite>
       </group>
       {/* an invisible floor that only shows the cube's shadow, cast by a light of its own from nearly
-          overhead and a little behind, so it pools forwards where it can be seen (it lights nothing: the cube's look stays the key light's); a small shadow map, so the
-          blur spreads wide and soft */}
+          overhead and a little behind, so it pools forwards where it can be seen (it lights nothing: the
+          cube's look stays the key light's); a small shadow map, so the blur spreads wide and soft. Where
+          the light stands, the map's size and the floor's tilt and colour are all tunable (config.cube) */}
       <group ref={floorFrame}>
         <directionalLight
           ref={shade}
-          position={[-1.6, 9, -2.6]}
+          position={[-1.6, LIGHT_HEIGHT, -2.6]}
           intensity={0}
           castShadow
           shadow-mapSize={[256, 256]}
@@ -873,8 +917,14 @@ export function VoxelCube() {
           shadow-bias={-0.0002}
         />
         <mesh ref={floor} rotation-x={-Math.PI / 2} receiveShadow renderOrder={-400}>
-          <planeGeometry args={[6.5, 6.5]} />
+          {/* (wide enough for a long shadow from a slanted light) */}
+          <planeGeometry args={[9, 9]} />
           <shadowMaterial ref={floorMat} transparent depthWrite={false} color="#2a241e" opacity={0.22} />
+        </mesh>
+        {/* the core's light pooling on the floor while the cube is open (see the frame loop) */}
+        <mesh ref={floorGlow} rotation-x={-Math.PI / 2} renderOrder={-399} visible={false}>
+          <planeGeometry args={[1, 1]} />
+          <meshBasicMaterial ref={floorGlowMat} map={hazeMap} transparent depthWrite={false} toneMapped={false} opacity={0} />
         </mesh>
       </group>
     </>

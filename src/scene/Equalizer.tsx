@@ -8,11 +8,16 @@ import { glowColor } from './palette'
 
 /**
  * The equalizer is drawn on top of the finished frame, after the tilt-shift lens (so its cubes stay sharp
- * where the lens blurs, on the cube's side of the page), on a layer of its own; the big cube is also on
- * CUBE_DEPTH, so its depth can go in first and the cube stays in front where they meet.
+ * where the lens blurs, on the cube's side of the page), on a layer of its own; but it reads as behind
+ * everything. The big cube is also on CUBE_DEPTH, so its depth can go in first and the cube stays in front
+ * where they meet; and the cube's shadow on its floor (with the light that casts it) is on SHADOW_ONLY,
+ * drawn alone into a small soft target the cubes are shaded by, so they lie under the shadow too.
  */
 export const OVERLAY = 1
 export const CUBE_DEPTH = 2
+export const SHADOW_ONLY = 3
+/** the shadow's target, this much smaller than the page (it softens as it is scaled back up) */
+const SHADOW_SCALE = 4
 
 const vertexShader = /* glsl */ `
   attribute vec2 aCell;
@@ -92,6 +97,8 @@ const vertexShader = /* glsl */ `
 
 const fragmentShader = /* glsl */ `
   uniform float uRound;
+  uniform sampler2D uShadow;
+  uniform vec2 uScreen;
   varying vec2 vLocal;
   varying float vHalf;
   varying float vSoft;
@@ -109,7 +116,12 @@ const fragmentShader = /* glsl */ `
     if (a < 0.004) discard;
     // a faint light along the top edge, like the big cube's blocks
     float up = clamp(-vLocal.y / max(vHalf, 0.5), -1.0, 1.0);
-    gl_FragColor = vec4(vColor * (1.0 + 0.1 * up), a);
+    vec3 col = vColor * (1.0 + 0.1 * up);
+    // under the big cube's shadow, as the page behind it is (the shadow on its own: its colour already
+    // weighed by how dark it is there, and how dark in alpha)
+    vec4 shade = texture2D(uShadow, gl_FragCoord.xy / uScreen);
+    col = col * (1.0 - shade.a) + shade.rgb;
+    gl_FragColor = vec4(col, a);
     #include <colorspace_fragment>
   }
 `
@@ -214,6 +226,8 @@ export function Equalizer() {
           uMid: { value: new THREE.Color() },
           uLight: { value: new THREE.Color() },
           uHot: { value: new THREE.Color() },
+          uShadow: { value: null as THREE.Texture | null },
+          uScreen: { value: new THREE.Vector2(1, 1) },
         },
       }),
     [],
@@ -223,6 +237,11 @@ export function Equalizer() {
   const mesh = useRef<THREE.Mesh>(null)
   const depthOnly = useMemo(() => new THREE.MeshBasicMaterial({ colorWrite: false }), [])
   useEffect(() => () => depthOnly.dispose(), [depthOnly])
+  // the big cube's shadow on its own (see SHADOW_ONLY)
+  const shadow = useMemo(() => new THREE.WebGLRenderTarget(1, 1, { depthBuffer: false }), [])
+  useEffect(() => () => shadow.dispose(), [shadow])
+  const screen = useMemo(() => new THREE.Vector2(), [])
+  const clearColor = useMemo(() => new THREE.Color(), [])
   useEffect(() => () => levels.dispose(), [levels])
 
   const sim = useRef({
@@ -352,7 +371,8 @@ export function Equalizer() {
     u.uLevels.value = levels
   }, -1)
 
-  // after the post-processing composer (which renders at priority 1): the cube's depth, then the cubes
+  // after the post-processing composer (which renders at priority 1): the cube's shadow on its own, the
+  // cube's depth, then the cubes
   useFrame(({ gl, scene, camera }) => {
     const m = mesh.current
     if (!m) return
@@ -361,6 +381,21 @@ export function Equalizer() {
     const shadows = gl.shadowMap.autoUpdate
     gl.autoClear = false
     gl.shadowMap.autoUpdate = false
+    // the shadow (from the shadow map the frame just made) on a clear target, at a fraction of the size
+    gl.getDrawingBufferSize(screen)
+    const sw = Math.max(1, Math.round(screen.x / SHADOW_SCALE))
+    const sh = Math.max(1, Math.round(screen.y / SHADOW_SCALE))
+    if (shadow.width !== sw || shadow.height !== sh) shadow.setSize(sw, sh)
+    gl.getClearColor(clearColor)
+    const clearAlpha = gl.getClearAlpha()
+    gl.setRenderTarget(shadow)
+    gl.setClearColor(0x000000, 0)
+    gl.clear(true, false, false)
+    camera.layers.set(SHADOW_ONLY)
+    gl.render(scene, camera)
+    gl.setClearColor(clearColor, clearAlpha)
+    material.uniforms.uShadow.value = shadow.texture
+    material.uniforms.uScreen.value.copy(screen)
     gl.setRenderTarget(null)
     gl.clearDepth()
     camera.layers.set(CUBE_DEPTH)
