@@ -37,11 +37,6 @@
   container-type: inline-size;
 }
 
-/* all site: the title and its line are on the left already */
-.hero .card {
-  --grow: 1;
-}
-
 .hero-probe {
   position: fixed;
   top: var(--pad);

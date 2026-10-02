@@ -176,11 +176,17 @@ html[data-cube-drag] * {
   color: var(--ink-2);
 }
 
-/* the title under the cube is out of sight while the study carries it up to the back arrow and back down
-   (see Lifted in LeftColumn): the two swap in the same frame, at the caption's spot */
-.left[data-lifted] .caption-title,
-.left[data-lifted] .caption-sub {
-  opacity: 0;
+/* the study's title and line roll in and out of view through masks of their own, as the name under the
+   cube does (see Lifted in LeftColumn) */
+.brief-title,
+.brief-kind {
+  overflow: hidden;
+  padding-bottom: 0.1em;
+  margin-bottom: -0.1em;
+}
+
+.brief-line {
+  display: block;
 }
 
 /* a shade darker than elsewhere: it reads over the blurred cube */
@@ -229,6 +235,29 @@ html[data-cube-drag] * {
   align-items: center;
   gap: 4px;
   justify-content: center;
+}
+
+/* its icons come in one after another, slowly, rising and sharpening (each time the row changes: the
+   gallery's, a project's) */
+.actions-row > * {
+  animation: icon-in 1s var(--ease-out) backwards;
+}
+
+.actions-row > :nth-child(1) { animation-delay: 0.2s; }
+.actions-row > :nth-child(2) { animation-delay: 0.28s; }
+.actions-row > :nth-child(3) { animation-delay: 0.36s; }
+.actions-row > :nth-child(4) { animation-delay: 0.44s; }
+.actions-row > :nth-child(5) { animation-delay: 0.52s; }
+.actions-row > :nth-child(6) { animation-delay: 0.6s; }
+.actions-row > :nth-child(7) { animation-delay: 0.68s; }
+.actions-row > :nth-child(8) { animation-delay: 0.76s; }
+
+@keyframes icon-in {
+  from {
+    opacity: 0;
+    translate: 0 10px;
+    filter: blur(4px);
+  }
 }
 
 /* separates the panels (About, Contact) from the outbound links */
@@ -408,7 +437,8 @@ html[data-page-slide] .main {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .brief-inner > * {
+  .brief-inner > *,
+  .actions-row > * {
     animation: none !important;
   }
 }

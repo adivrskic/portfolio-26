@@ -82,7 +82,7 @@ export function Morph({ project, panel }: { project: Project | null; panel: Pane
     const card = face.current
     if (!morph || !el || !card) return
     const { dir, slug, from, source } = morph
-    // from a next-project card: a bare picture (no words) growing into the hero; its site's pass starts
+    // from a next-project card: its picture growing into the hero, a longer way; its site's pass starts
     // from the top as it takes off (see restartScroll), so it is that picture all the way
     const bare = source === 'next'
     const spot = () => (dir === 'expand' ? heroSpot(slug) : gallerySpot()) ?? from
@@ -92,15 +92,12 @@ export function Morph({ project, panel }: { project: Project | null; panel: Pane
       el.style.height = `${r.h}px`
     }
     place(from)
-    // the card opens up into all site on the way to the project (its words fade), and back on the way home
-    card.style.setProperty('--grow', bare || dir === 'collapse' ? '1' : '0')
     let raf = 0
     let waited = 0
     const flight = animate(0, 1, {
       duration: bare ? 1.05 : dir === 'expand' ? 0.9 : 0.75,
       ease: EASE,
       onUpdate: (k) => {
-        if (!bare) card.style.setProperty('--grow', String(dir === 'expand' ? k : 1 - k))
         const to = spot()
         place({
           x: from.x + (to.x - from.x) * k,

@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, animate, motion, usePresence, usePresenceData, type AnimationPlaybackControls } from 'motion/react'
 import { Link } from 'react-router'
+import { PROJECTS } from '../data/projects'
 import { SITE } from '../data/site'
 import type { Project, Social } from '../data/types'
 import { useUI } from '../state/store'
@@ -17,9 +18,10 @@ import {
 } from './Icons'
 import { Roll } from './Roll'
 
+/** the menu's row (its icons come in one after another, see layout.css) */
 const row = {
-  initial: { opacity: 0, y: 12, filter: 'blur(6px)' },
-  animate: { opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.18 } },
+  initial: { opacity: 0 },
+  animate: { opacity: 1, transition: { duration: 0.3 } },
   exit: { opacity: 0, y: -8, filter: 'blur(6px)', transition: { duration: 0.22 } },
 } as const
 
@@ -32,6 +34,9 @@ const SOCIAL_ICONS: Record<Social['icon'], typeof IconGitHub> = {
 
 export function LeftColumn({ project }: { project: Project | null }) {
   const panel = useUI((s) => s.panel)
+  const active = useUI((s) => s.active)
+  // the project the caption under the cube names (none while About, Contact or the chat is open)
+  const named = project ?? (panel ? null : (PROJECTS[active] ?? null))
   const infoMode = useUI((s) => s.infoMode)
   const setInfoMode = useUI((s) => s.setInfoMode)
   const ready = useUI((s) => s.ready)
@@ -63,13 +68,6 @@ export function LeftColumn({ project }: { project: Project | null }) {
     return () => window.removeEventListener('resize', measure)
   }, [brief, upright])
 
-  // the title under the cube is the study's own while it is up (opening, open, or settling back down):
-  // the study carries it up to the back arrow and back, so the one here stays out of sight meanwhile
-  const [studyUp, setStudyUp] = useState(false)
-  if (brief && upright && !studyUp) setStudyUp(true)
-  // (switching to the phone layout while it is up, the study runs on under the title instead)
-  if (!upright && studyUp) setStudyUp(false)
-
   // Esc closes the case study
   useEffect(() => {
     if (!brief) return
@@ -86,7 +84,6 @@ export function LeftColumn({ project }: { project: Project | null }) {
       data-view={project ? 'project' : 'home'}
       data-panel={panel ?? undefined}
       data-brief={brief || undefined}
-      data-lifted={studyUp || undefined}
     >
       {/* the name lives on the cube; keep it for screen readers and search */}
       {!project && (
@@ -104,26 +101,31 @@ export function LeftColumn({ project }: { project: Project | null }) {
           </Link>
         )}
 
+        {/* under the cube, the project's name: the one open, or the one in focus in the gallery (rolling
+            on to the next as the gallery turns). With About, Contact or the chat open it keeps its place,
+            empty, so the cube stays put (on phones, where the page simply runs on, it goes) */}
         <AnimatePresence initial={false}>
-          {placed && project && (
+          {placed && (project || !panel || upright) && (
             <motion.div
               key="caption"
               className="caption"
-              // arriving straight on a project page, the title's space is there before the cube sets off
-              // (so it flies to its final spot) and the title fades in once it has landed
+              // the title's space is there before the cube sets off (so it flies to its final spot), and
+              // the title comes in once it has landed
               initial={{ opacity: 0, height: ready ? 0 : 'auto' }}
               animate={{
                 opacity: ready ? 1 : 0,
                 height: 'auto',
-                transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] },
+                transition: { duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: project ? 0 : 0.2 },
               }}
               exit={{ opacity: 0, height: 0, transition: { duration: 0.35 } }}
             >
-              <h1 className="caption-title">
-                <Roll text={project.title} />
-              </h1>
-              <p className="caption-sub">
-                <Roll text={project.kind} delay={0.06} />
+              {/* a heading on a project page; in the gallery it only echoes the card in focus, which the
+                  gallery announces itself */}
+              <p className="caption-title" {...(project ? { role: 'heading', 'aria-level': 1 } : { 'aria-hidden': true })}>
+                <Roll text={named?.title ?? ' '} />
+              </p>
+              <p className="caption-sub" aria-hidden={project ? undefined : true}>
+                <Roll text={named?.kind ?? ' '} delay={0.06} />
               </p>
             </motion.div>
           )}
@@ -147,7 +149,7 @@ export function LeftColumn({ project }: { project: Project | null }) {
               {...(upright ? {} : underTitle)}
             >
               {upright ? (
-                <Lifted slug={project.slug} onDown={() => setStudyUp(false)}>
+                <Lifted slug={project.slug}>
                   <Brief project={project} />
                 </Lifted>
               ) : (
@@ -271,9 +273,8 @@ export function LeftColumn({ project }: { project: Project | null }) {
 
 const EASE_OUT = [0.16, 1, 0.3, 1] as const
 const EASE_IN = [0.7, 0, 0.84, 0] as const
-/** the study's lift: unhurried out of the caption, settling at the back arrow; and its way back down */
-const LIFT = { duration: 1.05, ease: [0.62, 0, 0.16, 1] } as const
-const SETTLE = { duration: 0.8, ease: [0.55, 0, 0.22, 1] } as const
+/** the study sliding up into place from under the cube: unhurried out of the caption, settling in */
+const RISE = { duration: 1.1, ease: [0.62, 0, 0.16, 1] } as const
 
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -286,75 +287,98 @@ function letters(el: Element | null | undefined) {
   return r.width > 0 ? r : null
 }
 
-/** how far an element is moved by its transform right now */
-function shifted(el: HTMLElement) {
-  const m = new DOMMatrixReadOnly(getComputedStyle(el).transform)
-  return { x: m.m41, y: m.m42 }
+/**
+ * A line rolling within its mask, as the caption's do when they change (see Roll): out of view upwards,
+ * or up into view from below. On the CSS translate, so it adds to the transform Roll animates. `keep`
+ * holds a line rolled out where it went.
+ */
+function roll(el: HTMLElement, way: 'out' | 'in', delay = 0, keep = false) {
+  const still = reducedMotion()
+  return el.animate(way === 'out' ? [{ translate: '0 0' }, { translate: '0 -110%' }] : [{ translate: '0 110%' }, { translate: '0 0' }], {
+    duration: still ? 0 : way === 'out' ? 380 : 850,
+    delay: still ? 0 : delay,
+    easing: way === 'out' ? 'cubic-bezier(0.7, 0, 0.84, 0)' : 'cubic-bezier(0.16, 1, 0.3, 1)',
+    fill: keep ? 'forwards' : 'backwards',
+  })
 }
 
+/** the name under the cube, both lines */
+const captionLines = () => [...document.querySelectorAll<HTMLElement>('.caption .roll-line')]
+
+/** done, unless it was called off (a cancelled roll's promise rejects) */
+const settled = (a: Animation | AnimationPlaybackControls) => ('finished' in a ? a.finished : Promise.resolve(a))
+
 /**
- * The case study over the cube (wide screens), lifted up off the title under the cube: the study's own
- * title and line start exactly over the caption's (which steps out of sight, see studyUp) and rise with
- * the whole study up to the back arrow, the rest of it fading up under them. Closing, it all settles back
- * down onto the caption, which takes over again once it has landed (onDown). Leaving for another project,
- * or for home, it simply fades.
+ * The case study over the cube (wide screens). Opening, the name under the cube rolls up out of sight and
+ * the study slides up into place from there, its own title and line rolling up into view at the top as
+ * the rest of it arrives. Closing, its title and line roll away, the rest slides back down as it fades,
+ * and the name under the cube rolls back in. Leaving for another project, or for home, it simply fades.
  */
-function Lifted({ slug, onDown, children }: { slug: string; onDown: () => void; children: ReactNode }) {
+function Lifted({ slug, children }: { slug: string; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
   const [present, safeToRemove] = usePresence()
   // the project on screen now (AnimatePresence's custom)
   const onScreen = usePresenceData() as string | undefined
-  const running = useRef<AnimationPlaybackControls[]>([])
+  const running = useRef<(Animation | AnimationPlaybackControls)[]>([])
+  // the name under the cube, held rolled out of sight while the study is up
+  const held = useRef<Animation[]>([])
   // was it present last time (a change is a close, or a reopening on the way down), and which move is the
   // latest (an earlier one finishing late does nothing)
   const was = useRef(present)
   const turn = useRef(0)
-  const down = useRef(onDown)
-  down.current = onDown
 
   const parts = () => {
     const inner = ref.current?.querySelector<HTMLElement>('.brief-inner') ?? null
     return {
       inner,
-      title: inner?.querySelector<HTMLElement>('.brief-title') ?? null,
-      kind: inner?.querySelector<HTMLElement>('.brief-kind') ?? null,
+      head: inner ? [...inner.querySelectorAll<HTMLElement>('.brief-line')] : [],
       rest: inner ? ([...inner.children].filter((c) => !c.classList.contains('brief-head')) as HTMLElement[]) : [],
     }
   }
-  /** from the study's title and line (as they sit now) to the caption's; null if there is none to go to */
-  const toCaption = () => {
-    const p = parts()
-    const from = { title: letters(p.title), kind: letters(p.kind) }
-    const to = { title: letters(document.querySelector('.caption-title')), kind: letters(document.querySelector('.caption-sub')) }
-    if (!p.inner || !p.title || !p.kind || !from.title || !from.kind || !to.title || !to.kind) return null
-    return { y: to.title.top - from.title.top, xTitle: to.title.left - from.title.left, xKind: to.kind.left - from.kind.left }
-  }
   const stop = () => {
-    running.current.forEach((a) => a.stop())
+    for (const a of running.current) {
+      if ('stop' in a) a.stop()
+      else a.cancel()
+    }
     running.current = []
   }
+  const captionOut = () => {
+    held.current.forEach((a) => a.cancel())
+    held.current = captionLines().map((el, i) => roll(el, 'out', i * 60, true))
+  }
+  const captionIn = (delay: number) => {
+    held.current.forEach((a) => a.cancel())
+    held.current = []
+    return captionLines().map((el, i) => roll(el, 'in', delay + i * 70))
+  }
 
-  // up: from over the caption (set before the first paint, so it never shows anywhere else; measured from
-  // where it sits untouched)
+  // up, as it mounts (all set before the first paint): it starts where the name under the cube is
   useLayoutEffect(() => {
     const p = parts()
-    for (const el of [p.inner, p.title, p.kind]) el?.style.removeProperty('transform')
-    const g = reducedMotion() ? null : toCaption()
-    if (!p.inner || !p.title || !p.kind || !g) {
-      if (p.inner) running.current = [animate(p.inner, { opacity: [0, 1] }, { duration: 0.45 })]
-      return stop
+    if (!p.inner) return
+    const title = letters(p.inner.querySelector('.brief-title'))
+    const caption = letters(document.querySelector('.caption-title'))
+    const from = title && caption && !reducedMotion() ? Math.max(0, caption.top - title.top) : 0
+    captionOut()
+    for (const el of p.rest) {
+      el.style.opacity = '0'
+      el.style.transform = `translateY(${from + 24}px)`
     }
-    p.inner.style.transform = `translateY(${g.y}px)`
-    p.title.style.transform = `translateX(${g.xTitle}px)`
-    p.kind.style.transform = `translateX(${g.xKind}px)`
-    for (const el of p.rest) el.style.opacity = '0'
+    // (the study sets off once the name has rolled out of its way, and its title and line roll in to land
+    // with the rest of it)
     running.current = [
-      animate(p.inner, { y: [g.y, 0] }, LIFT),
-      animate(p.title, { x: [g.xTitle, 0] }, LIFT),
-      animate(p.kind, { x: [g.xKind, 0] }, LIFT),
-      ...p.rest.map((el, i) => animate(el, { opacity: [0, 1], y: [26, 0] }, { duration: 0.95, ease: EASE_OUT, delay: 0.24 + i * 0.06 })),
+      ...p.head.map((el, i) => roll(el, 'in', 560 + i * 70)),
+      ...p.rest.flatMap((el, i) => [
+        animate(el, { y: [from + 24, 0] }, { ...RISE, delay: 0.22 + i * 0.045 }),
+        animate(el, { opacity: [0, 1] }, { duration: 0.8, ease: EASE_OUT, delay: 0.3 + i * 0.045 }),
+      ]),
     ]
-    return stop
+    return () => {
+      stop()
+      // (gone: the name under the cube is back)
+      held.current.forEach((a) => a.cancel())
+      held.current = []
+    }
     // (once, as it mounts)
   }, [])
 
@@ -363,40 +387,36 @@ function Lifted({ slug, onDown, children }: { slug: string; onDown: () => void; 
     if (was.current === present) return
     was.current = present
     const p = parts()
-    if (!p.inner || !p.title || !p.kind) return
+    if (!p.inner) return
     const t = ++turn.current
+    stop()
     if (present) {
-      stop()
+      captionOut()
       running.current = [
-        animate(p.inner, { y: 0, opacity: 1 }, LIFT),
-        animate(p.title, { x: 0 }, LIFT),
-        animate(p.kind, { x: 0 }, LIFT),
-        ...p.rest.map((el) => animate(el, { opacity: 1, y: 0 }, { duration: 0.7, ease: EASE_OUT })),
+        ...p.head.map((el) => roll(el, 'in')),
+        ...p.rest.map((el) => animate(el, { y: 0, opacity: 1 }, { duration: 0.8, ease: EASE_OUT })),
       ]
       return
     }
-    stop()
     const done = () => {
-      if (turn.current !== t) return
-      down.current()
-      safeToRemove?.()
+      if (turn.current === t) safeToRemove?.()
     }
-    const g = onScreen === slug && !reducedMotion() ? toCaption() : null
-    if (!g) {
+    if (onScreen !== slug) {
+      // leaving for another project, or for home: the name under the cube is another, and comes in itself
+      held.current.forEach((a) => a.cancel())
+      held.current = []
       const fade = animate(p.inner, { opacity: 0 }, { duration: 0.3, ease: EASE_IN })
       running.current = [fade]
       void fade.then(done)
       return
     }
-    const now = { inner: shifted(p.inner), title: shifted(p.title), kind: shifted(p.kind) }
-    const anims = [
-      animate(p.inner, { y: now.inner.y + g.y }, SETTLE),
-      animate(p.title, { x: now.title.x + g.xTitle }, SETTLE),
-      animate(p.kind, { x: now.kind.x + g.xKind }, SETTLE),
-      ...p.rest.map((el) => animate(el, { opacity: 0, y: 14 }, { duration: 0.34, ease: EASE_IN })),
+    const away = [
+      ...p.head.map((el, i) => roll(el, 'out', i * 50, true)),
+      ...p.rest.map((el, i) => animate(el, { y: 36, opacity: 0 }, { duration: 0.45, ease: EASE_IN, delay: i * 0.03 })),
     ]
-    running.current = anims
-    void Promise.all(anims).then(done)
+    running.current = away
+    const back = captionIn(260)
+    Promise.all([...away, ...back].map(settled)).then(done, () => {})
   }, [present])
 
   return <div ref={ref}>{children}</div>
@@ -439,8 +459,13 @@ function Brief({ project: p }: { project: Project }) {
     <div className="brief-inner">
       {/* over the cube the study carries the title (the one under the cube steps aside) */}
       <header className="brief-head">
-        <p className="brief-title">{p.title}</p>
-        <p className="brief-kind">{p.kind}</p>
+        {/* (each line rolls in and out of view, see Lifted) */}
+        <p className="brief-title">
+          <span className="brief-line">{p.title}</span>
+        </p>
+        <p className="brief-kind">
+          <span className="brief-line">{p.kind}</span>
+        </p>
       </header>
       {/* (--i: each part's place as they rise in on phones) */}
       <p className="brief-summary" style={{ '--i': 0 } as CSSProperties}>

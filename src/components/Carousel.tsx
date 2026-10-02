@@ -36,8 +36,10 @@ export function Carousel() {
   // the card standing in for a hero in flight (hidden until it lands, see Morph)
   const morphSlug = useUI((s) => s.morph?.slug)
   // the gallery always comes in already on its project (the first time, the first one): it rises and
-  // fades in as a whole, rather than rolling up through the projects before it
+  // fades in slowly, and the cards stacked above and below then open out from behind it (rather than
+  // rolling up through the projects before it)
   const [intro] = useState(() => (reducedMotion() || docking ? null : introPlayed ? 'return' : 'first'))
+  const spread = useMotionValue(intro ? 0 : 1)
   const pos = useMotionValue(initial)
   const target = useRef(initial)
   const [base, setBase] = useState(initial)
@@ -50,9 +52,11 @@ export function Carousel() {
   const drag = useRef({ id: -1, y: 0, start: 0, moved: 0, down: false, captured: false, lastY: 0, lastT: 0, vel: 0 })
   const suppressClick = useRef(false)
 
-  /** position every rendered slot on the drum for a continuous index v */
+  /** position every rendered slot on the drum for a continuous index v (the stack opened out by `spread`:
+   *  0, every card tucked flat behind the focused one; 1, the drum) */
   const layout = useCallback((v: number) => {
     const h = cardH.current
+    const s = spread.get()
     const compact = window.innerWidth < 860
     // the neighbours sit in close enough to show whole, clear of the page's edges (and the equalizer)
     const Y1 = h * (compact ? 0.72 : 0.78)
@@ -65,12 +69,12 @@ export function Carousel() {
       let rx: number
       let sc: number
       if (ad <= 1) {
-        y = d * Y1
-        rx = d * 98
+        y = d * Y1 * s
+        rx = d * 98 * s
         sc = 1 - 0.2 * ad
       } else {
-        y = sgn * (Y1 + (ad - 1) * STEP)
-        rx = sgn * 98
+        y = sgn * (Y1 + (ad - 1) * STEP) * s
+        rx = sgn * 98 * s
         sc = 0.8
       }
       // two cards stacked on either side (a third would run into the page's edge, and the equalizer)
@@ -160,6 +164,16 @@ export function Carousel() {
       bus.drum = Number.NaN
     }
   }, [pos])
+
+  // coming in: once the focused card is on its way up, the stack opens out from behind it
+  useEffect(() => {
+    const off = spread.on('change', () => layout(pos.get()))
+    const open = intro ? animate(spread, 1, { duration: 1.9, ease: [0.22, 1, 0.36, 1], delay: intro === 'first' ? 0.55 : 0.35 }) : null
+    return () => {
+      off()
+      open?.stop()
+    }
+  }, [intro, layout, pos, spread])
 
   // wheel / trackpad: one project per gesture, inertia tails don't skip ahead
   useEffect(() => {
@@ -299,8 +313,19 @@ export function Carousel() {
       className="carousel"
       data-arriving={arriving || undefined}
       variants={shell}
-      initial={docking ? false : { opacity: 0, y: 30 }}
-      animate={{ opacity: 1, y: 0, transition: { duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: intro === 'first' ? 0 : 0.1 } }}
+      // it rises slowly into place, fading in a little ahead of it
+      initial={docking ? false : { opacity: 0, y: 48, scale: 0.985 }}
+      animate={{
+        opacity: 1,
+        y: 0,
+        scale: 1,
+        transition: {
+          duration: 1.7,
+          ease: [0.16, 1, 0.3, 1],
+          delay: intro === 'first' ? 0.1 : 0.15,
+          opacity: { duration: 1.2, ease: [0.33, 1, 0.68, 1], delay: intro === 'first' ? 0.1 : 0.15 },
+        },
+      }}
       exit="exit"
     >
       <div

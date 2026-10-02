@@ -139,7 +139,7 @@ function Hero({ project, still }: { project: Project; still: boolean }) {
       animate={{ opacity: 1, y: 0, scale: 1, transition: { duration: 1, ease: EASE_OUT } }}
     >
       <div className="card rim" style={{ '--card-accent': project.accent } as CSSProperties}>
-        <CardFace project={project} foot={false} />
+        <CardFace project={project} />
       </div>
     </motion.div>
   )
