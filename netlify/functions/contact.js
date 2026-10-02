@@ -68,4 +68,8 @@ export default async (req, context) => {
   }
 }
 
-export const config = { path: '/api/contact' }
+export const config = {
+  path: '/api/contact',
+  // Netlify's own limit, per visitor across every instance (blocked with a 429)
+  rateLimit: { windowLimit: 3, windowSize: 60, aggregateBy: ['ip', 'domain'] },
+}

@@ -3,7 +3,7 @@ import { Fragment, type ReactNode } from 'react'
 /** web addresses and email addresses in running text (a URL's closing punctuation stays text) */
 const LINK = /(https?:\/\/[^\s<>"']*[^\s<>"'.,;:!?)\]])|([\w.+-]+@[\w-]+(?:\.[\w-]+)+)/g
 
-function linked(text: string): ReactNode {
+export function linked(text: string): ReactNode {
   const out: ReactNode[] = []
   let last = 0
   for (const m of text.matchAll(LINK)) {

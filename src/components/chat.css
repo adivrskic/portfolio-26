@@ -35,9 +35,30 @@
   text-decoration-color: var(--ink);
 }
 
-/* a message that arrives while the column is open rises in on its own */
+/* a message of the visitor's that arrives while the column is open rises in on its own */
 .chat-log [data-new] {
   animation: chat-in 0.7s var(--ease-out) both;
+}
+
+/* Qb's reply, written out a word at a time (see Typed): each word fades in and sharpens, slowly enough
+   that the line seems to develop rather than appear. It holds a line's height from the start, so the dots
+   give way to it without a jump */
+.chat-msg--assistant {
+  min-height: 1.24em;
+}
+
+.chat-word {
+  animation: chat-word 0.9s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@keyframes chat-word {
+  from {
+    opacity: 0;
+    filter: blur(5px);
+  }
+  45% {
+    filter: blur(1px);
+  }
 }
 
 @keyframes chat-in {
@@ -165,7 +186,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .chat-log [data-new] {
+  .chat-log [data-new],
+  .chat-word {
     animation: none;
   }
 }

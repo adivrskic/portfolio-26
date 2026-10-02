@@ -7,16 +7,15 @@ const ALLOWED_ORIGINS = ['https://adivrskic.dev', 'https://www.adivrskic.dev']
 /** a setting: Netlify's environment in production, process.env in the dev server (filled from .env.local) */
 export const env = (key) => globalThis.Netlify?.env.get(key) ?? process.env[key]
 
-/** the site itself (wherever it is served from), its Netlify previews and local dev */
+/**
+ * The site itself, wherever it is served from (its domain, a deploy preview calling its own functions,
+ * local dev). Browsers always say where a POST comes from, so one that doesn't isn't from the site; and
+ * other sites, other Netlify sites included, can't call these functions from their pages.
+ */
 export function allowedOrigin(req) {
   const origin = req.headers.get('origin')
-  return (
-    !origin ||
-    origin === new URL(req.url).origin ||
-    ALLOWED_ORIGINS.includes(origin) ||
-    /^https:\/\/[a-z0-9-]+\.netlify\.app$/.test(origin) ||
-    /^http:\/\/localhost(:\d+)?$/.test(origin)
-  )
+  if (!origin) return false
+  return origin === new URL(req.url).origin || ALLOWED_ORIGINS.includes(origin) || /^http:\/\/localhost(:\d+)?$/.test(origin)
 }
 
 export function cors(req) {

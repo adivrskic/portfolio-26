@@ -1,8 +1,9 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { motion } from 'motion/react'
 import { useChat } from '../state/chat'
 import { IconArrowRight } from './Icons'
 import { Rich } from './Rich'
+import { Typed } from './Typed'
 import { block } from './reveal'
 import './chat.css'
 
@@ -19,18 +20,30 @@ export function Chat() {
   const draft = useChat((s) => s.draft)
   const setDraft = useChat((s) => s.setDraft)
   const send = useChat((s) => s.send)
-  const busy = reply !== null
+  // Qb is answering while a reply streams in, and until the last of it has been written out (messages
+  // before writtenTo are shown in full)
+  const [writtenTo, setWrittenTo] = useState(messages.length)
+  const writing = messages.length > writtenTo && messages[messages.length - 1]?.role === 'assistant'
+  const busy = reply !== null || writing
   const fresh = !messages.some((m) => m.role === 'user')
   const form = useRef<HTMLFormElement>(null)
   const input = useRef<HTMLInputElement>(null)
-  // messages already here rise in with the panel; ones that arrive while it is open rise in on their own
+  // messages already here rise in with the panel; ones that arrive while it is open come in on their own
+  // (the visitor's rise in, Qb's are written out a word at a time). A reply already under way when the
+  // panel opens shows what has arrived of it at once
   const [opened] = useState(messages.length)
+  const [underWay] = useState(() => reply?.length ?? 0)
   // follow the conversation down as it grows, unless the reader has scrolled up to an earlier part
   const follow = useRef(true)
+  const settled = useRef(false)
+  const keepUp = useCallback(() => {
+    if (follow.current) form.current?.scrollIntoView({ block: 'nearest', behavior: settled.current ? 'smooth' : 'instant' })
+  }, [])
 
   useLayoutEffect(() => {
-    if (follow.current) form.current?.scrollIntoView({ block: 'nearest' })
-  }, [messages, reply])
+    keepUp()
+    settled.current = true
+  }, [messages, reply, keepUp])
 
   useEffect(() => {
     const onScroll = () => {
@@ -62,10 +75,11 @@ export function Chat() {
     <>
       <h2 className="sr-only">Chat with Qb, Adi's personal assistant</h2>
       <motion.div className="chat-log" aria-label="Conversation" variants={block} custom={0}>
-        {/* the reply on its way comes last: dots until its first words, then the words as they arrive. It
-            keeps its place (and key) when it lands, so it doesn't rise in twice */}
+        {/* the reply on its way comes last: dots until its first words, then the words written out as they
+            arrive. It keeps its place (and key) when it lands, so it carries on where it was */}
         {(reply === null ? messages : [...messages, { role: 'assistant' as const, text: reply }]).map((m, i) => {
           const pending = i >= messages.length
+          const arrived = i >= opened
           return pending && !m.text ? (
             <p key={i} className="chat-dots" data-new aria-hidden="true">
               <i />
@@ -76,10 +90,22 @@ export function Chat() {
             <p
               key={i}
               className={`info-text chat-msg chat-msg--${m.role}`}
-              data-new={i >= opened || undefined}
+              data-new={(arrived && m.role === 'user') || undefined}
               aria-hidden={pending || undefined}
             >
-              {m.role === 'user' ? m.text : <Rich text={m.text} />}
+              {m.role === 'user' ? (
+                m.text
+              ) : arrived ? (
+                <Typed
+                  text={m.text}
+                  done={!pending}
+                  from={i === opened ? underWay : 0}
+                  onStep={keepUp}
+                  onWritten={() => setWrittenTo((w) => Math.max(w, i + 1))}
+                />
+              ) : (
+                <Rich text={m.text} />
+              )}
             </p>
           )
         })}
@@ -95,7 +121,7 @@ export function Chat() {
         custom={1}
         onSubmit={(e) => {
           e.preventDefault()
-          ask(draft)
+          if (!busy) ask(draft)
         }}
       >
         <input
@@ -103,7 +129,7 @@ export function Chat() {
           className="chat-input"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder={fresh ? 'Ask me anything' : 'Ask something else'}
+          placeholder={busy ? 'Qb is answering…' : fresh ? 'Ask me anything' : 'Ask something else'}
           aria-label="Ask Qb about Adi's work"
           autoComplete="off"
           enterKeyHint="send"

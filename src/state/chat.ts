@@ -14,7 +14,10 @@ export type ChatMessage = {
   text: string
   /** what the model said, when it differs from what is shown (the email tag it sent) */
   raw?: string
-  /** shown here only, never sent to the model (the greeting, connection trouble) */
+  /** a whole reply's signature from the chat function: the conversation goes back with each question,
+   *  and only replies it signed are taken as Qb's (see netlify/functions/chat.js) */
+  sig?: string
+  /** shown here only, never sent to the model (the greeting, connection trouble, a reply that broke off) */
   local?: boolean
 }
 
@@ -67,6 +70,7 @@ class ChatError extends Error {
 
 async function converse(messages: ChatMessage[]) {
   let full = ''
+  let sig: string | undefined
   try {
     const res = await fetch('/api/chat', {
       method: 'POST',
@@ -86,33 +90,37 @@ async function converse(messages: ChatMessage[]) {
         if (!full) useUI.getState().requestTwist()
         full += evt.delta.text
         useChat.setState({ reply: shown(full) })
+      } else if (evt.type === 'qb_signature' && evt.sig) {
+        sig = evt.sig
       } else if (evt.type === 'error') {
         throw new ChatError(0)
       }
     }
     const text = shown(full)
-    if (!text) throw new ChatError(0)
-    add({ role: 'assistant', text, raw: full !== text ? full : undefined })
+    // a reply only counts once it is whole (signed when it ends): otherwise it broke off on the way
+    if (!text || !sig) throw new ChatError(0)
+    add({ role: 'assistant', text, raw: full !== text ? full : undefined, sig })
     const email = emailIn(full)
     if (email) void forward(email)
   } catch (err) {
-    // keep whatever arrived before it broke off
+    // keep whatever arrived before it broke off, to read (it doesn't go back to Qb)
     const partial = shown(full)
-    add(...(partial ? [{ role: 'assistant' as const, text: partial }] : []), { role: 'assistant', local: true, text: sorry(err) })
+    add(...(partial ? [{ role: 'assistant' as const, local: true, text: partial }] : []), { role: 'assistant', local: true, text: sorry(err) })
   }
 }
 
-/** the conversation as the model sees it: no local lines, the newest KEEP, starting with the visitor */
+/** the conversation as the model sees it: no local lines, the newest KEEP, starting with the visitor;
+ *  Qb's replies with their signatures */
 function history(messages: ChatMessage[]) {
   const sent = messages
-    .filter((m) => !m.local)
+    .filter((m) => !m.local && (m.role === 'user' || m.sig))
     .slice(-KEEP)
-    .map((m) => ({ role: m.role, content: m.raw ?? m.text }))
+    .map((m) => (m.role === 'user' ? { role: m.role, content: m.text } : { role: m.role, content: m.raw ?? m.text, sig: m.sig }))
   while (sent.length && sent[0].role !== 'user') sent.shift()
   return sent
 }
 
-type StreamEvent = { type?: string; delta?: { type?: string; text?: string } }
+type StreamEvent = { type?: string; delta?: { type?: string; text?: string }; sig?: string }
 
 /** the server-sent events of a streamed reply, parsed */
 async function* events(body: ReadableStream<Uint8Array>): AsyncGenerator<StreamEvent> {
