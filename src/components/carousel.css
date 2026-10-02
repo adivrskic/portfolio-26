@@ -190,11 +190,27 @@
     );
 }
 
-/* the site, the whole card, with nothing over it (the project's name is under the cube) */
+/* the site's own colours, blurred, behind it: they show in the thin frame round it */
+.card-backdrop {
+  position: absolute;
+  inset: -12%;
+  width: 124%;
+  height: 124%;
+  max-width: none;
+  object-fit: cover;
+  filter: blur(9cqw) saturate(1.25);
+  pointer-events: none;
+}
+
+/* The site, with nothing over it, set in from the card's edges just far enough that its own rectangle
+   clears the card's rounded corners (2.2% would touch them), with smaller corners of its own: a page's
+   header, logo to button, shows whole. It sits on the frame with a hint of depth. */
 .card-screen {
   position: absolute;
-  inset: 0;
+  inset: 2.6cqw;
+  border-radius: 4.6cqw;
   overflow: hidden;
+  box-shadow: 0 0.5cqw 2cqw rgb(10 12 24 / 0.16);
   /* the scroll is measured in this box (see site-scroll) */
   container-type: size;
 }

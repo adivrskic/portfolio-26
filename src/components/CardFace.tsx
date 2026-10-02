@@ -17,15 +17,22 @@ export function restartScroll(slug: string) {
 }
 
 /**
- * What a project card shows: just the site, filling the card and scrolling (a full-length capture panned
- * like a screen recording), with nothing over it (the project's name is under the cube, see LeftColumn).
- * Its corners are sized relative to the card (see carousel.css), so the same card in the gallery, in
- * flight and heading the project page is one card at different sizes.
+ * What a project card shows: just the site, scrolling (a full-length capture panned like a screen
+ * recording), with nothing over it (the project's name is under its card in the gallery). The site is set
+ * in a little from the card's edges, on a thin frame of its own colours blurred, so its corners (and a
+ * page's header, logo to button) clear the card's rounded ones. Everything is sized relative to the card
+ * (see carousel.css), so the same card in the gallery, in flight and heading the project page is one card
+ * at different sizes.
  */
 export function CardFace({ project: p, live = true }: { project: Project; live?: boolean }) {
   const cover = p.media.find((m) => m.src === p.cover) ?? p.media[0]
   return (
     <div className="card-media">
+      {/* (the frame, on the card in focus: turned away, a card is plain gray; from the top of the site it
+          shows, or its picture) */}
+      {live && (
+        <img className="card-backdrop" src={p.scroll?.blur ?? p.blur} alt="" aria-hidden="true" decoding="async" draggable={false} />
+      )}
       <div className="card-screen">
         <img
           className="card-cover"

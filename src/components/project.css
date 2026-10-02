@@ -90,13 +90,14 @@
 
 .frame-blur {
   position: absolute;
-  inset: -12%;
-  width: 124%;
-  height: 124%;
+  /* (well past the edges: a heavy blur thins out towards them) */
+  inset: -22%;
+  width: 144%;
+  height: 144%;
   max-width: none;
   object-fit: cover;
   /* on top of the blur baked into the image (a still image: it is drawn once) */
-  filter: blur(26px) saturate(1.15);
+  filter: blur(58px) saturate(1.2);
   z-index: 0;
 }
 

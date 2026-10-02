@@ -38,8 +38,9 @@ export type Project = {
   /** tone of that blur behind the card's label: light gets dark text */
   tone: Tone
   media: Media[]
-  /** a full-length capture of the live site (from the top down), panned through on the card */
-  scroll?: { src: string; w: number; h: number }
+  /** a full-length capture of the live site (from the top down), panned through on the card, and its top
+   *  blurred (the card's frame round it) */
+  scroll?: { src: string; w: number; h: number; blur?: string }
   /** written case study, shown when the info toggle is on */
   sections: Section[]
 }

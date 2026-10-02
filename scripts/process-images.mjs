@@ -116,7 +116,17 @@ for (const [slug, cfg] of Object.entries(config)) {
       .resize({ width: 960, withoutEnlargement: true })
       .webp({ quality: 72, effort: 5 })
       .toFile(`${OUT}/${slug}/scroll.webp`)
-    result[slug].scroll = { src: `/projects/${slug}/scroll.webp`, w: s.width, h: s.height }
+    // the thin frame round the site on its card: the top of the site (its first screen), blurred, so the
+    // frame carries on the site's own colours
+    const { width: sw, height: sh } = await sharp(scrollSrc, { limitInputPixels: false }).metadata()
+    await sharp(scrollSrc, { limitInputPixels: false })
+      .extract({ left: 0, top: 0, width: sw, height: Math.min(sh, Math.round(sw / 1.6)) })
+      .resize({ width: 200 })
+      .blur(5.6)
+      .modulate({ saturation: 1.3 })
+      .webp({ quality: 70 })
+      .toFile(`${OUT}/${slug}/scroll-blur.webp`)
+    result[slug].scroll = { src: `/projects/${slug}/scroll.webp`, w: s.width, h: s.height, blur: `/projects/${slug}/scroll-blur.webp` }
   }
   console.log(`${slug.padEnd(10)} ${frames.length} frames  accent ${accent}${result[slug].scroll ? '  + scroll' : ''}`)
 }

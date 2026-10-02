@@ -7,6 +7,7 @@ import { mkdir } from 'node:fs/promises'
 import sharp from 'sharp'
 import { openBrowser, TARGETS, wait } from './browser.mjs'
 
+/** the screen a site is captured at, unless its target sizes it (see TARGETS) */
 const WIDTH = 1440
 const HEIGHT = 900
 const MAX_SCREENS = 6
@@ -19,20 +20,22 @@ for (const t of TARGETS) {
   const dir = `assets-src/${t.slug}`
   await mkdir(dir, { recursive: true })
   const page = await browser.newPage()
+  const W = t.scroll?.width ?? WIDTH
+  const H = t.scroll?.height ?? HEIGHT
   try {
-    await page.setViewport({ width: WIDTH, height: HEIGHT, deviceScaleFactor: 1 })
+    await page.setViewport({ width: W, height: H, deviceScaleFactor: 1 })
     await page.goto(t.url, { waitUntil: 'networkidle2', timeout: 45000 })
     await wait(3500) // let intro animations settle
     if (t.stitch) {
-      await stitch(page, `${dir}/scroll.png`)
+      await stitch(page, `${dir}/scroll.png`, W, H)
       console.log('ok  ', t.slug, 'stitched')
       continue
     }
     // walk down the page with the wheel, so lazy images load and scroll-triggered sections animate in
     // (smooth-scroll libraries follow the wheel too), then come back to the top
     const full = await page.evaluate(() => document.documentElement.scrollHeight)
-    const depth = Math.min(full, HEIGHT * MAX_SCREENS)
-    await page.mouse.move(WIDTH / 2, HEIGHT / 2)
+    const depth = Math.min(full, H * MAX_SCREENS)
+    await page.mouse.move(W / 2, H / 2)
     for (let y = 0; y < depth; y += 120) {
       await page.mouse.wheel({ deltaY: 120 })
       await wait(110)
@@ -44,13 +47,13 @@ for (const t of TARGETS) {
     }
     await page.evaluate(() => window.scrollTo(0, 0))
     await wait(2200)
-    const height = Math.min(HEIGHT * MAX_SCREENS, await page.evaluate(() => document.documentElement.scrollHeight))
+    const height = Math.min(H * MAX_SCREENS, await page.evaluate(() => document.documentElement.scrollHeight))
     await page.screenshot({
       path: `${dir}/scroll.png`,
-      clip: { x: 0, y: 0, width: WIDTH, height },
+      clip: { x: 0, y: 0, width: W, height },
       captureBeyondViewport: true,
     })
-    console.log('ok  ', t.slug, `${WIDTH}x${height}`)
+    console.log('ok  ', t.slug, `${W}x${height}`)
   } catch (e) {
     console.log('fail', t.slug, e.message)
   } finally {
@@ -65,7 +68,7 @@ await close()
  * libraries): one screen at a time, scrolled with the wheel and given time to animate in, joined into
  * one image. After the first screen, small fixed or sticky bars (the nav) are hidden so they don't repeat.
  */
-async function stitch(page, path) {
+async function stitch(page, path, WIDTH, HEIGHT) {
   await page.mouse.move(WIDTH / 2, HEIGHT / 2)
   const screens = []
   let last = -1

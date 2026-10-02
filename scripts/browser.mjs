@@ -6,16 +6,19 @@ import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
+// `scroll` sizes a site's full-length capture (the cards' scroll), where the usual 1440x900 doesn't suit
+// it: wider for a site that centres its content (its header then sits well clear of a card's rounded
+// corners), taller for one that is a single screen (so it fills a card without being cropped at the sides)
 export const TARGETS = [
   { slug: 'plumeform', url: 'https://plumeform.com' },
   // scroll-driven sections only draw as a visitor scrolls: its full-length capture is stitched from screens
   { slug: 'nautilus', url: 'https://nautilusinventory.com', sections: 4, stitch: true },
-  { slug: 'nimbus', url: 'https://nimbuswebsites.com' },
+  { slug: 'nimbus', url: 'https://nimbuswebsites.com', scroll: { width: 1920, height: 1200 } },
   { slug: 'xsbl', url: 'https://xsbl.io' },
   { slug: 'afs', url: 'https://americanflooringservices.com' },
-  { slug: 'ljiljan', url: 'https://ljiljan.netlify.app' },
-  { slug: 'halo', url: 'https://halo-effect.netlify.app' },
-  { slug: 'pinnacle', url: 'https://pinnacleacctga.com', sections: 4 },
+  { slug: 'ljiljan', url: 'https://ljiljan.netlify.app', scroll: { width: 1440, height: 1400 } },
+  { slug: 'halo', url: 'https://halo-effect.netlify.app', scroll: { width: 1440, height: 1258 } },
+  { slug: 'pinnacle', url: 'https://pinnacleacctga.com', sections: 4, scroll: { width: 1920, height: 1200 } },
 ]
 
 export const wait = (ms) => new Promise((r) => setTimeout(r, ms))

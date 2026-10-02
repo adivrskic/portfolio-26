@@ -56,12 +56,14 @@ export default {
       { src: 'live-desktop-2.png', device: 'desktop', alt: 'Overlays do not work' },
     ],
   },
+  // the app itself, run locally from its own build (a song from its library), at an iPad's landscape size
   keyfall: {
     cover: 0,
     frames: [
-      { src: 'roll.png', device: 'desktop', alt: 'Notes falling onto an 88-key keyboard' },
-      { src: 'roll-close.png', device: 'art', alt: 'Falling notes, close up' },
-      { src: 'roll-tall.png', device: 'mobile', alt: 'Keyfall on an iPad-sized screen' },
+      { src: 'app-player.png', device: 'desktop', alt: 'Notes falling onto the 88 keys: the left hand in blue, the right in orange' },
+      { src: 'app-sheet.png', device: 'desktop', alt: 'Sheet music above the keys, with chords and fingering' },
+      { src: 'app-library.png', device: 'desktop', alt: 'The library: paste a YouTube link or add a recording' },
+      { src: 'app-settings.png', device: 'desktop', alt: 'Practice settings: speed, loops and each hand' },
     ],
   },
   halo: {

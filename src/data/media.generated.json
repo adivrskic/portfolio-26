@@ -79,7 +79,8 @@
     "scroll": {
       "src": "/projects/plumeform/scroll.webp",
       "w": 960,
-      "h": 3600
+      "h": 3600,
+      "blur": "/projects/plumeform/scroll-blur.webp"
     }
   },
   "nautilus": {
@@ -145,7 +146,8 @@
     "scroll": {
       "src": "/projects/nautilus/scroll.webp",
       "w": 960,
-      "h": 3600
+      "h": 3600,
+      "blur": "/projects/nautilus/scroll-blur.webp"
     }
   },
   "nimbus": {
@@ -201,7 +203,8 @@
     "scroll": {
       "src": "/projects/nimbus/scroll.webp",
       "w": 960,
-      "h": 2814
+      "h": 2411,
+      "blur": "/projects/nimbus/scroll-blur.webp"
     }
   },
   "ljiljan": {
@@ -248,7 +251,8 @@
     "scroll": {
       "src": "/projects/ljiljan/scroll.webp",
       "w": 960,
-      "h": 713
+      "h": 933,
+      "blur": "/projects/ljiljan/scroll-blur.webp"
     }
   },
   "xsbl": {
@@ -305,41 +309,57 @@
     "scroll": {
       "src": "/projects/xsbl/scroll.webp",
       "w": 960,
-      "h": 3600
+      "h": 3600,
+      "blur": "/projects/xsbl/scroll-blur.webp"
     }
   },
   "keyfall": {
-    "accent": "#243485",
+    "accent": "#a57121",
     "cover": 0,
     "frames": [
       {
-        "src": "/projects/keyfall/roll.webp",
-        "blur": "/projects/keyfall/roll-blur.webp",
-        "w": 1600,
-        "h": 1000,
+        "src": "/projects/keyfall/app-player.webp",
+        "blur": "/projects/keyfall/app-player-blur.webp",
+        "w": 1680,
+        "h": 1466,
         "device": "desktop",
-        "alt": "Notes falling onto an 88-key keyboard",
+        "alt": "Notes falling onto the 88 keys: the left hand in blue, the right in orange",
         "tone": "dark"
       },
       {
-        "src": "/projects/keyfall/roll-close.webp",
-        "blur": "/projects/keyfall/roll-close-blur.webp",
-        "w": 1600,
-        "h": 1000,
-        "device": "art",
-        "alt": "Falling notes, close up",
+        "src": "/projects/keyfall/app-sheet.webp",
+        "blur": "/projects/keyfall/app-sheet-blur.webp",
+        "w": 1680,
+        "h": 1167,
+        "device": "desktop",
+        "alt": "Sheet music above the keys, with chords and fingering",
+        "tone": "light"
+      },
+      {
+        "src": "/projects/keyfall/app-library.webp",
+        "blur": "/projects/keyfall/app-library-blur.webp",
+        "w": 1680,
+        "h": 1167,
+        "device": "desktop",
+        "alt": "The library: paste a YouTube link or add a recording",
         "tone": "dark"
       },
       {
-        "src": "/projects/keyfall/roll-tall.webp",
-        "blur": "/projects/keyfall/roll-tall-blur.webp",
-        "w": 760,
-        "h": 1647,
-        "device": "mobile",
-        "alt": "Keyfall on an iPad-sized screen",
+        "src": "/projects/keyfall/app-settings.webp",
+        "blur": "/projects/keyfall/app-settings-blur.webp",
+        "w": 1680,
+        "h": 1167,
+        "device": "desktop",
+        "alt": "Practice settings: speed, loops and each hand",
         "tone": "dark"
       }
-    ]
+    ],
+    "scroll": {
+      "src": "/projects/keyfall/scroll.webp",
+      "w": 960,
+      "h": 838,
+      "blur": "/projects/keyfall/scroll-blur.webp"
+    }
   },
   "halo": {
     "accent": "#b58e2c",
@@ -376,7 +396,8 @@
     "scroll": {
       "src": "/projects/halo/scroll.webp",
       "w": 960,
-      "h": 600
+      "h": 839,
+      "blur": "/projects/halo/scroll-blur.webp"
     }
   },
   "afs": {
@@ -433,7 +454,8 @@
     "scroll": {
       "src": "/projects/afs/scroll.webp",
       "w": 960,
-      "h": 3600
+      "h": 3600,
+      "blur": "/projects/afs/scroll-blur.webp"
     }
   },
   "dashboard": {
@@ -593,7 +615,8 @@
     "scroll": {
       "src": "/projects/pinnacle/scroll.webp",
       "w": 960,
-      "h": 3600
+      "h": 3326,
+      "blur": "/projects/pinnacle/scroll-blur.webp"
     }
   }
 }

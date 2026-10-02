@@ -4,7 +4,7 @@ import type { Media, Project } from './types'
 type GeneratedFrame = Media & { w: number; h: number }
 const generated = media as Record<
   string,
-  { accent: string; cover: number; frames: GeneratedFrame[]; scroll?: { src: string; w: number; h: number } }
+  { accent: string; cover: number; frames: GeneratedFrame[]; scroll?: { src: string; w: number; h: number; blur?: string } }
 >
 
 type Content = Omit<Project, 'accent' | 'cover' | 'blur' | 'tone' | 'media' | 'scroll'> & { accent?: string }
@@ -204,7 +204,7 @@ export const PROJECTS: Project[] = [
   }),
   project({
     slug: 'keyfall',
-    accent: '#b8f53a',
+    accent: '#64d2ff',
     title: 'Keyfall',
     kind: 'Piano practice',
     year: '2026',
