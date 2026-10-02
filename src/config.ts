@@ -12,51 +12,51 @@ export const defaults = {
   cube: {
     // ---- size and pose
     /** size relative to its spot in the layout */
-    size: 1.03,
+    size: 0.97,
     /** resting turn and tilt (radians): which faces show */
-    yaw: 0.55,
-    pitch: 0.76,
+    yaw: -0.61,
+    pitch: 0.86,
     /** slow idle drift around the resting pose (0 = still) */
-    sway: 0.45,
+    sway: 2.25,
     /** how much it leans towards the pointer (it is heavy: a little goes a long way) */
     lean: 0.3,
 
     // ---- blocks
     /** the groove between blocks, as a share of a block */
-    gap: 0.035,
+    gap: 0.015,
     /** corner rounding, as a share of a block */
-    rounding: 0.11,
-    color: '#eee9e1',
-    roughness: 0.66,
+    rounding: 0.1,
+    color: '#f7f4ef',
+    roughness: 1,
     /** velvety highlight at grazing angles */
-    sheen: 0.62,
+    sheen: 0,
     /** how deep the letters are pressed in, and how strongly their walls catch the light */
-    letterDepth: 3.15,
-    letterRelief: 0.2,
+    letterDepth: 2,
+    letterRelief: 0.5,
     /** how dark the joints between blocks are */
-    groove: 0.13,
+    groove: 0.1,
 
     // ---- light
     keyLight: 0.15,
-    fillLight: 1,
+    fillLight: 0.45,
     /** the two lights in the project's colours that orbit the cube, and their speed */
     tintLight: 0,
     tintOrbit: 0.1,
     /** while the cube is open, its centre glows in the project's colour this much (0 = not at all) */
-    coreGlow: 1,
+    coreGlow: 1.85,
     /** and blooms: how much brighter than white the glowing sphere burns (only what is brighter than white
      *  blooms, so nothing else on the page does), how strongly it blooms, and how far the bloom spreads */
     coreHeat: 3,
     coreBloom: 1.5,
-    coreBloomRadius: 0.75,
+    coreBloomRadius: 0.84,
 
     // ---- spin: once it has landed it keeps turning
     /** how fast it is spinning as it lands (radians a second: the intro's turn carries on) */
-    spinLanding: 0.8,
+    spinLanding: 0.2,
     /** the slow spin it settles to */
     spin: 0.18,
     /** how long its momentum takes to settle (after the landing, or a fling), seconds */
-    momentum: 5,
+    momentum: 6.3,
     /** while it is parted (About, Contact, the chat, a project's case study) the cube stops and each
      *  block turns on its own instead, this fast (radians a second) */
     partSpin: 0.5,
@@ -75,21 +75,21 @@ export const defaults = {
 
     // ---- the floor under the cube, and the shadow on it (from a light of its own)
     /** how dark the shadow is (0 = none), and its colour */
-    shadow: 0.31,
+    shadow: 0.25,
     shadowColor: '#2a241e',
     /** how soft its edge is, and the detail it is drawn at (a smaller map blurs wider and softer) */
-    shadowSoftness: 12.5,
+    shadowSoftness: 5,
     shadowMap: 256,
     /** how far below the cube the floor is, as a share of the cube's size */
-    shadowDrop: 2,
+    shadowDrop: 3,
     /** the floor's tilt on top of the cube's resting pitch (radians): more, and it is seen more from above */
-    floorTilt: 0,
+    floorTilt: -0.1,
     /** where the shadow's light comes from: its direction around the cube (radians), and how slanted it is
      *  (0 = straight down, under the cube; more, a longer shadow falling further away) */
-    shadowAngle: -2.59,
-    shadowSlant: 0.34,
+    shadowAngle: -3.14,
+    shadowSlant: 0,
     /** while the cube is open, its glowing centre lights the floor under it in the project's colour */
-    floorGlow: 0.4,
+    floorGlow: 0.8,
 
     // ---- the loading puzzle (applies on reload)
     /** quarter turns to undo while the page loads (0 = starts solved) */
