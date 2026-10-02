@@ -1,9 +1,9 @@
-import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import { useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
 import { motion, useIsPresent, usePresenceData, type Variants } from 'motion/react'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import type { Media, Project } from '../data/types'
 import { useUI, type Leaving } from '../state/store'
-import { CardFace } from './CardFace'
+import { CardFace, restartScroll } from './CardFace'
 import { IconArrowRight } from './Icons'
 import './project.css'
 
@@ -28,18 +28,24 @@ const page: Variants = {
   // arriving from another project page: from just below the screen (just above, going back)
   away: (dir: number) => ({ y: dir * window.innerHeight }),
   here: { y: 0, transition: SLIDE },
-  // leaving for another project page it slides the other way; otherwise it fades
+  // leaving for another project page it slides the other way; when the next project's picture grows into
+  // that page's hero it fades where it is; otherwise it drops away
   exit: (leaving?: Leaving) =>
     leaving?.slide
       ? { y: -leaving.slide * window.innerHeight, transition: SLIDE }
-      : { opacity: 0, y: 30, transition: { duration: 0.35, ease: [0.7, 0, 0.84, 0] } },
+      : leaving?.expanding
+        ? { opacity: 0, filter: 'blur(6px)', transition: { duration: 0.5, ease: [0.4, 0, 0.2, 1] } }
+        : { opacity: 0, y: 30, transition: { duration: 0.35, ease: [0.7, 0, 0.84, 0] } },
 }
+
+const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /**
  * A page leaving for another project page: it is fixed exactly where it is on screen, showing only what
  * was in view (the rest of it must not slide into sight), and the window goes back to the top for the
  * page coming in. Until the two have passed, the right column sits above the left one (on phones it would
- * otherwise show through the page on its way out).
+ * otherwise show through the page on its way out). The same when it fades for the next project's picture
+ * growing into that page's hero.
  */
 function holdInPlace(el: HTMLElement) {
   const r = el.getBoundingClientRect()
@@ -72,7 +78,7 @@ export function ProjectPage({ project, next, arrive = 0 }: { project: Project; n
   const present = useIsPresent()
   const leaving = usePresenceData() as Leaving | undefined
   useLayoutEffect(() => {
-    if (!present && leaving?.slide && ref.current) holdInPlace(ref.current)
+    if (!present && (leaving?.slide || leaving?.expanding) && ref.current) holdInPlace(ref.current)
   }, [present, leaving])
   // arriving: only its first screen comes into view as it slides (coming down from above, what is below
   // that would otherwise pass over the page on its way out)
@@ -139,28 +145,25 @@ function Hero({ project, still }: { project: Project; still: boolean }) {
   )
 }
 
+/** a picture in its frame, its caption under it */
 function MediaFrame({ media: m, index }: { media: Media; index: number }) {
   const ratio = m.w && m.h ? m.w / m.h : 16 / 10
   return (
-    <motion.figure
-      className={`frame frame--media frame--${m.device}`}
-      variants={frameIn}
-      custom={index}
-      {...inView}
-      style={{ '--ratio': ratio } as CSSProperties}
-    >
-      <img className="frame-blur" src={m.blur} alt="" aria-hidden="true" />
-      <div className="frame-frost" />
-      <div className="frame-shot">
-        <img
-          src={m.src}
-          alt={m.alt}
-          width={m.w}
-          height={m.h}
-          loading={index < 2 ? 'eager' : 'lazy'}
-          decoding="async"
-          style={m.focus ? { objectPosition: m.focus } : undefined}
-        />
+    <motion.figure className="shot" variants={frameIn} custom={index} {...inView}>
+      <div className={`frame frame--media frame--${m.device}`} style={{ '--ratio': ratio } as CSSProperties}>
+        <img className="frame-blur" src={m.blur} alt="" aria-hidden="true" />
+        <div className="frame-frost" />
+        <div className="frame-shot">
+          <img
+            src={m.src}
+            alt={m.alt}
+            width={m.w}
+            height={m.h}
+            loading={index < 2 ? 'eager' : 'lazy'}
+            decoding="async"
+            style={m.focus ? { objectPosition: m.focus } : undefined}
+          />
+        </div>
       </div>
       <figcaption className="frame-caption mono">
         <span className="frame-num">{String(index + 1).padStart(2, '0')}</span>
@@ -170,7 +173,31 @@ function MediaFrame({ media: m, index }: { media: Media; index: number }) {
   )
 }
 
+/**
+ * The next project. Its picture takes off from here and grows into that project's hero (see Morph), and
+ * the rest of that page comes in under it. The picture is the top of the site's full-length capture
+ * (what the hero scrolls through), so the flight starts that capture's pass from the top as it leaves.
+ */
 function NextProject({ project }: { project: Project }) {
+  const navigate = useNavigate()
+  const shot = useRef<HTMLDivElement>(null)
+  // the picture in flight stands in for this one, which stays hidden while this page fades
+  const flying = useUI((s) => s.morph?.source === 'next' && s.morph.slug === project.slug)
+  const open = (e: MouseEvent<HTMLAnchorElement>) => {
+    // (a new tab, or a window: the link as it is)
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || reducedMotion()) return
+    const r = shot.current?.getBoundingClientRect()
+    if (!r) return
+    e.preventDefault()
+    restartScroll(project.slug)
+    useUI.getState().setMorph({
+      dir: 'expand',
+      slug: project.slug,
+      from: { x: r.left, y: r.top, w: r.width, h: r.height },
+      source: 'next',
+    })
+    navigate(`/work/${project.slug}`)
+  }
   return (
     <motion.div variants={frameIn} {...inView}>
       <Link
@@ -178,11 +205,12 @@ function NextProject({ project }: { project: Project }) {
         className="frame frame--next"
         data-tone={project.tone}
         aria-label={`Next project: ${project.title}`}
+        onClick={open}
       >
         <img className="frame-blur" src={project.blur} alt="" aria-hidden="true" />
         <div className="frame-frost" />
-        <div className="next-shot">
-          <img src={project.cover} alt="" loading="lazy" decoding="async" />
+        <div ref={shot} className="next-shot" style={flying ? { visibility: 'hidden' } : undefined}>
+          <img src={project.scroll?.src ?? project.cover} alt="" loading="lazy" decoding="async" />
         </div>
         <div className="next-meta">
           <span className="mono">Next project</span>

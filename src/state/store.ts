@@ -12,6 +12,9 @@ export type Morph = {
   slug: string
   /** where the flying card starts */
   from: Rect
+  /** 'next': it takes off from the picture on a project page's next-project card (a bare picture, without
+   *  the gallery card's words, so they stay hidden all the way) */
+  source?: 'next'
 }
 
 /**

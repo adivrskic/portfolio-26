@@ -5,6 +5,18 @@ import { IconArrowRight } from './Icons'
 /** how long one pass down a site and back up takes, by how many screens the capture holds */
 const cycleFor = (w: number, h: number) => 5 + (h / (w * 0.625)) * 2.2
 
+/** when each project's capture (re)started its pass, on the page's clock (0, the page's start, unless set) */
+const scrollStart = new Map<string, number>()
+
+/**
+ * Starts a project's capture over from the top of its site, now: every copy of it (the picture taking off
+ * from a next-project card, the card in flight, the hero it lands as) then shows the same moment.
+ */
+export function restartScroll(slug: string) {
+  const now = document.timeline.currentTime
+  scrollStart.set(slug, typeof now === 'number' ? now : 0)
+}
+
 /**
  * What a project card shows: the site, filling the card and scrolling (a full-length capture panned like
  * a screen recording), and at its foot the title, a line about it and a call to explore on a band of
@@ -24,7 +36,7 @@ export function CardFace({ project: p, live = true, foot = true }: { project: Pr
         draggable={false}
         style={cover?.focus ? { objectPosition: cover.focus } : undefined}
       />
-      {live && p.scroll && <SiteScroll {...p.scroll} />}
+      {live && p.scroll && <SiteScroll {...p.scroll} start={scrollStart.get(p.slug) ?? 0} />}
     </div>
   )
   return (
@@ -50,15 +62,16 @@ export function CardFace({ project: p, live = true, foot = true }: { project: Pr
 }
 
 /**
- * The capture, panning down the site and back up. Every copy runs on the page's clock (all start at
- * the page's time zero, whenever they mount), so a card and its flying copy always show the same moment.
+ * The capture, panning down the site and back up. Every copy runs on the page's clock (all start at the
+ * same moment, the page's time zero unless the project's pass was restarted, whenever they mount), so a
+ * card and its flying copy always show the same moment.
  */
-function SiteScroll({ src, w, h }: { src: string; w: number; h: number }) {
+function SiteScroll({ src, w, h, start }: { src: string; w: number; h: number; start: number }) {
   const cycle = cycleFor(w, h)
   const img = useRef<HTMLImageElement>(null)
   useLayoutEffect(() => {
-    for (const a of img.current?.getAnimations() ?? []) a.startTime = 0
-  }, [cycle])
+    for (const a of img.current?.getAnimations() ?? []) a.startTime = start
+  }, [cycle, start])
   return (
     <img
       ref={img}

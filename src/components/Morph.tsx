@@ -40,7 +40,8 @@ function gallerySpot(): Rect | null {
 /**
  * The card in flight. Clicking the focused gallery card grows it into the project's hero (the first and
  * largest card on the project page, over where the progress bar was, a padding in from the edge of the
- * page); leaving the project for the gallery shrinks the hero back into its place there. A fixed copy of
+ * page), and so does the picture on a project page's next-project card, into that project's hero;
+ * leaving the project for the gallery shrinks the hero back into its place there. A fixed copy of
  * the card flies between the two spots, each measured live (the destination may still be mounting or
  * moving), then hands over to the real card, which stays hidden while its stand-in is up.
  */
@@ -80,7 +81,10 @@ export function Morph({ project, panel }: { project: Project | null; panel: Pane
     const el = box.current
     const card = face.current
     if (!morph || !el || !card) return
-    const { dir, slug, from } = morph
+    const { dir, slug, from, source } = morph
+    // from a next-project card: a bare picture (no words) growing into the hero; its site's pass starts
+    // from the top as it takes off (see restartScroll), so it is that picture all the way
+    const bare = source === 'next'
     const spot = () => (dir === 'expand' ? heroSpot(slug) : gallerySpot()) ?? from
     const place = (r: Rect) => {
       el.style.transform = `translate3d(${r.x}px, ${r.y}px, 0)`
@@ -89,14 +93,14 @@ export function Morph({ project, panel }: { project: Project | null; panel: Pane
     }
     place(from)
     // the card opens up into all site on the way to the project (its words fade), and back on the way home
-    card.style.setProperty('--grow', dir === 'expand' ? '0' : '1')
+    card.style.setProperty('--grow', bare || dir === 'collapse' ? '1' : '0')
     let raf = 0
     let waited = 0
     const flight = animate(0, 1, {
-      duration: dir === 'expand' ? 0.9 : 0.75,
+      duration: bare ? 1.05 : dir === 'expand' ? 0.9 : 0.75,
       ease: EASE,
       onUpdate: (k) => {
-        card.style.setProperty('--grow', String(dir === 'expand' ? k : 1 - k))
+        if (!bare) card.style.setProperty('--grow', String(dir === 'expand' ? k : 1 - k))
         const to = spot()
         place({
           x: from.x + (to.x - from.x) * k,
