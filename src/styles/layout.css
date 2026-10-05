@@ -7,7 +7,7 @@
 }
 
 :root {
-  --cube: clamp(198px, min(24.3vw, 37.8vh), 360px);
+  --cube: clamp(160px, min(19.4vw, 30.2vh), 288px);
   /* the space kept between the right-hand column and the edges of the page */
   --pad: clamp(16px, 1.65vw, 30px);
   /* how far left of the page's centre line the upright menu stands (the gallery's card keeps the same
@@ -354,7 +354,7 @@ html[data-page-slide] .main {
 
 @media (max-width: 859px) {
   :root {
-    --cube: min(45vw, 23.4dvh, 225px);
+    --cube: min(36vw, 18.7dvh, 180px);
     --t-name: 19px;
     --btn: 44px;
   }
