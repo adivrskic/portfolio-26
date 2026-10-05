@@ -166,7 +166,7 @@ h3 {
   transition: opacity 1.2s var(--ease-out);
 }
 
-/* fades in once its first frames have rendered: the cube appears inside the loader ring */
+/* fades in once its first frames have rendered: the cube appears where it rests (see Loader) */
 .scene.is-visible {
   opacity: 1;
 }

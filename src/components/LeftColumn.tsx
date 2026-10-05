@@ -36,8 +36,6 @@ export function LeftColumn({ project }: { project: Project | null }) {
   const infoMode = useUI((s) => s.infoMode)
   const setInfoMode = useUI((s) => s.setInfoMode)
   const ready = useUI((s) => s.ready)
-  // the cube is on its way here (or has landed): from then on this is its spot
-  const placed = useUI((s) => s.intro === 'moving' || s.intro === 'done')
   const brief = ready && !!project && infoMode
   // the menu stands upright on wide screens, a row on phones
   const upright = useUpright()
@@ -103,8 +101,8 @@ export function LeftColumn({ project }: { project: Project | null }) {
         </h1>
       )}
       <div className="stage">
-        {/* the cube's spot once the loader ring has gone (until then it sits inside the ring) */}
-        <div className="cube-anchor" data-cube-anchor={placed ? '' : undefined} aria-hidden="true" />
+        {/* the cube's spot (it fades in here) */}
+        <div className="cube-anchor" data-cube-anchor aria-hidden="true" />
         {/* the cube opens its chat when clicked; this is the same for the keyboard (and screen readers) */}
         {ready && (
           <Link to={panel === 'chat' ? '/' : '/chat'} className="cube-chat-link">
@@ -114,12 +112,12 @@ export function LeftColumn({ project }: { project: Project | null }) {
 
         {/* under the cube on a project page, its name (in the gallery it is under the card in focus) */}
         <AnimatePresence initial={false}>
-          {placed && project && (
+          {project && (
             <motion.div
               key="caption"
               className="caption"
-              // arriving straight on a project page, the title's space is there before the cube sets off
-              // (so it flies to its final spot) and the title fades in once it has landed
+              // arriving straight on a project page, the title's space is there from the start (so the cube
+              // fades in at its final spot) and the title fades in with the rest of the page
               initial={{ opacity: 0, height: ready ? 0 : 'auto' }}
               animate={{
                 opacity: ready ? 1 : 0,

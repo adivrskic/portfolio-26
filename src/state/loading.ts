@@ -1,22 +1,22 @@
-/** What the intro waits for, and how much of the loading ring each part fills. */
-const WEIGHTS = { scene: 0.5, fonts: 0.1, images: 0.4 } as const
-type Task = keyof typeof WEIGHTS
+/** What the intro waits for: the 3D scene's first frames (the cube fades in then), the fonts, and every
+ *  card's picture (see Loader). */
+type Task = 'scene' | 'fonts' | 'images'
 
 const done: Record<Task, number> = { scene: 0, fonts: 0, images: 0 }
+/** when each was in, on the page's clock (ms) */
+const at: Partial<Record<Task, number>> = {}
 
 export function reportLoad(task: Task, fraction: number) {
   done[task] = Math.max(done[task], Math.min(1, fraction))
+  if (done[task] >= 1 && at[task] === undefined) at[task] = performance.now()
 }
 
-/**
- * Overall progress, 0..1. The 3D scene arrives in one piece, so while it downloads its share
- * creeps forward on a curve (never quite reaching it) instead of sitting still.
- */
-export function loadProgress(elapsedSeconds: number) {
-  let p = 0
-  for (const task of Object.keys(WEIGHTS) as Task[]) {
-    const part = task === 'scene' && done.scene < 1 ? 0.85 * (1 - Math.exp(-elapsedSeconds / 1.4)) : done[task]
-    p += WEIGHTS[task] * part
-  }
-  return p
+/** when the scene was in, so the cube began to fade in (ms on the page's clock), or null */
+export function sceneAt() {
+  return at.scene ?? null
+}
+
+/** whether everything is in */
+export function allIn() {
+  return done.scene >= 1 && done.fonts >= 1 && done.images >= 1
 }

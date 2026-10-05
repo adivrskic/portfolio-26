@@ -2,8 +2,8 @@ import { create } from 'zustand'
 
 export type Panel = 'about' | 'contact' | 'chat' | null
 export type View = 'home' | 'project'
-/** the intro, in order: the ring fills, the ring fades, the cube moves to its spot, the page appears */
-export type Intro = 'loading' | 'leaving' | 'moving' | 'done'
+/** the intro: the page waiting for its first screen while the cube fades in, then the page appearing */
+export type Intro = 'loading' | 'done'
 /** a box in viewport px */
 export type Rect = { x: number; y: number; w: number; h: number }
 /** a gallery card growing into a project's hero, or the hero shrinking back into the gallery (see Morph) */
@@ -83,14 +83,6 @@ export const bus = {
   core: { x: 0, y: 0, r: 0, glow: 0 },
   /** the gallery's continuous position (virtual index); NaN when no gallery is driving the cube */
   drum: Number.NaN,
-  /** the intro flight from the loader ring to the cube's spot, in time (0 in the ring, 1 once landed);
-   *  its curves are in scene/flight.ts */
-  flight: 0,
-  /** the loading puzzle: how far the scrambled cube has turned back to solved (0..1); the loader's ring
-   *  fills with it and the intro waits for it */
-  solve: 0,
-  /** how far the loader's ring has filled (0..1, as shown): the equalizer comes in halfway */
-  ring: 0,
   pointer: { x: -9999, y: -9999, active: false },
   /** frames left during which anchors are re-measured every frame (to follow CSS transitions) */
   dirty: 90,

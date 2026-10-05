@@ -1,10 +1,9 @@
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import { config } from '../config'
 import { bus, useUI } from '../state/store'
-import { depth, lean, turnAngle } from './flight'
 import { ATLAS_COLS, ATLAS_ROWS, createLetterAtlas, glyphIndex, NAME_ROWS } from './letters'
 import { CUBE_DEPTH, SHADOW_ONLY } from './Equalizer'
 import { glowColor } from './palette'
@@ -444,7 +443,6 @@ export function VoxelCube() {
     puzzle: null as { voxels: Voxel[]; solve: Move[] } | null,
     solve: [] as Move[],
     move: null as (Move & { t0: number; angle: number }) | null,
-    done: 0,
     total: 0,
     firstFrame: -1,
     nextMoveAt: 0,
@@ -455,13 +453,8 @@ export function VoxelCube() {
     s.puzzle = puzzle
     s.solve = puzzle.solve.slice()
     s.total = puzzle.solve.length
-    s.done = 0
     s.move = null
   }
-  // until it is solved the loader keeps its ring short of full
-  useLayoutEffect(() => {
-    bus.solve = puzzle.solve.length ? 0 : 1
-  }, [puzzle])
 
   // On the home page the gallery turns the cube directly (see the frame loop). Elsewhere (a cube click,
   // project-page navigation, the chat starting to answer) the store asks for a single full turn of a
@@ -582,7 +575,7 @@ export function VoxelCube() {
     if (!m || !g || !bus.cube.ready) return
     const { panel, ready, view, infoMode } = useUI.getState()
 
-    // ---- size: the in-flight size from the camera rig (it eases between anchors)
+    // ---- size: as the camera rig has it (it eases between anchors)
     const cam = state.camera as THREE.PerspectiveCamera
     const visibleH = 2 * cam.position.z * Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2)
     const cfg = config.cube
@@ -673,20 +666,13 @@ export function VoxelCube() {
     const e = Math.max(0, s.explode.x)
     fx.uOpen.value = Math.min(1, e / OPEN)
 
-    // ---- orientation. The cube is heavy: from its landing on it keeps turning on its own momentum,
-    // easing down to a slow spin (a drag or a fling adds to it and settles back the same way), coming to
-    // a stop while its blocks turn on their own; a slow sway around the resting pose; and a gentle,
-    // unhurried lean towards the pointer
-    const flightS = Math.max(0.2, cfg.flightSeconds)
+    // ---- orientation. The cube is heavy: once the page has come in round it, it picks up a slow spin
+    // on its own momentum (a drag or a fling adds to it and settles back the same way), coming to a stop
+    // while its blocks turn on their own; a slow sway around the resting pose; and a gentle, unhurried
+    // lean towards the pointer
     const settle = Math.max(0.1, cfg.momentum)
-    const landSpeed = reduced ? 0 : cfg.spinLanding
     const idleSpeed = reduced ? 0 : cfg.spin
-    if (!s.landed && bus.flight >= 1) {
-      // the intro's turn hands its speed over and carries on the same way
-      s.landed = true
-      s.yawVel = landSpeed
-      s.spinDir = 1
-    }
+    if (!s.landed && ready) s.landed = true
     if (s.landed && !s.dragging) {
       const still = s.room > 0.5
       const goal = still ? 0 : idleSpeed * s.spinDir
@@ -706,41 +692,26 @@ export function VoxelCube() {
     // (its rhythm: slow enough that its swing round never outpaces the spin, so the cube keeps turning the
     // one way, as at most seven tenths of the spin's speed; and its nod as slow again)
     const swayRate = Math.min(0.21, (0.7 * cfg.spin) / Math.max(0.01, 0.3 * cfg.sway))
-    // the intro flight: one heavy turn (its front swinging round to the right) that lands still spinning,
-    // at the speed and slowing the spin above carries on with, the same way; the top tips towards the
-    // viewer as it draws back into the scene
-    const total = Math.PI * 2 * cfg.flightTurns
-    const turning = reduced
-      ? 0
-      : turnAngle(bus.flight, total, landSpeed * flightS, (-(landSpeed - idleSpeed) * flightS * flightS) / settle) -
-        total
-    // the pointer only pulls on it once it is landing (in flight the path is set)
-    const leaning = (reduced ? 1 : lean(bus.flight)) * cfg.lean
-    const nod = reduced ? 0 : depth(bus.flight) * 0.14
+    // (the pointer pulls on it gently)
+    const leaning = cfg.lean
     g.rotation.set(
-      cfg.pitch + Math.sin(t * swayRate * 0.76 + 1.2) * 0.05 * sway + s.tiltY * 0.16 * leaning + nod,
-      cfg.yaw +
-        Math.sin(t * swayRate) * 0.3 * sway +
-        s.yawDrag +
-        s.tiltX * 0.3 * leaning +
-        turning,
+      cfg.pitch + Math.sin(t * swayRate * 0.76 + 1.2) * 0.05 * sway + s.tiltY * 0.16 * leaning,
+      cfg.yaw + Math.sin(t * swayRate) * 0.3 * sway + s.yawDrag + s.tiltX * 0.3 * leaning,
       0,
       'XYZ',
     )
 
-    // ---- the loading puzzle: the blocks start scrambled and turn back to solved, a quarter turn at a
-    // time, while the page loads (the loader's ring fills with it, and waits for it)
+    // ---- the puzzle (config.cube.scramble, none by default): the blocks start scrambled and turn back
+    // to solved, a quarter turn at a time, once the cube has appeared
     if (s.total) {
       if (s.firstFrame < 0) s.firstFrame = t
       if (!s.move && s.solve.length && t - s.firstFrame > SOLVE_DELAY && t >= s.nextMoveAt) {
         s.move = { ...s.solve.shift()!, t0: t, angle: 0 }
       }
-      let partial = 0
       if (s.move) {
         const k = Math.min(1, (t - s.move.t0) / Math.max(0.05, cfg.moveSeconds))
         // a crisp turn that settles softly, like a well-oiled cube
-        partial = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2
-        s.move.angle = partial * QUARTER
+        s.move.angle = (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2) * QUARTER
         if (k >= 1) {
           applyMove(voxels, s.move)
           // the groove shading follows the blocks to their new neighbours
@@ -748,12 +719,9 @@ export function VoxelCube() {
           voxels.forEach((v, i) => localGrid(v, grid.array as Float32Array, i * 3))
           grid.needsUpdate = true
           s.move = null
-          s.done++
-          partial = 0
           s.nextMoveAt = t + cfg.movePause
         }
       }
-      bus.solve = (s.done + partial) / s.total
     }
 
     // ---- slice spins. On the home page the gallery drives them: each step between two projects is

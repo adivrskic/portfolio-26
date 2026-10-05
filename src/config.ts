@@ -43,10 +43,8 @@ export const config = {
     coreBloom: 1.5,
     coreBloomRadius: 0.84,
 
-    // ---- spin: once it has landed it keeps turning
-    /** how fast it is spinning as it lands (radians a second: the intro's turn carries on) */
-    spinLanding: 0.12,
-    /** the slow spin it settles to */
+    // ---- spin: once the page has come in round it, it keeps turning
+    /** the slow spin it picks up */
     spin: 0.1,
     /** how long its momentum takes to settle (after the landing, or a fling), seconds */
     momentum: 6.3,
@@ -84,21 +82,12 @@ export const config = {
     /** while the cube is open, its glowing centre lights the floor under it in the project's colour */
     floorGlow: 0.8,
 
-    // ---- the loading puzzle (applies on reload)
-    /** quarter turns to undo while the page loads (0 = starts solved) */
-    scramble: 8,
+    // ---- the puzzle (applies on reload)
+    /** quarter turns it starts away from solved, to turn back once it has appeared (0: it appears solved) */
+    scramble: 0,
     /** seconds per turn, and the pause between turns */
     moveSeconds: 0.26,
     movePause: 0.06,
-
-    // ---- the intro flight from the loader ring to its spot (applies on reload)
-    flightSeconds: 2.8,
-    /** how far it draws back into the scene on the way (its size at the deepest point: 1 - this) */
-    flightDepth: 0.28,
-    /** how far the path bows off a straight line (a parabola), as a share of the distance */
-    flightBow: 0.09,
-    /** full turns on the way */
-    flightTurns: 1,
   },
 
   equalizer: {
