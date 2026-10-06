@@ -211,6 +211,9 @@
 .card-media {
   position: absolute;
   inset: 0;
+  /* (rounded with the card: a rounded clip holds for the layers inside it, the site's scroll among them,
+     where the card's rounded overflow alone sometimes paints them square on a phone until it repaints) */
+  clip-path: inset(0 round 7.6cqw);
   opacity: calc(1 - var(--f, 0) * 2.2);
   background:
     radial-gradient(95% 65% at 88% 102%, color-mix(in srgb, var(--card-accent, #6b7c9c) 20%, transparent), transparent 70%),
@@ -242,6 +245,7 @@
   inset: 2.6cqw;
   border-radius: 4.6cqw;
   overflow: hidden;
+  clip-path: inset(0 round 4.6cqw);
   box-shadow: 0 0.5cqw 2cqw rgb(10 12 24 / 0.16);
   /* the scroll is measured in this box (see site-scroll) */
   container-type: size;
