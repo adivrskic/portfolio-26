@@ -355,6 +355,8 @@ html[data-page-slide] .main {
 @media (max-width: 859px) {
   :root {
     --cube: min(36vw, 18.7dvh, 180px);
+    /* the cube moved aside, on a project page */
+    --cube-aside: min(28vw, 15dvh, 112px);
     --t-name: 19px;
     --btn: 44px;
   }
@@ -434,6 +436,46 @@ html[data-page-slide] .main {
     translate: none;
     margin: 14px 0 18px;
     min-height: var(--btn);
+  }
+
+  /* a project page: the cube moves aside, smaller, with the project's name and the menu beside it, so the
+     page has more of the screen (the cube glides there, following its spot: see CameraRig) */
+  .left[data-view='project'] .stage {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    column-gap: 14px;
+    align-items: center;
+    padding: 0 10px 10px 14px;
+  }
+
+  .left[data-view='project'] .cube-anchor {
+    grid-row: 1 / 3;
+    width: var(--cube-aside);
+    height: var(--cube-aside);
+  }
+
+  .left[data-view='project'] .cube-chat-link {
+    left: calc(14px + var(--cube-aside) / 2);
+    top: calc(var(--cube-aside) / 2);
+  }
+
+  .left[data-view='project'] .caption {
+    grid-column: 2;
+    align-self: end;
+    text-align: left;
+  }
+
+  .left[data-view='project'] .caption-title {
+    padding-top: 0;
+  }
+
+  /* (its first icon's mark in line with the name: the button's room round it hangs out to the left) */
+  .left[data-view='project'] .actions {
+    grid-column: 2;
+    align-self: start;
+    justify-self: start;
+    margin: 4px 0 0 -12px;
   }
 
   .actions-row,

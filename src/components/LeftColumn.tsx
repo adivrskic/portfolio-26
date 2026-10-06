@@ -117,12 +117,13 @@ export function LeftColumn({ project }: { project: Project | null }) {
               key="caption"
               className="caption"
               // arriving straight on a project page, the title's space is there from the start (so the cube
-              // fades in at its final spot) and the title fades in with the rest of the page
+              // fades in at its final spot) and the title fades in with the rest of the page. (On a phone,
+              // where it sits beside the cube, it waits for the cube to have glided aside, out of its way)
               initial={{ opacity: 0, height: ready ? 0 : 'auto' }}
               animate={{
                 opacity: ready ? 1 : 0,
                 height: 'auto',
-                transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] },
+                transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: upright ? 0 : 0.45 },
               }}
               exit={{ opacity: 0, height: 0, transition: { duration: 0.35 } }}
             >
