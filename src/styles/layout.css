@@ -388,13 +388,13 @@ html[data-page-slide] .main {
     top: var(--header-h, 320px);
     left: 0;
     right: 0;
-    height: 64px;
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
-    -webkit-mask-image: linear-gradient(to bottom, #000 15%, transparent);
-    mask-image: linear-gradient(to bottom, #000 15%, transparent);
+    height: 130px;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    -webkit-mask-image: linear-gradient(to bottom, #000, rgb(0 0 0 / 0.55) 35%, rgb(0 0 0 / 0.15) 70%, transparent);
+    mask-image: linear-gradient(to bottom, #000, rgb(0 0 0 / 0.55) 35%, rgb(0 0 0 / 0.15) 70%, transparent);
     opacity: 0;
-    transition: opacity 0.4s var(--ease-out);
+    transition: opacity 0.6s var(--ease-out);
     pointer-events: none;
   }
 

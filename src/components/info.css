@@ -285,13 +285,27 @@
     width: auto;
     height: auto;
     padding-top: var(--header-h, 270px);
-    -webkit-mask-image: linear-gradient(to bottom, transparent var(--header-h, 270px), #000 calc(var(--header-h, 270px) + var(--under)));
-    mask-image: linear-gradient(to bottom, transparent var(--header-h, 270px), #000 calc(var(--header-h, 270px) + var(--under)));
-    transition: --under 0.4s var(--ease-out);
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent var(--header-h, 270px),
+      rgb(0 0 0 / 0.08) calc(var(--header-h, 270px) + var(--under) * 0.3),
+      rgb(0 0 0 / 0.42) calc(var(--header-h, 270px) + var(--under) * 0.6),
+      rgb(0 0 0 / 0.84) calc(var(--header-h, 270px) + var(--under) * 0.85),
+      #000 calc(var(--header-h, 270px) + var(--under))
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      transparent var(--header-h, 270px),
+      rgb(0 0 0 / 0.08) calc(var(--header-h, 270px) + var(--under) * 0.3),
+      rgb(0 0 0 / 0.42) calc(var(--header-h, 270px) + var(--under) * 0.6),
+      rgb(0 0 0 / 0.84) calc(var(--header-h, 270px) + var(--under) * 0.85),
+      #000 calc(var(--header-h, 270px) + var(--under))
+    );
+    transition: --under 0.6s var(--ease-out);
   }
 
   html[data-scrolled-under] .info {
-    --under: 64px;
+    --under: 140px;
   }
 
   .info-inner {

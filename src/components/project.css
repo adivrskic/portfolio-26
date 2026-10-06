@@ -288,9 +288,23 @@
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-width: none;
-    -webkit-mask-image: linear-gradient(to bottom, transparent var(--header-h, 320px), #000 calc(var(--header-h, 320px) + var(--under)));
-    mask-image: linear-gradient(to bottom, transparent var(--header-h, 320px), #000 calc(var(--header-h, 320px) + var(--under)));
-    transition: --under 0.4s var(--ease-out);
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent var(--header-h, 320px),
+      rgb(0 0 0 / 0.08) calc(var(--header-h, 320px) + var(--under) * 0.3),
+      rgb(0 0 0 / 0.42) calc(var(--header-h, 320px) + var(--under) * 0.6),
+      rgb(0 0 0 / 0.84) calc(var(--header-h, 320px) + var(--under) * 0.85),
+      #000 calc(var(--header-h, 320px) + var(--under))
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      transparent var(--header-h, 320px),
+      rgb(0 0 0 / 0.08) calc(var(--header-h, 320px) + var(--under) * 0.3),
+      rgb(0 0 0 / 0.42) calc(var(--header-h, 320px) + var(--under) * 0.6),
+      rgb(0 0 0 / 0.84) calc(var(--header-h, 320px) + var(--under) * 0.85),
+      #000 calc(var(--header-h, 320px) + var(--under))
+    );
+    transition: --under 0.6s var(--ease-out);
   }
 
   .detail::-webkit-scrollbar {
@@ -298,7 +312,7 @@
   }
 
   html[data-scrolled-under] .detail {
-    --under: 64px;
+    --under: 140px;
   }
 
   /* the case study, at the top of the page */
